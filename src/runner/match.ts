@@ -8,7 +8,6 @@
 //   3. worker 卡死（连续多个 tick 无任何响应）→ terminate + 判负
 //   4. engine.step 结算，快照与事件写入回放
 
-import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { createGame, forceFinish, step, validateAction } from '../core/engine.js';
 import { getMap } from '../core/maps.js';
@@ -24,8 +23,10 @@ import type {
 import { IDLE_ACTION } from '../core/types.js';
 import { snapshotBullets, snapshotTanks } from '../replay/format.js';
 import type { Replay, ReplayFrame } from '../replay/format.js';
+import type { ActionRecordV2, MatchBundleV2 } from '../replay/v2.js';
 import { BotRunner } from '../runtime/sandbox.js';
 import { getWorkerPath } from '../runtime/sandbox.js';
+import { actionRecordV2, createLegacyMatchBundleV2, fullCodeHash } from './v2-adapter.js';
 
 /** 连续这么多 tick worker 无任何响应 → 视为卡死 */
 const CRASH_SILENCE_TICKS = 5;
@@ -42,6 +43,8 @@ export interface MatchConfig {
   tickBudgetMs?: number;
   /** 是否在回放里收集 console 日志 */
   collectLogs?: boolean;
+  /** 固定产物时间戳，主要用于可重复测试；默认使用当前时间 */
+  createdAt?: string;
   /** 进度回调 */
   onProgress?: (tick: number, maxTicks: number) => void;
 }
@@ -60,6 +63,7 @@ export interface MatchSummary {
 export interface MatchOutput {
   summary: MatchSummary;
   replay: Replay;
+  bundle: MatchBundleV2;
 }
 
 function hashSeed(seed: number, index: 0 | 1): number {
@@ -91,6 +95,7 @@ export async function runMatch(cfg: MatchConfig): Promise<MatchOutput> {
   const map = getMap(mapId);
   const seed = (cfg.seed ?? 42) >>> 0;
   const collectLogs = cfg.collectLogs ?? true;
+  const createdAt = cfg.createdAt ?? new Date().toISOString();
 
   const state = createGame(mapId, ['A', 'B'], {
     ...(cfg.maxTicks !== undefined ? { maxTicks: cfg.maxTicks } : {}),
@@ -117,13 +122,13 @@ export async function runMatch(cfg: MatchConfig): Promise<MatchOutput> {
   const runnerB = mk(cfg.botB, 1);
   const runners = [runnerA, runnerB] as const;
 
-  const codeHash = (code: string) => createHash('sha256').update(code, 'utf8').digest('hex').slice(0, 16);
   const botInfo = [
-    { file: cfg.botA.path ?? 'inline', hash: codeHash(cfg.botA.code) },
-    { file: cfg.botB.path ?? 'inline', hash: codeHash(cfg.botB.code) },
-  ];
+    { file: cfg.botA.path ?? 'inline', hash: fullCodeHash(cfg.botA.code) },
+    { file: cfg.botB.path ?? 'inline', hash: fullCodeHash(cfg.botB.code) },
+  ] as const;
 
   const frames: ReplayFrame[] = [];
+  const appliedActions: ActionRecordV2[] = [];
   const summary: MatchSummary = {
     winner: null,
     reason: '',
@@ -208,6 +213,7 @@ export async function runMatch(cfg: MatchConfig): Promise<MatchOutput> {
         if (violationThisTick[idx]) {
           state.tanks[idx].violations += 1;
         }
+        appliedActions.push(actionRecordV2(t, idx, actions[idx]));
       }
 
       // 卡死检测：连续 CRASH_SILENCE_TICKS 个 tick 无任何响应
@@ -307,19 +313,35 @@ export async function runMatch(cfg: MatchConfig): Promise<MatchOutput> {
       format: 'tank-arena-replay',
       version: 1,
       engineVersion: '0.1.0',
-      createdAt: new Date().toISOString(),
+      createdAt,
       mapId,
       rules,
       seeds: [hashSeed(seed, 0), hashSeed(seed, 1)],
       bots: [
-        { name: summary.botNames[0], file: botInfo[0]!.file, codeHash: botInfo[0]!.hash, violations: summary.violations[0] },
-        { name: summary.botNames[1], file: botInfo[1]!.file, codeHash: botInfo[1]!.hash, violations: summary.violations[1] },
+        { name: summary.botNames[0], file: botInfo[0].file, codeHash: botInfo[0].hash.slice(0, 16), violations: summary.violations[0] },
+        { name: summary.botNames[1], file: botInfo[1].file, codeHash: botInfo[1].hash.slice(0, 16), violations: summary.violations[1] },
       ],
       result: { winner: summary.winner, reason: summary.reason as Replay['result']['reason'], ticks: summary.ticks },
       frames,
     };
     // 修正 result.reason：replay 里存机器可读的原因码
     replay.result.reason = state.endReason as Replay['result']['reason'];
-    return { summary, replay };
+    const bundle = createLegacyMatchBundleV2({
+      createdAt,
+      seed,
+      map,
+      rules,
+      botNames: summary.botNames,
+      bots: [
+        { code: cfg.botA.code, file: botInfo[0].file },
+        { code: cfg.botB.code, file: botInfo[1].file },
+      ],
+      replay,
+      actions: appliedActions,
+      state,
+      winner: summary.winner,
+      ticks: summary.ticks,
+    });
+    return { summary, replay, bundle };
   }
 }

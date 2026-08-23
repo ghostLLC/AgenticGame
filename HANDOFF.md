@@ -140,6 +140,7 @@ src/
     paths.ts         资源路径双模式解析（dev:tsx 用 import.meta / 打包:__dirname 用虚拟FS）
   runner/
     match.ts        对局驱动：内核×沙盒×回放记录；违规/崩溃判负；RNG 种子派生
+    v2-adapter.ts   把真实 v1 对局映射为 MatchBundleV2（配置/地图/内容/源码/时间线/完整性）
   replay/
     format.ts       回放自包含格式（地图+规则+代码指纹+逐帧快照+事件+日志）
     v2.ts           完整 Match Bundle v2 创建、时间线约束与篡改校验
@@ -153,7 +154,7 @@ viewer/index.html        网页回放播放器（单文件、canvas 渲染、逐
 bots/                    4 个内置基准 bot（也是给 AI 的教学示例）
 docs/tank-spec.md        规则书（本项目核心资产，写给 AI 读的）
 tests/engine.test.ts     引擎单元测试 17 项（含确定性复现、地图对称性、边界钳制）
-tests/match.test.ts      Runner/沙盒集成测试 3 项（加载失败、对局确定性、死循环判负）
+tests/match.test.ts      Runner/沙盒集成测试 4 项（加载失败、双格式确定性、v2 时间线、死循环判负）
 tests/core-v2-json.test.ts    确定性 JSON 测试 6 项
 tests/core-v2-config.test.ts  MatchConfigV2 测试 17 项
 tests/replay-v2.test.ts       Match Bundle v2 测试 11 项
@@ -183,8 +184,9 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
   释放、完整对战和回放读取均正常（Windows x64，约 57.6 MB）
 - **Core v2 基础契约**：数据化车辆/武器/地形/模式/地图/Bot 快照；严格 `MatchConfigV2`；
   完整 `MatchBundleV2`，覆盖配置、内容、地图、源码、动作、事件、检查点、日志和结果的完整性哈希。
-- **兼容性状态**：v1 引擎、Runner、Bot API、CLI 和 Replay v1 均未迁移或改写；Runner 当前仍输出 Replay v1。
-- **质量基线**：54 项自动化测试通过（20 项 v1 + 34 项 v2 契约），TypeScript 类型检查与构建通过。
+- **Replay v2 运行时接入**：`runMatch` 现在同时返回兼容 Replay v1 与真实 `MatchBundleV2`；v2 包嵌入双方完整源码并记录实际动作、事件、状态检查点和日志，可直接进行完整性校验。
+- **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
+- **质量基线**：55 项自动化测试通过（20 项既有 v1 + 1 项运行时 v2 集成 + 34 项 v2 契约），TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -227,7 +229,7 @@ npm run arena -- serve replays/<文件>.json        # 只打开回放播放器
 npm run arena -- maps                             # 列出官方地图
 
 # 3) 开发 / 质量
-npm run test          # 54 项自动化测试（20 项 v1 + 34 项 Core v2 / Replay v2）
+npm run test          # 55 项自动化测试（20 项 v1 + 1 项运行时 v2 + 34 项 Core v2 / Replay v2）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
@@ -262,8 +264,8 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ## 七、下一步路线图（按优先级）
 
-**$P0 已完成：v0.1 稳定基线、EXE 实测与 Core v2 基础契约。**
-**$P1 首期玩法纵切**：把 v2 契约接入新引擎路径，完成 3 种车辆、视野、地形、方向装甲、弹药与机动差异。
+**$P0 已完成：v0.1 稳定基线、EXE 实测、Core v2 基础契约与 Runner 双格式输出。**
+**$P1 首期玩法纵切**：在已有真实 v2 回放链路上完成 3 种车辆、视野、地形、方向装甲、弹药与机动差异。
 **$P2 中层体验**：决斗 + 占领；配置版本化；新配置对战旧配置；Replay Studio 复盘与对比。
 **$P3 AI 原生入口**：外部 Agent 适配器与内置 TypeScript BYOK Harness，共享能力、预算、沙箱和评测。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。

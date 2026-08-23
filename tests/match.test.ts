@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { verifyMatchBundleV2 } from '../src/replay/v2.js';
 import { runMatch } from '../src/runner/match.js';
 
 describe('runMatch', () => {
@@ -26,6 +27,7 @@ describe('runMatch', () => {
       botB: { path: 'sitting-duck.js', code: targetCode },
       seed: 7,
       maxTicks: 120,
+      createdAt: '2026-08-24T00:00:00.000Z',
     };
 
     const first = await runMatch(config);
@@ -34,6 +36,29 @@ describe('runMatch', () => {
     expect(second.summary).toEqual(first.summary);
     expect(second.replay.seeds).toEqual(first.replay.seeds);
     expect(second.replay.frames).toEqual(first.replay.frames);
+    expect(second.bundle).toEqual(first.bundle);
+  });
+
+  it('emits a self-contained verified v2 bundle from the applied runtime timeline', async () => {
+    const chaserCode = readFileSync('bots/chaser.js', 'utf8');
+    const targetCode = readFileSync('bots/sitting-duck.js', 'utf8');
+
+    const result = await runMatch({
+      botA: { path: 'chaser.js', code: chaserCode },
+      botB: { path: 'sitting-duck.js', code: targetCode },
+      seed: 9,
+      maxTicks: 40,
+      createdAt: '2026-08-24T00:00:00.000Z',
+      collectLogs: true,
+    });
+
+    expect(result.bundle.version).toBe(2);
+    expect(result.bundle.botArtifacts.map((artifact) => artifact.source)).toEqual([chaserCode, targetCode]);
+    expect(result.bundle.actions.length).toBeGreaterThan(0);
+    expect(result.bundle.actions.slice(0, 2).map((record) => record.actorId)).toEqual(['team-a', 'team-b']);
+    expect(result.bundle.checkpoints.length).toBe(result.replay.frames.length);
+    expect(result.bundle.events.length).toBeGreaterThan(0);
+    expect(verifyMatchBundleV2(result.bundle)).toEqual({ ok: true, issues: [] });
   });
 
   it('ends the match when a bot blocks its worker with an infinite loop', async () => {

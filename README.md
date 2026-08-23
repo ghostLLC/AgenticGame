@@ -38,7 +38,7 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（54 项：v1 引擎/Runner + Core v2/Replay v2 契约）
+npm run test          # 自动化测试（55 项：v1 引擎/Runner + Core v2/Replay v2 运行链路）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
@@ -64,7 +64,7 @@ npm run test          # 自动化测试（54 项：v1 引擎/Runner + Core v2/Re
 ```
 src/core/       v1 确定性模拟内核 + v2 通用内容、配置和确定性 JSON 契约
 src/runtime/    bot 沙盒（worker + VM 白名单上下文、时间预算、日志收集）
-src/runner/     对局驱动（内核×沙盒×回放记录；违规与崩溃判负）
+src/runner/     对局驱动（内核×沙盒×双格式回放；违规与崩溃判负）
 src/cli/        arena 命令行（play / self / validate / serve / demo / maps）
 src/replay/     Replay v1 + 完整 Match Bundle v2 契约与完整性校验
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
@@ -91,6 +91,7 @@ tests/          引擎/Runner 测试 + Core v2/Replay v2 契约测试
 - [x] v0.1：本地对战闭环（引擎 / 沙盒 / CLI / 回放播放器 / 4 个基准 bot / 规则书）
 - [x] Windows x64 单文件 `arena.exe`（双击启动网页控制台）
 - [x] v0.2 基础契约：通用内容定义、严格 MatchConfigV2、完整 Match Bundle / Replay v2
+- [x] Replay v2 运行时接入：Runner 同时返回兼容 Replay v1 与可校验 MatchBundleV2
 - [ ] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
 - [ ] 决斗 + 占领模式；保存配置、新配置对战旧配置
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
