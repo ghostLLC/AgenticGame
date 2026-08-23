@@ -139,6 +139,6 @@ Document all official stats, fog-of-war semantics, tick order, v2 action/view ex
 
 Run `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`; record exact counts in README/HANDOFF.
 
-- [ ] **Step 3: Integrate and synchronize facts**
+- [x] **Step 3: Integrate and synchronize facts**
 
 Commit the branch, merge to local `main`, verify the merged tree, push `origin/main`, then update Feishu pages `00`, `05`, `06`, `07`, and `09` with an idempotent date/title/commit key and read them back.
