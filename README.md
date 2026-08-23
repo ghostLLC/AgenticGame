@@ -1,10 +1,10 @@
 # AgenticGame · 坦克竞技场
 
-**给 AI agent 玩的编程竞技游戏。** 你（人类）扮演教练：指挥你的 AI agent 阅读规则书、编写坦克
-bot 代码；比赛中代码被冻结，在确定性沙盒引擎里与其他 AI 写的 bot 对战。谁的 AI 写得强，谁赢。
+**游戏优先、代码可选的 AI 原生坦克策略游戏。** 目标体验是让普通玩家从选车、装配和预设指挥官开始；
+想深入的玩家再让 Codex、Claude Code 等外部 Agent 编写 Bot，或使用内置 BYOK Harness 描述战术并生成 Bot。
 
-类似 RoboCode / MIT Battlecode 的玩法，但参赛选手从人类程序员换成了 coding agent——
-2026 年了，该轮到 AI 上场了。
+当前 v0.1 仍是 RoboCode / MIT Battlecode 风格的 1v1 编程坦克基线；v0.2 正在建立可扩展规则、
+完整比赛资产和新用户体验所需的底层契约。
 
 ## 玩法闭环
 
@@ -38,7 +38,7 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（20 项：17 项引擎 + 3 项 Runner/沙盒集成）
+npm run test          # 自动化测试（54 项：v1 引擎/Runner + Core v2/Replay v2 契约）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
@@ -62,25 +62,23 @@ npm run test          # 自动化测试（20 项：17 项引擎 + 3 项 Runner/�
 ## 项目结构
 
 ```
-src/core/       确定性模拟内核（types / 规则常量 / 地图 / tick 结算）
+src/core/       v1 确定性模拟内核 + v2 通用内容、配置和确定性 JSON 契约
 src/runtime/    bot 沙盒（worker + VM 白名单上下文、时间预算、日志收集）
 src/runner/     对局驱动（内核×沙盒×回放记录；违规与崩溃判负）
 src/cli/        arena 命令行（play / self / validate / serve / demo / maps）
-src/replay/     回放格式（自包含：地图+规则+代码指纹+逐帧快照）
+src/replay/     Replay v1 + 完整 Match Bundle v2 契约与完整性校验
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
 bots/           内置基准 bot（也是给 AI 的参考实现）
-docs/           tank-spec.md —— 规则书，本项目的核心资产
-tests/          引擎单元测试 + Runner/沙盒集成测试
+docs/           v1 规则书、产品规格、治理规则和实施计划
+tests/          引擎/Runner 测试 + Core v2/Replay v2 契约测试
 ```
 
 ## 设计原则
 
-1. **规则书是给 LLM 读的。** API 设计、错误信息、示例代码都为"AI 一次写对"优化。
-   这份 spec 的质量就是游戏平衡的一部分。
-2. **教练迭代循环是核心乐趣。** 一条命令出回放、回放可逐帧观看、bot 的 console.log
-   会进回放——让"人看回放 → 指出问题 → AI 改代码"转得飞快。
-3. **确定性即公平。** 引擎无随机（bot 用引擎派发的种子 RNG）、结算顺序固定、
-   回放可复现验证，不需要信任任何服务器。
+1. **游戏体验先于技术展示。** 默认路径服务普通玩家，代码、seed 和规则细节进入渐进式高级入口。
+2. **Agent 是能力放大器，不是门票。** 外部 Agent 与内置 Harness 使用同一能力和评测边界。
+3. **教练迭代循环是核心乐趣。** 战斗、复盘、保存配置、自我对战和再次迭代必须形成短闭环。
+4. **确定性即公平。** 随机种子、配置、内容快照和完整比赛时间线都可哈希、回读和验证。
 
 ## 安全模型
 
@@ -92,13 +90,12 @@ tests/          引擎单元测试 + Runner/沙盒集成测试
 
 - [x] v0.1：本地对战闭环（引擎 / 沙盒 / CLI / 回放播放器 / 4 个基准 bot / 规则书）
 - [x] Windows x64 单文件 `arena.exe`（双击启动网页控制台）
-- [ ] **P2P 联机约战**（无需服务器）：WebRTC 数据通道互传 bot 文件与回放 hash，
-      双方各自本地跑引擎、交换结果互验——对战本身是离线确定性模拟，"联机"只需要交换文件
-- [ ] 2v2 团队战（一个 bot 控制两台坦克）
-- [ ] 更多地图与赛季轮换；社区地图投稿
-- [ ] 信息不完全模式（雷达扫描 / 战争迷雾）
-- [ ] 轻量 Elo 天梯（可托管在静态空间）
-- [ ] 第二个游戏题材（引擎与管线已按可扩展结构组织）
+- [x] v0.2 基础契约：通用内容定义、严格 MatchConfigV2、完整 Match Bundle / Replay v2
+- [ ] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
+- [ ] 决斗 + 占领模式；保存配置、新配置对战旧配置
+- [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
+- [ ] 外部 Agent 接入 + 内置 BYOK Harness
+- [ ] 2v2、更多地图、更多比赛模式与赛季内容
 
 ## 常见问题
 

@@ -8,8 +8,8 @@
 
 ## 一、一句话定位
 
-**给 AI agent 玩的编程竞技游戏。** 人类当教练：把规则书喂给 AI，AI 编写一个坦克 bot 的 JS 代码；
-开局后代码被冻结，在确定性沙盒引擎里与其他 AI 写的 bot 对战。谁指挥 AI 指挥得好，谁赢。
+**游戏优先、代码可选的 AI 原生坦克策略游戏。** v0.1 是可玩的 1v1 编程坦克基线；v0.2 将普通玩家、
+外部 Agent 和内置 BYOK Harness 放进同一个可版本化、可复现的规则世界。
 
 第一作是 **坦克竞技场**（RoboCode 精神续作，但参赛选手从人类程序员换成了 coding agent）。
 
@@ -130,6 +130,10 @@ src/
     constants.ts  DEFAULT_RULES 数值 + 方向表(DIRS) + 转向/角差工具
     maps.ts       官方地图（standard / pillars），中心点对称生成
     engine.ts     createGame / step（单 tick 结算）/ validateAction（钳制非法输入）
+    v2/
+      json.ts         确定性 JSON 与完整 SHA-256
+      content.ts      车辆/武器/地形/模式/地图/Bot 内容定义
+      match-config.ts 严格 MatchConfigV2 校验、断言与指纹
   runtime/        bot 沙盒与资源路径
     bot-worker.mjs   worker 侧：白名单 VM 环境、Math.random→抛错、console 收集、工厂加载
     sandbox.ts       主线程侧 BotRunner：worker 生命周期、30ms 超时、崩溃检测、代码提取(pkg)
@@ -138,6 +142,7 @@ src/
     match.ts        对局驱动：内核×沙盒×回放记录；违规/崩溃判负；RNG 种子派生
   replay/
     format.ts       回放自包含格式（地图+规则+代码指纹+逐帧快照+事件+日志）
+    v2.ts           完整 Match Bundle v2 创建、时间线约束与篡改校验
   server/
     ui.ts           HTTP 控制台服务（页面 + /api/play /api/upload /api/bots /api/replays /api/spec）
     console.html    控制台前端页面（拖拽上传、选bot、开战、结果、历史）
@@ -149,6 +154,9 @@ bots/                    4 个内置基准 bot（也是给 AI 的教学示例）
 docs/tank-spec.md        规则书（本项目核心资产，写给 AI 读的）
 tests/engine.test.ts     引擎单元测试 17 项（含确定性复现、地图对称性、边界钳制）
 tests/match.test.ts      Runner/沙盒集成测试 3 项（加载失败、对局确定性、死循环判负）
+tests/core-v2-json.test.ts    确定性 JSON 测试 6 项
+tests/core-v2-config.test.ts  MatchConfigV2 测试 17 项
+tests/replay-v2.test.ts       Match Bundle v2 测试 11 项
 scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 ```
 
@@ -173,6 +181,10 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **多 seed 一致性**：chaser vs sniper 用 seed 7/42/99 结果稳定（Chaser 满血胜）
 - **Windows 单文件 EXE**：`arena.exe` 已成功生成并实测；CLI、网页控制台、打包资源、临时 Worker
   释放、完整对战和回放读取均正常（Windows x64，约 57.6 MB）
+- **Core v2 基础契约**：数据化车辆/武器/地形/模式/地图/Bot 快照；严格 `MatchConfigV2`；
+  完整 `MatchBundleV2`，覆盖配置、内容、地图、源码、动作、事件、检查点、日志和结果的完整性哈希。
+- **兼容性状态**：v1 引擎、Runner、Bot API、CLI 和 Replay v1 均未迁移或改写；Runner 当前仍输出 Replay v1。
+- **质量基线**：54 项自动化测试通过（20 项 v1 + 34 项 v2 契约），TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -190,7 +202,8 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
   但后续可重构 `paths.ts` 或调整构建配置以消除警告。
 - `console.html` 的"复制规则书"依赖 `Clipboard API`，部分老浏览器可能要用回退逻辑（已提供）。
 - 打包版双击运行后会在 `exe 同目录`生成 `my-bots/` 和 `replays/`（可移植）。
-- 当前目录没有 `.git` 历史或远端；已补 `.gitignore`，但在确认项目来源前没有擅自初始化新仓库。
+- `npm install` 当前报告 5 个既有依赖漏洞（3 moderate、1 high、1 critical）；尚未执行可能包含破坏性升级的
+  `npm audit fix --force`，需要单独审计依赖来源与兼容性。
 
 ---
 
@@ -214,7 +227,7 @@ npm run arena -- serve replays/<文件>.json        # 只打开回放播放器
 npm run arena -- maps                             # 列出官方地图
 
 # 3) 开发 / 质量
-npm run test          # 20 项自动化测试（17 项引擎 + 3 项 Runner/沙盒集成）
+npm run test          # 54 项自动化测试（20 项 v1 + 34 项 Core v2 / Replay v2）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
@@ -249,13 +262,13 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ## 七、下一步路线图（按优先级）
 
-**$P0 已完成：EXE 打包与运行实测。**
-**$P1 工程基线**：确认原仓库来源/远端，恢复或建立 Git 历史；继续补 HTTP API 与上传边界测试。
-**$P2 P2P 约战**（用户明确想要的联机方向，零服务器）：用 WebRTC 数据通道互传 bot 文件与回放 hash，
-双方各自本地跑引擎、交换结果互验。架构上天然支持——对战本身是离线确定性模拟，"联机"只是交换文件。
-**$P3 2v2 团队战**（一个 bot 控制两台坦克）、更多地图与赛季轮换、用户给 AI 的 feedback 循环优化。
-**$P4 信息不完全模式**（雷达扫描 / 战争迷雾）、轻量 Elo 天梯（可纯静态托管）。
-**$P5 安全加固**：正式公开比赛时，沙盒从 `vm` 升级到进程级隔离或 WASM（当前 `vm` 不是
+**$P0 已完成：v0.1 稳定基线、EXE 实测与 Core v2 基础契约。**
+**$P1 首期玩法纵切**：把 v2 契约接入新引擎路径，完成 3 种车辆、视野、地形、方向装甲、弹药与机动差异。
+**$P2 中层体验**：决斗 + 占领；配置版本化；新配置对战旧配置；Replay Studio 复盘与对比。
+**$P3 AI 原生入口**：外部 Agent 适配器与内置 TypeScript BYOK Harness，共享能力、预算、沙箱和评测。
+**$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
+**$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。
+**$P6 安全加固**：正式公开比赛时，沙盒从 `vm` 升级到进程级隔离或 WASM（当前 `vm` 不是
 防恶意逃逸的硬边界，仅用于防意外；朋友对战够用）。
 
 ---
@@ -275,4 +288,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.2（2026-08-24）／ 引擎 0.1.0*
+*文档版本：v1.3（2026-08-24）／ v1 引擎 0.1.0 ／ v2 契约 2*
