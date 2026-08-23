@@ -7,6 +7,7 @@ import type {
   VehicleDefinitionV2,
   WeaponDefinitionV2,
 } from './content.js';
+import type { JsonObject } from './json.js';
 import { assertMatchConfigV2, type MatchConfigV2 } from './match-config.js';
 
 export interface GameplayTankStateV2 {
@@ -309,6 +310,17 @@ export class GameplayEngineV2 {
       visibleEnemies,
       visibleProjectiles,
     };
+  }
+
+  forceFinish(winningTeamIds: string[], reason: string): GameplayEventV2[] {
+    if (this.state.finished) return [];
+    const events: GameplayEventV2[] = [];
+    this.endMatch(events, winningTeamIds, reason);
+    return events;
+  }
+
+  snapshot(): JsonObject {
+    return structuredClone(this.state) as unknown as JsonObject;
   }
 
   private vehicleFor(tank: GameplayTankStateV2): VehicleDefinitionV2 {

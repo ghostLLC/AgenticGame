@@ -100,23 +100,23 @@ Run focused engine tests plus `tests/engine.test.ts`, then commit `feat: impleme
 - Produces: `runMatchV2(config): Promise<GameplayMatchOutputV2>` and `GameplayMatchConfigV2`.
 - Consumes: `GameplayEngineV2`, existing `BotRunner`, `createMatchBundleV2`, and full source hashes.
 
-- [ ] **Step 1: Write failing runner integration tests**
+- [x] **Step 1: Write failing runner integration tests**
 
 Run two real inline sandbox Bots against `frontier-v2`. Assert the exact content/loadouts are used, views never expose an invisible opponent, applied actions/events/checkpoints/logs exist, bundle verification succeeds, and fixed inputs produce deeply equal bundles. Expected RED: `runMatchV2` missing.
 
-- [ ] **Step 2: Generalize sandbox init context type without changing runtime behavior**
+- [x] **Step 2: Generalize sandbox init context type without changing runtime behavior**
 
 Change `BotRunnerOptions.ctx` from the v1-specific omit type to a structured-clone-safe record so v1 and v2 contexts are accepted by the same worker.
 
-- [ ] **Step 3: Implement the runner loop**
+- [x] **Step 3: Implement the runner loop**
 
 Validate that Bot source hashes match config artifacts, initialize both workers, provide filtered views, apply validation/timeout/error idle fallbacks, terminate repeated non-responsive workers, and collect the authoritative timeline.
 
-- [ ] **Step 4: Build and verify MatchBundleV2**
+- [x] **Step 4: Build and verify MatchBundleV2**
 
 Use the exact caller snapshots and artifacts; convert engine events to stable event records and `engine.snapshot()` to checkpoints. Verify result IDs and reason are machine-readable stable strings.
 
-- [ ] **Step 5: Run GREEN and commit**
+- [x] **Step 5: Run GREEN and commit**
 
 Run `npm test -- tests/match-v2.test.ts tests/match.test.ts`, then commit `feat: run sandboxed gameplay v2 matches`.
 

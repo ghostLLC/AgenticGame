@@ -46,8 +46,8 @@ export interface BotRunnerOptions {
   code: string;
   botIndex: 0 | 1;
   seed: number;
-  /** 传给 createTank 的上下文（field/obstacles/rules/myId） */
-  ctx: Omit<import('../core/types.js').BotInitContext, 'rng'>;
+  /** 传给 createTank 的可结构化克隆上下文；worker 会补入确定性 rng */
+  ctx: Record<string, unknown>;
   workerUrl: URL;
 }
 
