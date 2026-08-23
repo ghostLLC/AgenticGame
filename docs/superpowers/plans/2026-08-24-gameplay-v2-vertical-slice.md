@@ -57,35 +57,35 @@ Run the focused test and commit `feat: add gameplay v2 content catalog`.
 - Constructor: `new GameplayEngineV2(config, contentSnapshot, mapSnapshot)`.
 - Methods: `step(actions)`, `viewFor(teamIndex)`, `forceFinish(winnerTeamIds, reason)`, `snapshot()`.
 
-- [ ] **Step 1: Write failing creation and mobility tests**
+- [x] **Step 1: Write failing creation and mobility tests**
 
 Use literal fixture configs and maps. Assert invalid references throw, scout moves sooner than heavy under identical throttle, mud delays an otherwise identical medium, and heavy turns only on its defined cadence. Expected RED: engine module missing.
 
-- [ ] **Step 2: Implement creation, lookup validation, turns, velocity, and terrain movement**
+- [x] **Step 2: Implement creation, lookup validation, turns, velocity, and terrain movement**
 
 Initialize HP/ammo from loadouts and spawn order. Keep signed velocity and movement progress in permille. Apply the tick order and blocked-movement reset from the spec.
 
-- [ ] **Step 3: Run focused GREEN**
+- [x] **Step 3: Run focused GREEN**
 
 Run `npm test -- tests/gameplay-v2-engine.test.ts` and keep existing tests green.
 
-- [ ] **Step 4: Write failing vision tests**
+- [x] **Step 4: Write failing vision tests**
 
 Assert a scout sees an open target at distance 8, does not see the same target in forest, and cannot see through a wall. The production break caught is leaking hidden authoritative state or ignoring terrain visibility.
 
-- [ ] **Step 5: Implement deterministic line of sight and filtered views**
+- [x] **Step 5: Implement deterministic line of sight and filtered views**
 
 Use Chebyshev distance, target terrain modifier, and an integer supercover/Bresenham traversal that excludes observer and target cells from intermediate blockers. `viewFor` returns copied self plus only visible enemies/projectiles.
 
-- [ ] **Step 6: Write failing combat tests**
+- [x] **Step 6: Write failing combat tests**
 
 Drive real projectiles into the same heavy target from front, side, and rear fixtures; assert damage 1/10/24 for the light cannon. Assert reload, ammo depletion, `dry-fire`, projectile range expiry, and death/result behavior.
 
-- [ ] **Step 7: Implement projectiles, directional armor, ammo, reload, and results**
+- [x] **Step 7: Implement projectiles, directional armor, ammo, reload, and results**
 
 Persist projectile weapon/range data, classify impact from source direction, emit explanatory hit events, and compare HP at max ticks.
 
-- [ ] **Step 8: Run GREEN, refactor, and commit**
+- [x] **Step 8: Run GREEN, refactor, and commit**
 
 Run focused engine tests plus `tests/engine.test.ts`, then commit `feat: implement deterministic gameplay v2 engine`.
 
