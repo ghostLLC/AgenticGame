@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坦克竞技场 · 控制台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117; color: #c9d1d9;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    min-height: 100vh; padding: 24px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 22px; color: #f0f6fc; margin-bottom: 6px; }
+  .sub { color: #8b949e; font-size: 13px; line-height: 1.8; margin-bottom: 20px; }
+  .sub b { color: #c9d1d9; }
+  .grid { display: grid; grid-template-columns: 5fr 4fr; gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid #30363d; border-radius: 10px; background: #161b22;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; margin-bottom: 14px; color: #f0f6fc; }
+  label { display: block; font-size: 12px; color: #8b949e; margin: 12px 0 5px; }
+  select, input[type=number] {
+    width: 100%; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d;
+    border-radius: 6px; padding: 8px 10px; font-size: 14px;
+  }
+  select:focus, input:focus { outline: none; border-color: #58a6ff; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .vs { text-align: center; color: #8b949e; font-size: 12px; padding-top: 30px; }
+  button {
+    background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px;
+    padding: 8px 16px; font-size: 14px; cursor: pointer;
+  }
+  button:hover { background: #30363d; }
+  button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 600; }
+  button.primary:hover { background: #388bfd; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .actions { display: flex; gap: 10px; margin-top: 18px; }
+  .uploadHint {
+    margin-top: 14px; border: 1px dashed #30363d; border-radius: 8px;
+    padding: 12px; font-size: 12px; color: #8b949e; text-align: center; line-height: 1.8;
+  }
+  .uploadHint.drag { border-color: #58a6ff; color: #58a6ff; background: rgba(31,111,235,.08); }
+  #resultBox { font-size: 14px; }
+  .win { color: #3fb950; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .draw { color: #d29922; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .reason { color: #8b949e; font-size: 13px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  th { color: #8b949e; font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid #30363d;
+    border-top-color: #58a6ff; border-radius: 50%; animation: spin .8s linear infinite;
+    vertical-align: -3px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: #f85149; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+  #historyList { font-size: 13px; }
+  #historyList .item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 4px; border-bottom: 1px solid #21262d; color: #8b949e;
+  }
+  #historyList .item a { color: #58a6ff; text-decoration: none; font-size: 13px; }
+  .topActions { display: flex; gap: 10px; margin-bottom: 16px; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #238636; color: #fff; padding: 10px 20px; border-radius: 8px;
+    font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.err { background: #da3633; }
+  #dropOverlay {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(13,17,23,.88); z-index: 50; font-size: 20px; color: #58a6ff;
+    border: 3px dashed #58a6ff; border-radius: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>坦克竞技场 · 控制台</h1>
+  <div class="sub">
+    三步上手：<b>① 把规则书发给你的 AI</b>（按钮在上方）→ <b>② 上传它写的 .js 文件</b>（拖进本页即可）→
+    <b>③ 选对手、点开战、看回放</b>。人只当教练，代码上场后不许再碰。
+  </div>
+
+  <div class="topActions">
+    <button id="btnSpec">📋 复制规则书（发给你的 AI）</button>
+    <button id="btnDemo">⚔️ 看一场示例对决</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>比赛设置</h2>
+      <div class="row">
+        <div>
+          <label>🔵 蓝方（先手）</label>
+          <select id="botA"></select>
+        </div>
+        <div class="vs">VS</div>
+        <div>
+          <label>🔴 红方（后手）</label>
+          <select id="botB"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>地图</label>
+          <select id="map">
+            <option value="standard">standard · 标准战场</option>
+            <option value="pillars">pillars · 石柱阵</option>
+          </select>
+        </div>
+        <div>
+          <label>随机种子</label>
+          <input type="number" id="seed" value="42">
+        </div>
+        <div>
+          <label>回合上限</label>
+          <input type="number" id="ticks" value="1500">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btnPlay" style="flex:1">🚀 开战</button>
+        <button id="btnSwap" title="交换蓝红方再战">🔄 互换</button>
+      </div>
+      <div class="uploadHint">
+        💡 上传 bot：把 <b>.js 文件拖拽到本页任意位置</b>，或
+        <a href="#" id="uploadLink" style="color:#58a6ff">点击选择文件</a>
+        <input type="file" id="fileInput" accept=".js" style="display:none">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>比赛结果</h2>
+      <div id="resultBox" style="color:#8b949e;font-size:13px">还没有比赛。选好双方，点"开战"。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>最近对局</h2>
+    <div id="historyList" style="color:#8b949e;font-size:13px">加载中…</div>
+  </div>
+</div>
+
+<div id="dropOverlay">松开以上传 bot 文件</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, err) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (err ? ' err' : '');
+    setTimeout(function () { t.className = 'toast'; }, 2600);
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- bot 下拉 ----------
+  function fillBots(keep) {
+    fetch('/api/bots').then(function (r) { return r.json(); }).then(function (d) {
+      var bots = d.bots || [];
+      ['botA', 'botB'].forEach(function (id) {
+        var sel = $(id);
+        var prev = keep ? sel.value : (id === 'botA' ? 'my:' : 'builtin:');
+        sel.innerHTML = '';
+        bots.forEach(function (b) {
+          var g = document.createElement('optgroup');
+          g.label = b.group;
+          var o = document.createElement('option');
+          o.value = b.id; o.textContent = b.label;
+          g.appendChild(o);
+          sel.appendChild(g);
+        });
+        // 恢复选中：优先之前的值；蓝方默认选"我的"第一个
+        var exist = bots.some(function (b) { return b.id === prev; });
+        if (exist) sel.value = prev;
+        else {
+          var pick = id === 'botA'
+            ? (bots.find(function (b) { return b.id.indexOf('my:') === 0; }) || bots[0])
+            : (bots.find(function (b) { return b.id === 'builtin:chaser.js'; }) || bots[1]);
+          if (pick) sel.value = pick.id;
+        }
+      });
+    });
+  }
+
+  // ---------- 上传 ----------
+  function uploadFile(file, cb) {
+    var rd = new FileReader();
+    rd.onload = function () {
+      fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: file.name, code: rd.result }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok) { toast(res.j.error || '上传失败', true); return; }
+          toast('已上传: ' + res.j.label + '（已选中为蓝方）');
+          fillBots(false);
+          setTimeout(function () { $('botA').value = res.j.id; }, 200);
+          if (cb) cb(res.j);
+        })
+        .catch(function (e) { toast('上传失败: ' + e.message, true); });
+    };
+    rd.readAsText(file);
+  }
+
+  $('uploadLink').onclick = function (ev) { ev.preventDefault(); $('fileInput').click(); };
+  $('fileInput').onchange = function () { if (this.files[0]) uploadFile(this.files[0]); };
+
+  var overlay = $('dropOverlay');
+  document.addEventListener('dragover', function (ev) { ev.preventDefault(); overlay.style.display = 'flex'; });
+  overlay.addEventListener('dragleave', function () { overlay.style.display = 'none'; });
+  document.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    overlay.style.display = 'none';
+    var f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!f) return;
+    if (!/\.js$/.test(f.name)) { toast('请拖入 .js 文件', true); return; }
+    uploadFile(f);
+  });
+
+  // ---------- 比赛 ----------
+  function renderSummary(s, replayUrl) {
+    var html = '';
+    if (s.winner === -1) html += '<div class="draw">平局</div>';
+    else if (s.winner !== null) html += '<div class="win">🎉 ' + esc(s.botNames[s.winner]) + ' 获胜</div>';
+    html += '<div class="reason">' + esc(s.reason) + ' · ' + s.ticks + ' tick</div>';
+    html += '<table><tr><th>坦克</th><th class="num">HP</th><th class="num">违规</th><th class="num">开火</th><th class="num">命中</th><th class="num">命中率</th></tr>';
+    for (var i = 0; i < 2; i++) {
+      var rate = s.fired[i] > 0 ? Math.round(s.hits[i] / s.fired[i] * 100) + '%' : '-';
+      html += '<tr><td>' + (i === 0 ? '🔵 ' : '🔴 ') + esc(s.botNames[i]) + '</td><td class="num">' +
+        Math.max(0, s.hp[i]) + '</td><td class="num">' + s.violations[i] + '</td><td class="num">' +
+        s.fired[i] + '</td><td class="num">' + s.hits[i] + '</td><td class="num">' + rate + '</td></tr>';
+    }
+    html += '</table>';
+    html += '<div style="margin-top:14px"><a href="/viewer?replay=' + encodeURIComponent(replayUrl) + '" target="_blank" ' +
+      'style="color:#58a6ff;font-size:14px">▶ 在回放播放器中观看</a></div>';
+    $('resultBox').innerHTML = html;
+  }
+
+  function play() {
+    var btn = $('btnPlay');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>激战中…';
+    $('resultBox').innerHTML = '<div style="color:#8b949e"><span class="spinner"></span>比赛进行中，通常几秒内完成…</div>';
+    fetch('/api/play', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        a: $('botA').value,
+        b: $('botB').value,
+        mapId: $('map').value,
+        seed: Number($('seed').value) || 0,
+        maxTicks: Number($('ticks').value) || 1500,
+      }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) { $('resultBox').innerHTML = '<div class="error">' + esc(res.j.error || '比赛失败') + '</div>'; return; }
+        renderSummary(res.j.summary, res.j.replayUrl);
+        loadHistory();
+      })
+      .catch(function (e) {
+        $('resultBox').innerHTML = '<div class="error">请求失败: ' + esc(e.message) + '</div>';
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.innerHTML = '🚀 开战';
+      });
+  }
+
+  $('btnPlay').onclick = play;
+  $('btnSwap').onclick = function () {
+    var a = $('botA').value, b = $('botB').value;
+    $('botA').value = b; $('botB').value = a;
+  };
+
+  // ---------- 规则书 / 示例 ----------
+  $('btnSpec').onclick = function () {
+    fetch('/api/spec').then(function (r) { return r.text(); }).then(function (text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () { toast('规则书已复制，直接粘贴给你的 AI 即可'); },
+          function () { fallbackCopy(text); }
+        );
+      } else fallbackCopy(text);
+    });
+  };
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('规则书已复制'); }
+    catch (e) { toast('复制失败，请手动下载', true); }
+    document.body.removeChild(ta);
+  }
+
+  $('btnDemo').onclick = function () {
+    $('botA').value = 'builtin:chaser.js';
+    $('botB').value = 'builtin:sniper.js';
+    $('seed').value = '42';
+    play();
+  };
+
+  // ---------- 历史 ----------
+  function loadHistory() {
+    fetch('/api/replays').then(function (r) { return r.json(); }).then(function (d) {
+      var list = d.replays || [];
+      $('historyList').innerHTML = list.length
+        ? list.map(function (x) {
+            return '<div class="item"><span>' + esc(x.file.replace(/\.json$/, '')) + '</span>' +
+              '<a href="/viewer?replay=' + encodeURIComponent(x.url) + '" target="_blank">观看 ▶</a></div>';
+          }).join('')
+        : '暂无对局记录';
+    }).catch(function () { $('historyList').textContent = '加载失败'; });
+  }
+
+  fillBots(false);
+  loadHistory();
+})();
+</script>
+</body>
+</html>

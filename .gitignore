@@ -1,0 +1,14 @@
+node_modules/
+dist/
+arena.exe
+
+my-bots/
+replays/*.json
+!replays/demo.json
+
+.mimosa/
+.playwright-mcp/
+
+*.log
+.env
+.env.*

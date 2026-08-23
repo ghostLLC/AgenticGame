@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坦克竞技场 · 回放</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117; color: #c9d1d9;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; min-width: 0; }
+  #canvasWrap { position: relative; max-width: 100%; }
+  canvas { background: #161b22; border: 1px solid #30363d; border-radius: 8px; max-width: 100%; height: auto; display: block; }
+  #dropHint {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(13,17,23,.85); border: 2px dashed #58a6ff; border-radius: 8px;
+    font-size: 18px; color: #58a6ff; pointer-events: none;
+  }
+  #controls { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  button {
+    background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px;
+    padding: 6px 14px; font-size: 14px; cursor: pointer;
+  }
+  button:hover { background: #30363d; }
+  button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  #speed { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 6px 8px; font-size: 14px; }
+  #timeline { width: min(640px, 90%); margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+  #progress { flex: 1; }
+  #tickLabel { font-variant-numeric: tabular-nums; font-size: 13px; color: #8b949e; min-width: 90px; text-align: right; }
+
+  #panel {
+    width: 300px; border-left: 1px solid #30363d; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px; overflow-y: auto; background: #0d1117;
+  }
+  h1 { font-size: 16px; color: #f0f6fc; }
+  .meta { font-size: 12px; color: #8b949e; line-height: 1.7; }
+  .tankCard { border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; background: #161b22; }
+  .tankCard .name { font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .tankCard .tag { font-size: 10px; padding: 1px 6px; border-radius: 10px; color: #fff; }
+  .hpbar { height: 8px; background: #21262d; border-radius: 4px; margin: 8px 0 6px; overflow: hidden; }
+  .hpbar > div { height: 100%; border-radius: 4px; transition: width .12s; }
+  .stats { display: flex; gap: 12px; font-size: 12px; color: #8b949e; }
+  .stats b { color: #c9d1d9; font-weight: 600; }
+  #result {
+    border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px;
+    background: #161b22; font-size: 13px; display: none;
+  }
+  #result .win { color: #3fb950; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  #result .draw { color: #d29922; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  #eventLog {
+    flex: 1; min-height: 120px; border: 1px solid #30363d; border-radius: 8px;
+    padding: 8px 10px; background: #161b22; font-size: 12px; line-height: 1.8;
+    overflow-y: auto; color: #8b949e;
+  }
+  #eventLog .fire { color: #d29922; }
+  #eventLog .hit { color: #f85149; }
+  #eventLog .die { color: #f85149; font-weight: 700; }
+  #eventLog .violation { color: #a371f7; }
+  #eventLog .sys { color: #58a6ff; }
+  #loadZone {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10;
+    background: rgba(13,17,23,.92);
+  }
+  #loadZone .card {
+    text-align: center; border: 2px dashed #30363d; border-radius: 12px; padding: 48px 64px; cursor: pointer;
+  }
+  #loadZone .card:hover { border-color: #58a6ff; }
+  #loadZone h2 { font-size: 20px; margin-bottom: 10px; }
+  #loadZone p { color: #8b949e; font-size: 13px; line-height: 1.8; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="canvasWrap">
+      <canvas id="cv" width="800" height="600"></canvas>
+      <div id="dropHint">松开以加载回放 JSON</div>
+    </div>
+    <div id="controls">
+      <button class="primary" id="btnPlay">▶ 播放</button>
+      <button id="btnStart">⏮ 开头</button>
+      <button id="btnPrev">◀ 上一步</button>
+      <button id="btnNext">下一步 ▶</button>
+      <button id="btnEnd">结尾 ⏭</button>
+      <select id="speed">
+        <option value="2">2 tick/秒</option>
+        <option value="5" selected>5 tick/秒</option>
+        <option value="10">10 tick/秒</option>
+        <option value="20">20 tick/秒</option>
+        <option value="40">40 tick/秒</option>
+      </select>
+    </div>
+    <div id="timeline">
+      <input type="range" id="progress" min="0" max="0" value="0" style="flex:1">
+      <span id="tickLabel">tick 0 / 0</span>
+    </div>
+  </div>
+  <div id="panel">
+    <div>
+      <h1>坦克竞技场 · 回放</h1>
+      <div class="meta" id="metaInfo">等待回放…</div>
+    </div>
+    <div class="tankCard" id="cardA"></div>
+    <div class="tankCard" id="cardB"></div>
+    <div id="result"></div>
+    <div id="eventLog"></div>
+  </div>
+  <div id="loadZone">
+    <div class="card" id="loadCard">
+      <h2>加载回放文件</h2>
+      <p>点击选择 replay.json，或直接拖拽到此处<br>由 <code>arena serve</code> 打开时会自动加载</p>
+      <input type="file" id="fileInput" accept=".json">
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  var CELL = 24;
+  var COLORS = [
+    { main: '#58a6ff', dark: '#1f6feb', name: '蓝方' },
+    { main: '#f85149', dark: '#da3633', name: '红方' },
+  ];
+  var DIRS = [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
+
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var replay = null;
+  var frameIdx = 0;
+  var playing = false;
+  var acc = 0;
+  var lastTime = 0;
+  // 每 tick 的累计统计（命中率面板用）
+  var cumStats = [];
+
+  function $(id) { return document.getElementById(id); }
+
+  // ---------- 加载 ----------
+  function loadReplay(r) {
+    if (!r || r.format !== 'tank-arena-replay' || !Array.isArray(r.frames)) {
+      alert('不是有效的坦克竞技场回放文件');
+      return;
+    }
+    replay = r;
+    frameIdx = 0;
+    playing = false;
+    $('btnPlay').textContent = '▶ 播放';
+    $('loadZone').style.display = 'none';
+    cv.width = r.rules.fieldWidth * CELL;
+    cv.height = r.rules.fieldHeight * CELL;
+    $('progress').max = r.frames.length - 1;
+    $('progress').value = 0;
+
+    // 预计算累计统计
+    cumStats = [];
+    var fired = [0, 0], hits = [0, 0], dmg = [0, 0];
+    for (var i = 0; i < r.frames.length; i++) {
+      var f = r.frames[i];
+      for (var j = 0; j < f.events.length; j++) {
+        var e = f.events[j];
+        if (e.type === 'fire') fired[e.tankId]++;
+        if (e.type === 'hit') { hits[e.shooterId]++; dmg[e.victimId] += e.damage; }
+      }
+      cumStats.push({ fired: fired.slice(), hits: hits.slice(), dmg: dmg.slice() });
+    }
+
+    var reasonMap = {
+      destroyed: '击毁对手', maxTicks: '回合耗尽按 HP 判定',
+      violations: '违规达上限判负', crash: '沙盒崩溃判负',
+    };
+    $('metaInfo').innerHTML =
+      '地图: <b>' + replay.mapId + '</b> (' + r.rules.fieldWidth + '×' + r.rules.fieldHeight + ')<br>' +
+      '规则: 伤害 ' + r.rules.bulletDamage + ' · 弹速 ' + r.rules.bulletSpeed + ' 格/tick · 冷却 ' + r.rules.fireCooldown +
+      ' · 上限 ' + r.rules.maxTicks + ' tick<br>' +
+      '种子: ' + r.seeds[0] + ' / ' + r.seeds[1] + '<br>' +
+      '指纹: ' + r.bots[0].codeHash + ' / ' + r.bots[1].codeHash;
+
+    var resultBox = $('result');
+    var res = replay.result;
+    if (res.winner === -1) {
+      resultBox.innerHTML = '<div class="draw">平局</div>' + (reasonMap[res.reason] || res.reason);
+    } else {
+      resultBox.innerHTML = '<div class="win">🎉 ' + esc(replay.bots[res.winner].name) + ' 获胜</div>' + (reasonMap[res.reason] || res.reason);
+    }
+    resultBox.style.display = 'block';
+    $('eventLog').innerHTML = '';
+    render();
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- 渲染 ----------
+  function render() {
+    if (!replay) return;
+    var frame = replay.frames[frameIdx];
+    var W = replay.rules.fieldWidth, H = replay.rules.fieldHeight;
+
+    ctx.fillStyle = '#161b22';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    // 网格
+    ctx.strokeStyle = 'rgba(48,54,61,.5)';
+    ctx.lineWidth = 1;
+    for (var x = 0; x <= W; x++) {
+      ctx.beginPath(); ctx.moveTo(x * CELL + .5, 0); ctx.lineTo(x * CELL + .5, H * CELL); ctx.stroke();
+    }
+    for (var y = 0; y <= H; y++) {
+      ctx.beginPath(); ctx.moveTo(0, y * CELL + .5); ctx.lineTo(W * CELL, y * CELL + .5); ctx.stroke();
+    }
+
+    // 障碍
+    var obstacles = cumObstacles();
+    ctx.fillStyle = '#30363d';
+    for (var i = 0; i < obstacles.length; i++) {
+      var r = obstacles[i];
+      ctx.fillRect(r.x * CELL + 1, r.y * CELL + 1, r.w * CELL - 2, r.h * CELL - 2);
+    }
+
+    // 炮弹（带尾迹方向）
+    for (var b = 0; b < frame.bullets.length; b++) {
+      var bl = frame.bullets[b];
+      var bx = bl.x * CELL + CELL / 2, by = bl.y * CELL + CELL / 2;
+      var c = COLORS[bl.ownerId];
+      ctx.strokeStyle = c.main;
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(bx - DIRS[bl.dir][0] * CELL * 0.7, by - DIRS[bl.dir][1] * CELL * 0.7);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#f2cc60';
+      ctx.beginPath();
+      ctx.arc(bx, by, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 坦克
+    for (var t = 0; t < 2; t++) {
+      var tank = frame.tanks[t];
+      if (!tank.alive) { drawWreck(tank, COLORS[t]); continue; }
+      drawTank(tank, COLORS[t], t);
+    }
+
+    // 事件特效（本帧）
+    for (var e = 0; e < frame.events.length; e++) drawEvent(frame.events[e]);
+
+    // tick 水印
+    ctx.fillStyle = 'rgba(139,148,158,.8)';
+    ctx.font = '12px Consolas, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('tick ' + frame.tick + ' / ' + (replay.frames.length - 1), cv.width - 8, 16);
+    ctx.textAlign = 'left';
+
+    updatePanel(frame);
+  }
+
+  var _obstacles = null;
+  function cumObstacles() {
+    if (_obstacles) return _obstacles;
+    // 障碍不在回放帧里，从 mapId 重建（与引擎同一份定义）
+    var W = replay.rules.fieldWidth, H = replay.rules.fieldHeight;
+    function mirror(r) { return { x: W - r.x - r.w, y: H - r.y - r.h, w: r.w, h: r.h }; }
+    function sym(list) {
+      var out = [];
+      list.forEach(function (r) {
+        out.push(r);
+        var m = mirror(r);
+        if (m.x !== r.x || m.y !== r.y) out.push(m);
+      });
+      return out;
+    }
+    _obstacles = replay.mapId === 'pillars'
+      ? sym([{x:8,y:5,w:2,h:2},{x:8,y:17,w:2,h:2},{x:15,y:11,w:2,h:2}])
+      : sym([{x:15,y:10,w:2,h:4},{x:7,y:5,w:3,h:2},{x:7,y:17,w:3,h:2}]);
+    return _obstacles;
+  }
+
+  function drawTank(t, c, idx) {
+    var cx = t.x * CELL + CELL / 2, cy = t.y * CELL + CELL / 2;
+    // 车体
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(t.dirBody * Math.PI / 4);
+    ctx.fillStyle = c.dark;
+    ctx.strokeStyle = c.main;
+    ctx.lineWidth = 1.5;
+    roundRect(-CELL * 0.38, -CELL * 0.38, CELL * 0.76, CELL * 0.76, 5);
+    ctx.fill();
+    ctx.stroke();
+    // 车体朝向箭头
+    ctx.fillStyle = c.main;
+    ctx.beginPath();
+    ctx.moveTo(CELL * 0.30, 0);
+    ctx.lineTo(CELL * 0.10, -CELL * 0.16);
+    ctx.lineTo(CELL * 0.10, CELL * 0.16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 炮塔 + 炮管
+    var ux = DIRS[t.dirTurret][0], uy = DIRS[t.dirTurret][1];
+    ctx.strokeStyle = '#e6edf3';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + ux * CELL * 0.52, cy + uy * CELL * 0.52);
+    ctx.stroke();
+    ctx.fillStyle = c.main;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // HP 条 + 名字
+    var hpRatio = Math.max(0, t.hp) / replay.rules.maxHp;
+    ctx.fillStyle = '#21262d';
+    ctx.fillRect(cx - 18, cy - CELL * 0.75 - 6, 36, 5);
+    ctx.fillStyle = hpRatio > 0.5 ? '#3fb950' : hpRatio > 0.25 ? '#d29922' : '#f85149';
+    ctx.fillRect(cx - 18, cy - CELL * 0.75 - 6, 36 * hpRatio, 5);
+    ctx.fillStyle = 'rgba(230,237,243,.9)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(replay.bots[idx].name.slice(0, 12), cx, cy - CELL * 0.75 - 9);
+    ctx.textAlign = 'left';
+    if (t.violations > 0) {
+      ctx.fillStyle = '#a371f7';
+      ctx.fillText('⚠' + t.violations, cx + 20, cy - CELL * 0.75 - 9);
+    }
+  }
+
+  function drawWreck(t, c) {
+    var cx = t.x * CELL + CELL / 2, cy = t.y * CELL + CELL / 2;
+    ctx.strokeStyle = 'rgba(248,81,73,.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 7); ctx.lineTo(cx + 7, cy + 7);
+    ctx.moveTo(cx + 7, cy - 7); ctx.lineTo(cx - 7, cy + 7);
+    ctx.stroke();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = c.dark;
+    ctx.fillRect(cx - 9, cy - 9, 18, 18);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawEvent(e) {
+    var x = e.x * CELL + CELL / 2, y = e.y * CELL + CELL / 2;
+    if (e.type === 'fire') {
+      var ux = DIRS[e.dir][0], uy = DIRS[e.dir][1];
+      ctx.fillStyle = '#f2cc60';
+      ctx.beginPath();
+      ctx.arc(x + ux * CELL * 0.5, y + uy * CELL * 0.5, 6, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (e.type === 'hit') {
+      ctx.strokeStyle = '#f85149';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, 13, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.arc(x, y, 19, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ff7b72';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('-' + e.damage, x, y - 16);
+      ctx.textAlign = 'left';
+    } else if (e.type === 'die') {
+      ctx.strokeStyle = '#f85149';
+      ctx.lineWidth = 2.5;
+      for (var k = 0; k < 8; k++) {
+        var a = k * Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * 8, y + Math.sin(a) * 8);
+        ctx.lineTo(x + Math.cos(a) * 20, y + Math.sin(a) * 20);
+        ctx.stroke();
+      }
+    } else if (e.type === 'violation') {
+      ctx.fillStyle = '#a371f7';
+      ctx.font = 'bold 11px sans-serif';
+      var t = replay.frames[frameIdx].tanks[e.tankId];
+      ctx.fillText('⚠', t.x * CELL + 2, t.y * CELL + 2);
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function updatePanel(frame) {
+    var st = cumStats[frameIdx] || { fired: [0, 0], hits: [0, 0], dmg: [0, 0] };
+    for (var i = 0; i < 2; i++) {
+      var t = frame.tanks[i];
+      var bot = replay.bots[i];
+      var c = COLORS[i];
+      var hpRatio = Math.max(0, t.hp) / replay.rules.maxHp;
+      var rate = st.fired[i] > 0 ? Math.round(st.hits[i] / st.fired[i] * 100) + '%' : '-';
+      $('card' + (i === 0 ? 'A' : 'B')).innerHTML =
+        '<div class="name"><span>' + esc(bot.name) + '</span><span class="tag" style="background:' + c.dark + '">' + c.name + ' · ' + (i === 0 ? '先手' : '后手') + '</span></div>' +
+        '<div class="hpbar"><div style="width:' + (hpRatio * 100) + '%;background:' + (hpRatio > 0.5 ? '#3fb950' : hpRatio > 0.25 ? '#d29922' : '#f85149') + '"></div></div>' +
+        '<div class="stats"><span>HP <b>' + Math.max(0, t.hp) + '</b></span><span>开火 <b>' + st.fired[i] + '</b></span><span>命中 <b>' + st.hits[i] + '</b></span><span>命中率 <b>' + rate + '</b></span>' + (t.violations ? '<span style="color:#a371f7">违规 <b>' + t.violations + '</b></span>' : '') + '</div>';
+    }
+    $('tickLabel').textContent = 'tick ' + frame.tick + ' / ' + (replay.frames.length - 1);
+    $('progress').value = frameIdx;
+
+    // 事件与日志
+    var logBox = $('eventLog');
+    var lines = [];
+    var evts = frame.events;
+    for (var j = 0; j < evts.length; j++) {
+      var e = evts[j];
+      var who = e.tankId !== undefined ? e.tankId : e.shooterId;
+      var name = who !== undefined ? replay.bots[who].name : '?';
+      if (e.type === 'fire') lines.push('<div class="fire">t' + e.tick + ' 🔥 ' + esc(name) + ' 开火 (' + e.x + ',' + e.y + ')</div>');
+      else if (e.type === 'hit') lines.push('<div class="hit">t' + e.tick + ' 💥 ' + esc(name) + ' 命中 → ' + esc(replay.bots[e.victimId].name) + ' -' + e.damage + ' (HP ' + e.victimHp + ')</div>');
+      else if (e.type === 'die') lines.push('<div class="die">t' + e.tick + ' ☠️ ' + esc(replay.bots[e.tankId].name) + ' 被击毁</div>');
+      else if (e.type === 'violation') lines.push('<div class="violation">t' + e.tick + ' ⚠ ' + esc(replay.bots[e.tankId].name) + ' 违规: ' + e.kind + (e.detail ? ' — ' + esc(String(e.detail).split('\n')[0]) : '') + '</div>');
+      else if (e.type === 'end') lines.push('<div class="sys">t' + e.tick + ' 🏁 比赛结束</div>');
+    }
+    if (frame.logs) {
+      for (var k = 0; k < 2; k++) {
+        (frame.logs[k] || []).forEach(function (ln) {
+          lines.push('<div style="color:#6e7681">t' + frame.tick + ' 📝 ' + esc(replay.bots[k].name) + ': ' + esc(ln) + '</div>');
+        });
+      }
+    }
+    if (lines.length && lastLoggedFrame !== frameIdx) {
+      lastLoggedFrame = frameIdx;
+      logBox.innerHTML = lines.join('') + logBox.innerHTML;
+      logBox.scrollTop = 0;
+    }
+  }
+
+  var lastLoggedFrame = -1;
+
+  // ---------- 播放循环 ----------
+  function tickOnce(dir) {
+    if (!replay) return;
+    var next = frameIdx + dir;
+    if (next < 0 || next >= replay.frames.length) return;
+    frameIdx = next;
+    render();
+  }
+
+  function loop(ts) {
+    requestAnimationFrame(loop);
+    if (!replay || !playing) { lastTime = ts; return; }
+    var speed = Number($('speed').value);
+    acc += (ts - lastTime) / 1000 * speed;
+    lastTime = ts;
+    while (acc >= 1) {
+      acc -= 1;
+      if (frameIdx >= replay.frames.length - 1) {
+        playing = false;
+        $('btnPlay').textContent = '▶ 播放';
+        break;
+      }
+      frameIdx++;
+      render();
+    }
+  }
+  requestAnimationFrame(loop);
+
+  // ---------- 控件 ----------
+  $('btnPlay').onclick = function () {
+    if (!replay) return;
+    if (frameIdx >= replay.frames.length - 1) frameIdx = 0;
+    playing = !playing;
+    this.textContent = playing ? '⏸ 暂停' : '▶ 播放';
+  };
+  $('btnStart').onclick = function () { frameIdx = 0; render(); };
+  $('btnEnd').onclick = function () { if (replay) { frameIdx = replay.frames.length - 1; render(); } };
+  $('btnPrev').onclick = function () { playing = false; $('btnPlay').textContent = '▶ 播放'; tickOnce(-1); };
+  $('btnNext').onclick = function () { playing = false; $('btnPlay').textContent = '▶ 播放'; tickOnce(1); };
+  $('progress').oninput = function () {
+    playing = false; $('btnPlay').textContent = '▶ 播放';
+    frameIdx = Number(this.value);
+    render();
+  };
+  document.addEventListener('keydown', function (ev) {
+    if (!replay) return;
+    if (ev.code === 'Space') { ev.preventDefault(); $('btnPlay').click(); }
+    else if (ev.code === 'ArrowLeft') { $('btnPrev').click(); }
+    else if (ev.code === 'ArrowRight') { $('btnNext').click(); }
+  });
+
+  // ---------- 加载入口 ----------
+  $('loadCard').onclick = function () { $('fileInput').click(); };
+  $('fileInput').onchange = function () {
+    var f = this.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      try { loadReplay(JSON.parse(rd.result)); } catch (e) { alert('JSON 解析失败: ' + e.message); }
+    };
+    rd.readAsText(f);
+  };
+
+  var dropHint = $('dropHint');
+  document.addEventListener('dragover', function (ev) { ev.preventDefault(); if (replay) dropHint.style.display = 'flex'; });
+  document.addEventListener('dragleave', function () { dropHint.style.display = 'none'; });
+  document.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    dropHint.style.display = 'none';
+    var f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      try { loadReplay(JSON.parse(rd.result)); } catch (e) { alert('JSON 解析失败: ' + e.message); }
+    };
+    rd.readAsText(f);
+  });
+
+  // serve 模式：自动拉取回放（支持 ?replay=/replay/xxx.json 指定，默认 /replay.json）
+  if (location.protocol.startsWith('http')) {
+    var q = new URLSearchParams(location.search).get('replay');
+    fetch(q || '/replay.json')
+      .then(function (r) { if (r.ok) return r.json(); throw new Error('no replay'); })
+      .then(loadReplay)
+      .catch(function () { /* 保持加载界面 */ });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "tank-arena",
+  "version": "0.1.0",
+  "description": "AgenticGame #1 — 坦克竞技场：让 AI agent 编写坦克代码进行对战的本地竞技游戏",
+  "type": "module",
+  "bin": {
+    "arena": "dist/cli/index.js"
+  },
+  "scripts": {
+    "arena": "tsx src/cli/index.ts",
+    "ui": "tsx src/cli/index.ts ui",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "build:exe": "node scripts/pack.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.0",
+    "@yao-pkg/pkg": "^6.22.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
