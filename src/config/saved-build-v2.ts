@@ -159,20 +159,20 @@ export function verifySavedBuildV2(input: unknown): SavedBuildVerificationV2 {
   }
 
   if (bot && loadout && typeof root.label === 'string' && typeof root.contentFingerprint === 'string') {
-    const expectedContent = fingerprintSavedBuildContentV2({
+    const expectedContent = safeHashJson({
       label: root.label,
-      botArtifact: root.botArtifact as SavedBuildV2['botArtifact'],
-      loadout: root.loadout as SavedBuildV2['loadout'],
-    });
-    if (root.contentFingerprint !== expectedContent) {
+      botArtifact: root.botArtifact,
+      loadout: root.loadout,
+    }, '$.contentFingerprint', issues);
+    if (expectedContent !== null && root.contentFingerprint !== expectedContent) {
       issue(issues, '$.contentFingerprint', 'content_fingerprint_mismatch', 'contentFingerprint does not match content');
     }
   }
 
   if (typeof root.fingerprint === 'string') {
     const { fingerprint: _ignored, ...base } = root;
-    const expectedRecord = hashJson(base as JsonValue);
-    if (root.fingerprint !== expectedRecord) {
+    const expectedRecord = safeHashJson(base, '$.fingerprint', issues);
+    if (expectedRecord !== null && root.fingerprint !== expectedRecord) {
       issue(issues, '$.fingerprint', 'record_fingerprint_mismatch', 'fingerprint does not match record');
     }
   }
@@ -252,6 +252,20 @@ function idArray(value: unknown, path: string, issues: SavedBuildIssueV2[]): voi
 
 function issue(issues: SavedBuildIssueV2[], path: string, code: string, message: string): void {
   issues.push({ path, code, message });
+}
+
+function safeHashJson(value: unknown, path: string, issues: SavedBuildIssueV2[]): string | null {
+  try {
+    return hashJson(value as JsonValue);
+  } catch (error) {
+    issue(
+      issues,
+      path,
+      'invalid_json_domain',
+      error instanceof Error ? error.message : 'Value is outside the deterministic JSON domain',
+    );
+    return null;
+  }
 }
 
 function sha256Text(value: string): string {

@@ -38,7 +38,7 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（69 项：v1 兼容 + Core/Replay v2 + Gameplay v2）
+npm run test          # 自动化测试（81 项：v1 兼容 + Core/Replay/Gameplay v2 + 配置历史/练习赛）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
@@ -86,6 +86,18 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 [Gameplay v2 纵切规格](docs/product/gameplay-v2-vertical-slice-spec.md) 和
 [Bot 规则书的 v2 章节](docs/tank-spec.md#11-gameplay-v2-开发者预览)。
 
+## 配置历史与新旧版本练习赛
+
+`SavedBuildV2` 把一个 Bot 的完整源码与车辆/武器/装备装配保存为不可变 revision：
+
+- 本地仓库按 Build ID 保存连续版本，父指纹形成可校验历史链；相同内容重复保存不会产生噪声版本。
+- 每个文件同时校验完整源码哈希、内容指纹和记录指纹；损坏或篡改版本不会被静默跳过。
+- `runPracticeMatchV2` 可让当前 revision 对战任意历史 revision，也支持同版本镜像自测。
+- 练习赛仍走真实 worker 沙盒和 MatchBundleV2，不使用简化模拟器。
+
+当前提供 TypeScript API，玩家侧保存/版本对比入口将在 Ardot 完成 Build 历史和练习赛流程设计后接入。
+契约见 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
+
 ## 设计原则
 
 1. **游戏体验先于技术展示。** 默认路径服务普通玩家，代码、seed 和规则细节进入渐进式高级入口。
@@ -106,7 +118,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] v0.2 基础契约：通用内容定义、严格 MatchConfigV2、完整 Match Bundle / Replay v2
 - [x] Replay v2 运行时接入：Runner 同时返回兼容 Replay v1 与可校验 MatchBundleV2
 - [x] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
-- [ ] 决斗 + 占领模式；保存配置、新配置对战旧配置
+- [x] SavedBuildV2 配置版本历史；新配置对战旧配置与同版本镜像练习赛 API
+- [ ] 把 v2、配置历史和练习赛接入玩家界面；新增占领模式
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
 - [ ] 外部 Agent 接入 + 内置 BYOK Harness
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容

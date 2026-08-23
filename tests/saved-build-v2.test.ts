@@ -95,4 +95,15 @@ describe('SavedBuildV2', () => {
       revision: 2, parentFingerprint: null, createdAt: '2026-08-24T00:00:00.000Z',
     })).toThrow('revision_parent_mismatch');
   });
+
+  it('returns a validation issue instead of throwing on non-JSON-domain nested values', () => {
+    const malformed = createSavedBuildV2(draft(), {
+      revision: 1, parentFingerprint: null, createdAt: '2026-08-24T00:00:00.000Z',
+    });
+    malformed.loadout.equipmentIds = new Array<string>(1);
+
+    expect(() => verifySavedBuildV2(malformed)).not.toThrow();
+    expect(verifySavedBuildV2(malformed).issues.map((issue) => issue.code))
+      .toContain('invalid_json_domain');
+  });
 });

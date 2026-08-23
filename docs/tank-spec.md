@@ -270,6 +270,18 @@ max(1, 火炮伤害 - max(0, 对应方向装甲 - 火炮穿深))
 完整的机器规格见 `docs/product/gameplay-v2-vertical-slice-spec.md`。v2 比赛产物是自包含
 MatchBundleV2，保存双方源码、内容/地图快照、实际动作、事件、权威状态检查点和日志，并可验证完整性。
 
+## 12. 保存 Build 与历史版本练习赛
+
+Gameplay v2 可以把“Bot 源码＋车辆装配”保存为 `SavedBuildV2`。同一个 `buildId` 下，每次真实内容变化
+形成递增 revision，并用父指纹连接历史；相同内容重复保存不会创建无意义的新版本。
+
+`runPracticeMatchV2` 可让当前 revision 对战任意旧 revision，也支持同 revision 镜像自测。Bot 本身仍只需
+导出同一个 `createTank(ctx)` 工厂；版本管理发生在比赛外，不会给上场 Bot 增加文件或网络权限。每场练习赛
+仍保存双方精确源码和装配到 MatchBundleV2，因此结果可回读、可复现、可验证。
+
+该能力当前是 TypeScript API；玩家界面入口需等待 Ardot 中的 Build 历史与练习赛流程验收。
+机器规格见 `docs/product/build-history-practice-spec.md`。
+
 ---
 
 *规则版本：v0.1 + Gameplay v2 preview（engine 0.1.0 / 0.2.0）。规则若有变更，本文件与引擎同步更新。*
