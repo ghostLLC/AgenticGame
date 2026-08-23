@@ -57,10 +57,10 @@
 **Interfaces:**
 - Produces: `runPracticeMatchV2(input): Promise<PracticeMatchOutputV2>`.
 
-- [ ] Write an integration RED that saves two revisions and runs revision 2 against revision 1 with two real sandbox Bots.
-- [ ] Assert exact artifact/loadout mapping, participant metadata, deterministic equality, timeline presence, and Bundle verification.
-- [ ] Implement strict MatchConfig assembly and delegation to `runMatchV2`.
-- [ ] Run focused GREEN and commit `feat: run new builds against saved history`.
+- [x] Write an integration RED that saves two revisions and runs revision 2 against revision 1 with two real sandbox Bots.
+- [x] Assert exact artifact/loadout mapping, participant metadata, deterministic equality, timeline presence, and Bundle verification.
+- [x] Implement strict MatchConfig assembly and delegation to `runMatchV2`.
+- [x] Run focused GREEN and commit `feat: run new builds against saved history`.
 
 ### Task 4: Documentation and rollout
 

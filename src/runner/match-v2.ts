@@ -216,11 +216,12 @@ function createArtifacts(
   config: MatchConfigV2,
   bots: readonly [GameplayBotSpecV2, GameplayBotSpecV2],
 ): BotArtifactSnapshotV2[] {
-  return ([0, 1] as const).map((index) => {
+  const artifacts: BotArtifactSnapshotV2[] = [];
+  for (const index of [0, 1] as const) {
     const team = config.teams[index]!;
     const hash = fullCodeHash(bots[index].code);
     if (hash !== team.bot.codeHash) throw new Error(`Bot source hash mismatch: ${team.teamId}`);
-    return {
+    const artifact: BotArtifactSnapshotV2 = {
       artifactId: team.bot.artifactId,
       version: team.bot.version,
       codeHash: hash,
@@ -228,7 +229,18 @@ function createArtifacts(
       entryPoint: bots[index].path ?? 'inline',
       source: bots[index].code,
     };
-  });
+    const existing = artifacts.find((item) =>
+      item.artifactId === artifact.artifactId && item.version === artifact.version,
+    );
+    if (existing) {
+      if (existing.codeHash !== artifact.codeHash || existing.source !== artifact.source) {
+        throw new Error(`Bot artifact identity collision: ${artifact.artifactId}@${artifact.version}`);
+      }
+      continue;
+    }
+    artifacts.push(artifact);
+  }
+  return artifacts;
 }
 
 function appendEngineEvents(target: EventRecordV2[], source: readonly GameplayEventV2[]): void {
