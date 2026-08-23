@@ -36,4 +36,4 @@
 
 - [x] Update README and HANDOFF to state the runner now returns Replay v1 plus MatchBundleV2, while CLI/UI still persist/view Replay v1 in this slice.
 - [x] Run `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check` with fresh output.
-- [ ] Commit the isolated branch, merge it into `main`, push `origin/main`, and synchronize Feishu timeline/architecture/quality/risk records with the final commit hash.
+- [x] Commit the isolated branch, merge it into `main`, push `origin/main`, and synchronize Feishu timeline/architecture/quality/risk records with the implementation commit hash.
