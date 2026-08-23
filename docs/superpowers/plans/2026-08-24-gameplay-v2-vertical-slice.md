@@ -131,11 +131,11 @@ Run `npm test -- tests/match-v2.test.ts tests/match.test.ts`, then commit `feat:
 **Interfaces:**
 - Documents the v1/v2 compatibility boundary, v2 Bot view, exact mechanics, verification evidence, and next UI/config work.
 
-- [ ] **Step 1: Update developer and Bot documentation**
+- [x] **Step 1: Update developer and Bot documentation**
 
 Document all official stats, fog-of-war semantics, tick order, v2 action/view examples, and the fact that no UI entry exists until Ardot design is accepted.
 
-- [ ] **Step 2: Run completion verification**
+- [x] **Step 2: Run completion verification**
 
 Run `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`; record exact counts in README/HANDOFF.
 

@@ -65,6 +65,10 @@ describe('gameplay v2 official content', () => {
     const [a, b] = map.spawnPoints;
     expect(a!.x + b!.x).toBe(map.width - 1);
     expect(a!.y + b!.y).toBe(map.height - 1);
+    const terrainByCell = new Map(map.terrainCells.map((cell) => [`${cell.x},${cell.y}`, cell.terrainId]));
+    for (const cell of map.terrainCells) {
+      expect(terrainByCell.get(`${map.width - 1 - cell.x},${map.height - 1 - cell.y}`)).toBe(cell.terrainId);
+    }
     expect(getTerrainV2('forest')).toMatchObject({ movementCostPermille: 1100, visibilityModifierPermille: 700 });
     expect(getTerrainV2('mud')).toMatchObject({ movementCostPermille: 1600, blocksMovement: false });
     expect(getTerrainV2('wall')).toMatchObject({ blocksMovement: true, blocksVision: true, blocksProjectiles: true });

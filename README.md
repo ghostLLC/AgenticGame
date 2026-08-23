@@ -3,8 +3,8 @@
 **游戏优先、代码可选的 AI 原生坦克策略游戏。** 目标体验是让普通玩家从选车、装配和预设指挥官开始；
 想深入的玩家再让 Codex、Claude Code 等外部 Agent 编写 Bot，或使用内置 BYOK Harness 描述战术并生成 Bot。
 
-当前 v0.1 仍是 RoboCode / MIT Battlecode 风格的 1v1 编程坦克基线；v0.2 正在建立可扩展规则、
-完整比赛资产和新用户体验所需的底层契约。
+当前默认 CLI/UI 仍是 RoboCode / MIT Battlecode 风格的 v0.1 玩法；v0.2 已具备可独立运行的首期玩法
+引擎与沙盒 Runner，正在继续接入配置管理、回放工作室和面向普通玩家的新用户体验。
 
 ## 玩法闭环
 
@@ -38,13 +38,13 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（55 项：v1 引擎/Runner + Core v2/Replay v2 运行链路）
+npm run test          # 自动化测试（69 项：v1 兼容 + Core/Replay v2 + Gameplay v2）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
 任意一方本地 `arena play` → 把回放 JSON 发给对方验证（或直接让对方重跑确认结果一致）。
 
-## 游戏规则（30 秒版）
+## 默认 v1 游戏规则（30 秒版）
 
 - 32×24 网格战场（官方对称地图），1v1，完全信息，离散 tick 同步回合制
 - 每 tick 双方同时提交 `{throttle, bodyTurn, turretTurn, fire}`：八方向移动/车体炮塔独立转向/开火
@@ -64,14 +64,27 @@ npm run test          # 自动化测试（55 项：v1 引擎/Runner + Core v2/Re
 ```
 src/core/       v1 确定性模拟内核 + v2 通用内容、配置和确定性 JSON 契约
 src/runtime/    bot 沙盒（worker + VM 白名单上下文、时间预算、日志收集）
-src/runner/     对局驱动（内核×沙盒×双格式回放；违规与崩溃判负）
+src/runner/     v1/v2 对局驱动（内核×沙盒×完整比赛包；违规与崩溃判负）
 src/cli/        arena 命令行（play / self / validate / serve / demo / maps）
 src/replay/     Replay v1 + 完整 Match Bundle v2 契约与完整性校验
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
 bots/           内置基准 bot（也是给 AI 的参考实现）
 docs/           v1 规则书、产品规格、治理规则和实施计划
-tests/          引擎/Runner 测试 + Core v2/Replay v2 契约测试
+tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 ```
+
+## Gameplay v2 开发者预览
+
+`GameplayEngineV2` 与 `runMatchV2` 已经是真实运行路径，不是只用于展示的数据结构：
+
+- 侦察、中型、重型三类车辆具有独立 HP、正/侧/后装甲、速度、加减速、转向节奏和视野。
+- 轻/中/重型炮具有独立伤害、穿深、射程、装填、弹速和有限弹药。
+- `frontier-v2` 包含开阔地、森林、泥地和墙体；森林降低目标可见距离，泥地提高移动消耗。
+- Bot 只收到当前可见敌人和炮弹；真实动作、战斗事件、状态、日志和源码进入可校验 MatchBundleV2。
+
+目前通过 TypeScript API 使用 `runMatchV2`；尚未接入 CLI、网页控制台和播放器。精确规则与接口见
+[Gameplay v2 纵切规格](docs/product/gameplay-v2-vertical-slice-spec.md) 和
+[Bot 规则书的 v2 章节](docs/tank-spec.md#11-gameplay-v2-开发者预览)。
 
 ## 设计原则
 
@@ -92,7 +105,7 @@ tests/          引擎/Runner 测试 + Core v2/Replay v2 契约测试
 - [x] Windows x64 单文件 `arena.exe`（双击启动网页控制台）
 - [x] v0.2 基础契约：通用内容定义、严格 MatchConfigV2、完整 Match Bundle / Replay v2
 - [x] Replay v2 运行时接入：Runner 同时返回兼容 Replay v1 与可校验 MatchBundleV2
-- [ ] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
+- [x] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
 - [ ] 决斗 + 占领模式；保存配置、新配置对战旧配置
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
 - [ ] 外部 Agent 接入 + 内置 BYOK Harness

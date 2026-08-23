@@ -134,6 +134,8 @@ src/
       json.ts         确定性 JSON 与完整 SHA-256
       content.ts      车辆/武器/地形/模式/地图/Bot 内容定义
       match-config.ts 严格 MatchConfigV2 校验、断言与指纹
+      gameplay-content.ts  三车辆/三武器/四地形与 frontier-v2 官方内容
+      gameplay-engine.ts   真实 v2 结算：雾区、机动、方向装甲、弹药、射程和胜负
   runtime/        bot 沙盒与资源路径
     bot-worker.mjs   worker 侧：白名单 VM 环境、Math.random→抛错、console 收集、工厂加载
     sandbox.ts       主线程侧 BotRunner：worker 生命周期、30ms 超时、崩溃检测、代码提取(pkg)
@@ -141,6 +143,7 @@ src/
   runner/
     match.ts        对局驱动：内核×沙盒×回放记录；违规/崩溃判负；RNG 种子派生
     v2-adapter.ts   把真实 v1 对局映射为 MatchBundleV2（配置/地图/内容/源码/时间线/完整性）
+    match-v2.ts     v2 引擎×沙盒 Runner：过滤视野、动作回退、权威时间线与 MatchBundleV2
   replay/
     format.ts       回放自包含格式（地图+规则+代码指纹+逐帧快照+事件+日志）
     v2.ts           完整 Match Bundle v2 创建、时间线约束与篡改校验
@@ -158,6 +161,9 @@ tests/match.test.ts      Runner/沙盒集成测试 4 项（加载失败、双格
 tests/core-v2-json.test.ts    确定性 JSON 测试 6 项
 tests/core-v2-config.test.ts  MatchConfigV2 测试 17 项
 tests/replay-v2.test.ts       Match Bundle v2 测试 11 项
+tests/gameplay-v2-content.test.ts  官方玩法内容与完整地图测试 2 项
+tests/gameplay-v2-engine.test.ts   v2 机动、地形、视野、装甲、弹药与胜负测试 10 项
+tests/match-v2.test.ts             真实 v2 沙盒比赛与 Bundle 集成测试 2 项
 scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 ```
 
@@ -185,8 +191,10 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **Core v2 基础契约**：数据化车辆/武器/地形/模式/地图/Bot 快照；严格 `MatchConfigV2`；
   完整 `MatchBundleV2`，覆盖配置、内容、地图、源码、动作、事件、检查点、日志和结果的完整性哈希。
 - **Replay v2 运行时接入**：`runMatch` 现在同时返回兼容 Replay v1 与真实 `MatchBundleV2`；v2 包嵌入双方完整源码并记录实际动作、事件、状态检查点和日志，可直接进行完整性校验。
+- **Gameplay v2 首期玩法纵切**：新增独立 `GameplayEngineV2` 与 `runMatchV2`；侦察/中型/重型车辆、森林/泥地/墙体、过滤视野、方向装甲、有限弹药、装填、射程、加减速和转向节奏均进入真实确定性结算。
+- **v2 沙盒比赛**：两个真实 worker Bot 接收过滤后的 `BattleViewV2`，比赛直接生成包含完整内容、地图、源码、动作、事件、检查点、日志和结果的可验证 MatchBundleV2。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：55 项自动化测试通过（20 项既有 v1 + 1 项运行时 v2 集成 + 34 项 v2 契约），TypeScript 类型检查与构建通过。
+- **质量基线**：69 项自动化测试通过（55 项既有基线 + 14 项 Gameplay v2 内容/引擎/Runner），TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -229,7 +237,7 @@ npm run arena -- serve replays/<文件>.json        # 只打开回放播放器
 npm run arena -- maps                             # 列出官方地图
 
 # 3) 开发 / 质量
-npm run test          # 55 项自动化测试（20 项 v1 + 1 项运行时 v2 + 34 项 Core v2 / Replay v2）
+npm run test          # 69 项自动化测试（55 项既有基线 + 14 项 Gameplay v2）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
@@ -264,9 +272,8 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ## 七、下一步路线图（按优先级）
 
-**$P0 已完成：v0.1 稳定基线、EXE 实测、Core v2 基础契约与 Runner 双格式输出。**
-**$P1 首期玩法纵切**：在已有真实 v2 回放链路上完成 3 种车辆、视野、地形、方向装甲、弹药与机动差异。
-**$P2 中层体验**：决斗 + 占领；配置版本化；新配置对战旧配置；Replay Studio 复盘与对比。
+**$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
+**$P2 中层体验**：把 v2 接入配置版本化与比赛入口；新配置对战旧配置；决斗 + 占领；Replay Studio 复盘与对比。
 **$P3 AI 原生入口**：外部 Agent 适配器与内置 TypeScript BYOK Harness，共享能力、预算、沙箱和评测。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。
@@ -290,4 +297,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.3（2026-08-24）／ v1 引擎 0.1.0 ／ v2 契约 2*
+*文档版本：v1.4（2026-08-24）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*
