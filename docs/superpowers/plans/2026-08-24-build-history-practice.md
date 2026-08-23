@@ -72,4 +72,4 @@
 
 - [x] Document the saved Build/revision model, local storage boundary, practice API, UI limitation, and exact test count.
 - [x] Run `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check` twice around review fixes.
-- [ ] Merge to local main, verify merged result, push GitHub main, and synchronize Feishu timeline/architecture/ADR/quality/risk with write-after-read verification.
+- [x] Merge to local main, verify merged result, push GitHub main, and synchronize Feishu timeline/architecture/ADR/quality/risk with write-after-read verification.
