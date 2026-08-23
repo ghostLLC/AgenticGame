@@ -8,6 +8,7 @@ replays/*.json
 
 .mimosa/
 .playwright-mcp/
+.worktrees/
 
 *.log
 .env
