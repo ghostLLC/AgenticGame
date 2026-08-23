@@ -43,10 +43,10 @@
 **Interfaces:**
 - Produces: `SavedBuildRepositoryV2.save`, `.list`, and `.load`.
 
-- [ ] Write real-temporary-directory tests for revision 1→2 parent linkage, unchanged-content idempotency, ascending list/latest load, no overwrite, and fail-closed corruption.
-- [ ] Run focused RED and confirm the repository is missing.
-- [ ] Implement stable path resolution, verified reads, chain validation, exclusive temporary writes, and atomic rename.
-- [ ] Run focused GREEN and commit `feat: persist saved build revision history`.
+- [x] Write real-temporary-directory tests for revision 1→2 parent linkage, unchanged-content idempotency, ascending list/latest load, no overwrite, and fail-closed corruption.
+- [x] Run focused RED and confirm the repository is missing.
+- [x] Implement stable path resolution, verified reads, chain validation, exclusive temporary writes, and atomic rename.
+- [x] Run focused GREEN and commit `feat: persist saved build revision history`.
 
 ### Task 3: New-versus-old practice service
 
