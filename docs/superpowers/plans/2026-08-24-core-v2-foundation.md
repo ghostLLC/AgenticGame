@@ -258,6 +258,6 @@ git add README.md HANDOFF.md docs/product docs/superpowers/plans/2026-08-24-core
 git commit -m "docs: record core v2 foundation"
 ```
 
-- [ ] **Step 6: Synchronize external project records**
+- [x] **Step 6: Synchronize external project records**
 
 Append a dated item to Feishu `00｜开发时间线`, add the architectural contract to `05｜技术架构与开发环境`, add RED/GREEN and final verification evidence to `07｜测试、平衡与质量`, and update `09｜风险、技术债与待办`. Re-read each modified document and verify the new heading exists exactly once.
