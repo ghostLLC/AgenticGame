@@ -38,7 +38,7 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（81 项：v1 兼容 + Core/Replay/Gameplay v2 + 配置历史/练习赛）
+npm run test          # 自动化测试（87 项：v1 兼容 + Core/Replay/Gameplay v2 + 配置历史/练习赛/回放仓库）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
@@ -66,7 +66,7 @@ src/core/       v1 确定性模拟内核 + v2 通用内容、配置和确定性 
 src/runtime/    bot 沙盒（worker + VM 白名单上下文、时间预算、日志收集）
 src/runner/     v1/v2 对局驱动（内核×沙盒×完整比赛包；违规与崩溃判负）
 src/cli/        arena 命令行（play / self / validate / serve / demo / maps）
-src/replay/     Replay v1 + 完整 Match Bundle v2 契约与完整性校验
+src/replay/     Replay v1 + Match Bundle v2 契约、持久化仓库与 Replay Studio 投影
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
 bots/           内置基准 bot（也是给 AI 的参考实现）
 docs/           v1 规则书、产品规格、治理规则和实施计划
@@ -95,8 +95,17 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - `runPracticeMatchV2` 可让当前 revision 对战任意历史 revision，也支持同版本镜像自测。
 - 练习赛仍走真实 worker 沙盒和 MatchBundleV2，不使用简化模拟器。
 
-当前提供 TypeScript API，玩家侧保存/版本对比入口将在 Ardot 完成 Build 历史和练习赛流程设计后接入。
+当前提供 TypeScript API；Build 历史与练习赛 Ardot 流程已经验收，下一步接入玩家界面。
 契约见 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
+
+## Replay Studio v2 后端
+
+- `runMatchV2` 可在比赛包生成后通过 `onBundle` 直接接入持久化；每局包含 tick 0 初始检查点。
+- `ReplayRepositoryV2` 使用完整 bundle hash 作为不可变文件名，原子写入、重复保存去重，加载和列表时重新校验完整性。
+- `createReplayStudioViewV2` 输出面向玩家的双方配置、胜负和关键时刻，不把源码与哈希暴露到默认界面。
+- `seekReplayCheckpointV2` 支持定位到目标回合或之前最近的已验证状态。
+
+接口与验收口径见 [Replay Studio v2 规格](docs/product/replay-studio-v2-spec.md)。
 
 ## 设计原则
 
@@ -119,6 +128,7 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] Replay v2 运行时接入：Runner 同时返回兼容 Replay v1 与可校验 MatchBundleV2
 - [x] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
 - [x] SavedBuildV2 配置版本历史；新配置对战旧配置与同版本镜像练习赛 API
+- [x] Replay v2 本地不可变仓库、真实 Runner 持久化钩子与玩家侧 Studio 投影
 - [ ] 把 v2、配置历史和练习赛接入玩家界面；新增占领模式
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
 - [ ] 外部 Agent 接入 + 内置 BYOK Harness

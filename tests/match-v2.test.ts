@@ -76,10 +76,11 @@ describe('runMatchV2', () => {
     expect(first.bundle.mapSnapshot).toEqual(GAMEPLAY_MAP_FRONTIER_V2);
     expect(first.bundle.actions.length).toBe(32);
     expect(first.bundle.actions.slice(0, 2).map((action) => action.actorId)).toEqual(['team-a', 'team-b']);
-    expect(first.bundle.checkpoints).toHaveLength(16);
+    expect(first.bundle.checkpoints).toHaveLength(17);
+    expect(first.bundle.checkpoints[0]).toMatchObject({ tick: 0, state: { tick: 0 } });
     expect(first.bundle.logs.some((log) => log.sourceId === 'team-a' && log.message === 'visible:0')).toBe(true);
     expect(first.bundle.logs.some((log) => log.sourceId === 'team-b' && log.message === 'visible:0')).toBe(true);
-    const firstState = first.bundle.checkpoints[0]!.state as Record<string, unknown>;
+    const firstState = first.bundle.checkpoints[1]!.state as Record<string, unknown>;
     expect(firstState).toHaveProperty('tanks');
     expect(JSON.stringify(firstState)).toContain('"ammunition":18');
     expect(JSON.stringify(firstState)).toContain('"velocityPermille":500');

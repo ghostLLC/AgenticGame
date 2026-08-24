@@ -152,6 +152,8 @@ src/
   replay/
     format.ts       回放自包含格式（地图+规则+代码指纹+逐帧快照+事件+日志）
     v2.ts           完整 Match Bundle v2 创建、时间线约束与篡改校验
+    repository-v2.ts  MatchBundleV2 不可变原子落盘、幂等保存、回读校验与列表索引
+    studio-v2.ts      玩家侧回放摘要、关键时刻与逐回合检查点定位
   server/
     ui.ts           HTTP 控制台服务（页面 + /api/play /api/upload /api/bots /api/replays /api/spec）
     console.html    控制台前端页面（拖拽上传、选bot、开战、结果、历史）
@@ -172,6 +174,8 @@ tests/match-v2.test.ts             真实 v2 沙盒比赛与 Bundle 集成测试
 tests/saved-build-v2.test.ts            SavedBuild 严格契约、篡改与非 JSON 输入检测 5 项
 tests/saved-build-repository-v2.test.ts 本地 revision 仓库与父链/原子写入测试 4 项
 tests/practice-match-v2.test.ts         新打旧、篡改拒绝与镜像自测 3 项
+tests/replay-repository-v2.test.ts      真实比赛落盘、幂等、篡改与路径防护 3 项
+tests/replay-studio-v2.test.ts          玩家摘要、回合定位与完整性拒绝 3 项
 scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 ```
 
@@ -203,8 +207,9 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **v2 沙盒比赛**：两个真实 worker Bot 接收过滤后的 `BattleViewV2`，比赛直接生成包含完整内容、地图、源码、动作、事件、检查点、日志和结果的可验证 MatchBundleV2。
 - **SavedBuildV2 配置历史**：Bot 完整源码与装配保存为不可变 revision；内容/记录双指纹、连续父链、路径防穿越、幂等保存与同目录原子发布均已实现。
 - **新旧版本练习赛**：`runPracticeMatchV2` 支持当前 revision 对战任意历史 revision，以及同版本镜像自测；比赛复用真实 Gameplay v2 沙盒与 Bundle 路径。
+- **Replay Studio v2 后端**：真实 Runner 可通过 `onBundle` 原子保存不可变比赛包；仓库按 bundle hash 去重并在加载/列表时验证完整性；玩家侧投影提供配置、结果和关键时刻，默认不暴露源码与哈希。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：81 项自动化测试通过（69 项既有基线 + 12 项 SavedBuild/仓库/练习赛），TypeScript 类型检查与构建通过。
+- **质量基线**：87 项自动化测试通过（81 项既有基线 + 6 项 Replay 仓库/Studio），TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -283,7 +288,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：配置版本化与新旧版本练习赛后端已完成；下一步在 Ardot 设计并接入玩家入口、占领模式与 Replay Studio。
+**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化与 Studio 投影已完成；Build 历史/练习赛 Ardot 流程已验收，下一步接入玩家入口并设计 Replay Studio 页面与占领模式。
 **$P3 AI 原生入口**：外部 Agent 适配器与内置 TypeScript BYOK Harness，共享能力、预算、沙箱和评测。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。

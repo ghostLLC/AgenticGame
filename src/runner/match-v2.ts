@@ -36,6 +36,7 @@ export interface GameplayMatchConfigV2 {
   maxViolations?: number;
   collectLogs?: boolean;
   onProgress?: (tick: number, maxTicks: number) => void;
+  onBundle?: (bundle: MatchBundleV2) => void | Promise<void>;
 }
 
 export interface GameplayMatchSummaryV2 {
@@ -88,6 +89,7 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
   const events: EventRecordV2[] = [];
   const checkpoints: StateCheckpointInputV2[] = [];
   const logs: LogRecordV2[] = [];
+  checkpoints.push({ tick: 0, state: engine.snapshot() });
 
   try {
     const initResults = await Promise.all([runners[0].init(5000), runners[1].init(5000)]);
@@ -105,8 +107,8 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
         },
       });
       appendEngineEvents(events, engine.forceFinish([matchConfig.teams[winner]!.teamId], 'load-failure'));
-      checkpoints.push({ tick: engine.state.tick, state: engine.snapshot() });
-      return finalize();
+      checkpoints[0] = { tick: engine.state.tick, state: engine.snapshot() };
+      return await finalize();
     }
 
     while (!engine.state.finished) {
@@ -175,13 +177,13 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
       }
       checkpoints.push({ tick: engine.state.tick, state: engine.snapshot() });
     }
-    return finalize();
+    return await finalize();
   } finally {
     runners[0].terminate();
     runners[1].terminate();
   }
 
-  function finalize(): GameplayMatchOutputV2 {
+  async function finalize(): Promise<GameplayMatchOutputV2> {
     const [a, b] = engine.state.tanks;
     const summary: GameplayMatchSummaryV2 = {
       winningTeamIds: [...engine.state.winningTeamIds],
@@ -208,6 +210,7 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
         ticks: summary.ticks,
       },
     });
+    await input.onBundle?.(bundle);
     return { summary, bundle };
   }
 }

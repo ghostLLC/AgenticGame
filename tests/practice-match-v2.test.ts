@@ -78,7 +78,8 @@ describe('runPracticeMatchV2', () => {
     ]);
     expect(first.bundle.botArtifacts.map((artifact) => artifact.source)).toEqual([newSource, oldSource]);
     expect(first.bundle.actions).toHaveLength(16);
-    expect(first.bundle.checkpoints).toHaveLength(8);
+    expect(first.bundle.checkpoints).toHaveLength(9);
+    expect(first.bundle.checkpoints[0]).toMatchObject({ tick: 0, state: { tick: 0 } });
     expect(first.bundle.logs.map((log) => log.message)).toEqual(expect.arrayContaining(['revision:new', 'revision:old']));
     expect(verifyMatchBundleV2(first.bundle)).toEqual({ ok: true, issues: [] });
   });
