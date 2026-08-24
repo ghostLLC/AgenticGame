@@ -298,7 +298,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；Build 历史、练习赛与 Replay Studio Ardot 流程已验收，下一步接入玩家入口。
+**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；Build 历史与练习赛设计已在 Ardot 页面 `2:115` 重建并完成布局复检（`3:299`、`3:399`、`3:492`），Replay Studio 设计也已完成；下一步按设计接入玩家入口。
 **$P3 AI 原生入口（进行中）**：MCP + OpenAI-compatible BYOK 首期闭环已完成；下一步是 Ardot Agent Center、Anthropic 原生适配与多 seed 评测矩阵。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。

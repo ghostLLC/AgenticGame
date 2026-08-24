@@ -98,7 +98,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - `runPracticeMatchV2` 可让当前 revision 对战任意历史 revision，也支持同版本镜像自测。
 - 练习赛仍走真实 worker 沙盒和 MatchBundleV2，不使用简化模拟器。
 
-当前提供 TypeScript API；Build 历史与练习赛 Ardot 流程已经验收，下一步接入玩家界面。
+当前提供 TypeScript API；Build 历史与练习赛 Ardot 设计已在页面 `2:115` 重建并完成布局复检
+（主屏节点 `3:299`、`3:399`，状态基线 `3:492`），下一步按该设计接入玩家界面。
 契约见 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
 
 ## Replay Studio v2 后端

@@ -288,7 +288,8 @@ Gameplay v2 可以把“Bot 源码＋车辆装配”保存为 `SavedBuildV2`。�
 导出同一个 `createTank(ctx)` 工厂；版本管理发生在比赛外，不会给上场 Bot 增加文件或网络权限。每场练习赛
 仍保存双方精确源码和装配到 MatchBundleV2，因此结果可回读、可复现、可验证。
 
-该能力当前是 TypeScript API；Build 历史与练习赛 Ardot 流程已经验收，玩家界面尚待接入。
+该能力当前是 TypeScript API；Build 历史与练习赛 Ardot 设计已在页面 `2:115` 重建并完成布局复检
+（主屏节点 `3:299`、`3:399`，状态基线 `3:492`），玩家界面尚待接入。
 机器规格见 `docs/product/build-history-practice-spec.md`。
 
 ---
