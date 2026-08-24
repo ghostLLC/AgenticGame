@@ -1,5 +1,6 @@
 import type {
   ContentSnapshotV2,
+  GameModeDefinitionV2,
   MapSnapshotV2,
   TerrainDefinitionV2,
   VehicleDefinitionV2,
@@ -97,28 +98,39 @@ const terrains: TerrainDefinitionV2[] = [
   },
 ];
 
+const modes: GameModeDefinitionV2[] = [{
+  id: 'duel',
+  displayName: '歼灭决斗',
+  minTeams: 2,
+  maxTeams: 2,
+  victory: { kind: 'elimination-or-hp' },
+}, {
+  id: 'capture',
+  displayName: '据点争夺',
+  minTeams: 2,
+  maxTeams: 2,
+  victory: { kind: 'capture-or-elimination', captureTicks: 30 },
+}];
+
 export const GAMEPLAY_CONTENT_V2: ContentSnapshotV2 = deepFreeze({
   vehicles,
   weapons,
   terrains,
-  modes: [{
-    id: 'duel',
-    displayName: '歼灭决斗',
-    minTeams: 2,
-    maxTeams: 2,
-    victory: { kind: 'elimination-or-hp' },
-  }],
+  modes,
 });
 
 export const GAMEPLAY_MAP_FRONTIER_V2: MapSnapshotV2 = deepFreeze({
   id: 'frontier-v2',
-  version: '2.0.0',
+  version: '2.1.0',
   width: WIDTH,
   height: HEIGHT,
   terrainCells: createFrontierCells(),
   spawnPoints: [
     { id: 'spawn-west', x: 5, y: 12, bodyDirection: 2, turretDirection: 2 },
     { id: 'spawn-east', x: 26, y: 11, bodyDirection: 6, turretDirection: 6 },
+  ],
+  captureZones: [
+    { id: 'central-zone', x: 14, y: 9, width: 4, height: 6 },
   ],
 });
 
@@ -153,7 +165,8 @@ function createFrontierCells(): Array<{ x: number; y: number; terrainId: string 
   paint('forest', [[3, 3, 5, 4], [24, 17, 5, 4]]);
   paint('mud', [[12, 0, 8, 5], [12, 19, 8, 5]]);
   paint('wall', [
-    [15, 10, 2, 4],
+    [11, 10, 2, 4],
+    [19, 10, 2, 4],
     [7, 5, 3, 2],
     [22, 17, 3, 2],
     [7, 17, 3, 2],

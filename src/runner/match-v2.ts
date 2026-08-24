@@ -77,6 +77,7 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
         teamId: team.teamId,
         field: { width: input.mapSnapshot.width, height: input.mapSnapshot.height },
         terrainCells: input.mapSnapshot.terrainCells,
+        captureZones: input.mapSnapshot.captureZones ?? [],
         vehicle,
         weapon,
         rules: { maxTicks: matchConfig.maxTicks, tickBudgetMs, maxViolations },

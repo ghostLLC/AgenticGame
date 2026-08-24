@@ -246,7 +246,8 @@ TypeScript API 接入，CLI、网页控制台和播放器仍使用 v1。
   field: { width, height },
   self,                 // 自己的完整状态，含 velocityPermille / ammunition 等
   visibleEnemies: [],   // 只包含当前看得见的敌人
-  visibleProjectiles: []
+  visibleProjectiles: [],
+  objective             // 公开目标状态；歼灭模式为 null
 }
 ```
 
@@ -264,8 +265,16 @@ max(1, 火炮伤害 - max(0, 对应方向装甲 - 火炮穿深))
 
 ### 11.3 v2 初始化上下文
 
-`createTank(ctx)` 收到：`schemaVersion:2`、`teamId`、`field`、完整不可变 `terrainCells`、所选
+`createTank(ctx)` 收到：`schemaVersion:2`、`teamId`、`field`、完整不可变 `terrainCells`、公开的
+`captureZones`、所选
 `vehicle`、`weapon`、`rules` 和确定性 `rng()`。地图是开局公开信息，敌方实时状态不是。
+
+### 11.4 据点争夺
+
+`capture` 模式除了歼灭对手，还可以通过占领地图中央目标获胜。单方在区域内连续停留 30 tick 即完成占领；
+双方同时进入、占领方离开或被摧毁都会让连续进度归零。`view.objective` 会公开当前占领队伍、进度、目标值和
+争夺状态，Bot 可结合 `ctx.captureZones` 规划路线。详细规则见
+`docs/product/capture-mode-v2-spec.md`。
 
 完整的机器规格见 `docs/product/gameplay-v2-vertical-slice-spec.md`。v2 比赛产物是自包含
 MatchBundleV2，保存双方源码、内容/地图快照、实际动作、事件、权威状态检查点和日志，并可验证完整性。
@@ -279,7 +288,7 @@ Gameplay v2 可以把“Bot 源码＋车辆装配”保存为 `SavedBuildV2`。�
 导出同一个 `createTank(ctx)` 工厂；版本管理发生在比赛外，不会给上场 Bot 增加文件或网络权限。每场练习赛
 仍保存双方精确源码和装配到 MatchBundleV2，因此结果可回读、可复现、可验证。
 
-该能力当前是 TypeScript API；玩家界面入口需等待 Ardot 中的 Build 历史与练习赛流程验收。
+该能力当前是 TypeScript API；Build 历史与练习赛 Ardot 流程已经验收，玩家界面尚待接入。
 机器规格见 `docs/product/build-history-practice-spec.md`。
 
 ---

@@ -57,7 +57,10 @@ describe('gameplay v2 official content', () => {
 
   it('covers every frontier cell exactly once with symmetric spawns and working terrain semantics', () => {
     const map = GAMEPLAY_MAP_FRONTIER_V2;
-    expect(map).toMatchObject({ id: 'frontier-v2', version: '2.0.0', width: 32, height: 24 });
+    expect(map).toMatchObject({
+      id: 'frontier-v2', version: '2.1.0', width: 32, height: 24,
+      captureZones: [{ id: 'central-zone', x: 14, y: 9, width: 4, height: 6 }],
+    });
     expect(map.terrainCells).toHaveLength(32 * 24);
     expect(new Set(map.terrainCells.map((cell) => `${cell.x},${cell.y}`)).size).toBe(32 * 24);
     expect(map.terrainCells.every((cell) => getTerrainV2(cell.terrainId).id === cell.terrainId)).toBe(true);
@@ -72,5 +75,19 @@ describe('gameplay v2 official content', () => {
     expect(getTerrainV2('forest')).toMatchObject({ movementCostPermille: 1100, visibilityModifierPermille: 700 });
     expect(getTerrainV2('mud')).toMatchObject({ movementCostPermille: 1600, blocksMovement: false });
     expect(getTerrainV2('wall')).toMatchObject({ blocksMovement: true, blocksVision: true, blocksProjectiles: true });
+    expect(GAMEPLAY_CONTENT_V2.modes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'capture',
+        displayName: '据点争夺',
+        victory: { kind: 'capture-or-elimination', captureTicks: 30 },
+      }),
+    ]));
+    for (const zone of map.captureZones ?? []) {
+      for (let y = zone.y; y < zone.y + zone.height; y += 1) {
+        for (let x = zone.x; x < zone.x + zone.width; x += 1) {
+          expect(terrainByCell.get(`${x},${y}`)).not.toBe('wall');
+        }
+      }
+    }
   });
 });

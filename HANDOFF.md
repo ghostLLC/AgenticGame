@@ -208,8 +208,9 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **SavedBuildV2 配置历史**：Bot 完整源码与装配保存为不可变 revision；内容/记录双指纹、连续父链、路径防穿越、幂等保存与同目录原子发布均已实现。
 - **新旧版本练习赛**：`runPracticeMatchV2` 支持当前 revision 对战任意历史 revision，以及同版本镜像自测；比赛复用真实 Gameplay v2 沙盒与 Bundle 路径。
 - **Replay Studio v2 后端**：真实 Runner 可通过 `onBundle` 原子保存不可变比赛包；仓库按 bundle hash 去重并在加载/列表时验证完整性；玩家侧投影提供配置、结果和关键时刻，默认不暴露源码与哈希。
+- **据点争夺模式**：`capture` 模式与 `frontier-v2@2.1.0` 中央目标区已进入真实引擎；连续占领 30 tick、双方争夺/离开重置、歼灭优先、Bot 公开目标上下文与 Replay Studio 关键时刻均已实现。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：87 项自动化测试通过（81 项既有基线 + 6 项 Replay 仓库/Studio），TypeScript 类型检查与构建通过。
+- **质量基线**：92 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、回放仓库、Studio 投影和占领模式；TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -288,7 +289,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化与 Studio 投影已完成；Build 历史/练习赛 Ardot 流程已验收，下一步接入玩家入口并设计 Replay Studio 页面与占领模式。
+**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；Build 历史、练习赛与 Replay Studio Ardot 流程已验收，下一步接入玩家入口。
 **$P3 AI 原生入口**：外部 Agent 适配器与内置 TypeScript BYOK Harness，共享能力、预算、沙箱和评测。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。

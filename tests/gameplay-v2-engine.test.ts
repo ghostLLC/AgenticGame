@@ -9,7 +9,7 @@ import { IDLE_ACTION } from '../src/core/types.js';
 const idle: TankAction = { ...IDLE_ACTION };
 const act = (partial: Partial<TankAction>): TankAction => ({ ...IDLE_ACTION, ...partial });
 
-function config(vehicleA = 'scout', vehicleB = 'heavy', maxTicks = 100): MatchConfigV2 {
+function config(vehicleA = 'scout', vehicleB = 'heavy', maxTicks = 100, modeId = 'duel'): MatchConfigV2 {
   const weaponFor: Record<string, string> = {
     scout: 'light-cannon', medium: 'medium-cannon', heavy: 'heavy-cannon', missing: 'light-cannon',
   };
@@ -17,7 +17,7 @@ function config(vehicleA = 'scout', vehicleB = 'heavy', maxTicks = 100): MatchCo
     schemaVersion: 2,
     matchId: 'gameplay-engine-test',
     ruleset: { id: 'gameplay-v2', version: '2.0.0' },
-    modeId: 'duel',
+    modeId,
     mapId: 'test-map',
     seed: 1,
     maxTicks,
@@ -52,6 +52,30 @@ function mapFixture(
 
 function contentFixture(): ContentSnapshotV2 {
   return structuredClone(GAMEPLAY_CONTENT_V2);
+}
+
+function captureContent(captureTicks = 3): ContentSnapshotV2 {
+  const content = contentFixture();
+  return {
+    ...content,
+    modes: [
+      ...content.modes,
+      {
+        id: 'capture-test',
+        displayName: '占领测试',
+        minTeams: 2,
+        maxTeams: 2,
+        victory: { kind: 'capture-or-elimination', captureTicks },
+      },
+    ],
+  };
+}
+
+function captureMap(
+  spawns: MapSnapshotV2['spawnPoints'],
+  zone = { id: 'center', x: 1, y: 1, width: 1, height: 1 },
+): MapSnapshotV2 {
+  return Object.assign(mapFixture(spawns), { captureZones: [zone] });
 }
 
 describe('GameplayEngineV2 creation and mobility', () => {
@@ -194,5 +218,77 @@ describe('GameplayEngineV2 weapons and directional armor', () => {
       expect.objectContaining({ type: 'match-ended', winningTeamIds: ['team-a'], reason: 'destroyed' }),
     ]));
     expect(engine.state).toMatchObject({ finished: true, winningTeamIds: ['team-a'], endReason: 'destroyed' });
+  });
+});
+
+describe('GameplayEngineV2 capture mode', () => {
+  it('wins when one living team continuously occupies the zone for the required ticks', () => {
+    const map = captureMap([
+      { id: 'a', x: 1, y: 1, bodyDirection: 2, turretDirection: 2 },
+      { id: 'b', x: 10, y: 10, bodyDirection: 6, turretDirection: 6 },
+    ]);
+    const engine = new GameplayEngineV2(
+      config('scout', 'heavy', 20, 'capture-test'), captureContent(3), map,
+    );
+
+    const first = engine.step([idle, idle]);
+    engine.step([idle, idle]);
+    const third = engine.step([idle, idle]);
+
+    expect(first).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'capture-progress', teamId: 'team-a', progress: 1, required: 3 }),
+    ]));
+    expect(third).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'capture-progress', teamId: 'team-a', progress: 3, required: 3 }),
+      expect.objectContaining({ type: 'match-ended', winningTeamIds: ['team-a'], reason: 'captured' }),
+    ]));
+    expect(engine.state).toMatchObject({
+      finished: true,
+      winningTeamIds: ['team-a'],
+      endReason: 'captured',
+      objective: { zoneId: 'center', capturingTeamId: 'team-a', progress: 3, required: 3, contested: false },
+    });
+  });
+
+  it('marks a zone contested and prevents either team from gaining progress', () => {
+    const map = captureMap([
+      { id: 'a', x: 1, y: 1, bodyDirection: 2, turretDirection: 2 },
+      { id: 'b', x: 2, y: 1, bodyDirection: 6, turretDirection: 6 },
+    ], { id: 'center', x: 1, y: 1, width: 2, height: 1 });
+    const engine = new GameplayEngineV2(
+      config('scout', 'heavy', 20, 'capture-test'), captureContent(3), map,
+    );
+
+    const events = engine.step([idle, idle]);
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'capture-contested', zoneId: 'center', teamIds: ['team-a', 'team-b'] }),
+    ]));
+    expect(engine.state).toMatchObject({
+      finished: false,
+      objective: { zoneId: 'center', capturingTeamId: null, progress: 0, required: 3, contested: true },
+    });
+  });
+
+  it('resets partial progress when the occupying tank leaves the zone', () => {
+    const map = captureMap([
+      { id: 'a', x: 1, y: 1, bodyDirection: 2, turretDirection: 2 },
+      { id: 'b', x: 10, y: 10, bodyDirection: 6, turretDirection: 6 },
+    ]);
+    const engine = new GameplayEngineV2(
+      config('scout', 'heavy', 20, 'capture-test'), captureContent(3), map,
+    );
+
+    engine.step([act({ throttle: 1 }), idle]);
+    const events = engine.step([act({ throttle: 1 }), idle]);
+
+    expect(engine.state.tanks[0]).toMatchObject({ x: 2, y: 1 });
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'capture-reset', zoneId: 'center', teamId: 'team-a' }),
+    ]));
+    expect(engine.state).toMatchObject({
+      finished: false,
+      objective: { zoneId: 'center', capturingTeamId: null, progress: 0, required: 3, contested: false },
+    });
   });
 });

@@ -38,7 +38,7 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（87 项：v1 兼容 + Core/Replay/Gameplay v2 + 配置历史/练习赛/回放仓库）
+npm run test          # 自动化测试（92 项：v1 兼容 + Gameplay/Replay v2 + 配置历史/练习赛/占领模式）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
@@ -81,6 +81,7 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - 轻/中/重型炮具有独立伤害、穿深、射程、装填、弹速和有限弹药。
 - `frontier-v2` 包含开阔地、森林、泥地和墙体；森林降低目标可见距离，泥地提高移动消耗。
 - Bot 只收到当前可见敌人和炮弹；真实动作、战斗事件、状态、日志和源码进入可校验 MatchBundleV2。
+- `capture` 据点争夺要求单方连续控制中央区域 30 tick；双方争夺或离开会重置进度，歼灭仍可直接获胜。
 
 目前通过 TypeScript API 使用 `runMatchV2`；尚未接入 CLI、网页控制台和播放器。精确规则与接口见
 [Gameplay v2 纵切规格](docs/product/gameplay-v2-vertical-slice-spec.md) 和
@@ -129,7 +130,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] v0.2 首期玩法纵切：3 种车辆、视野、地形、方向装甲、弹药与机动差异
 - [x] SavedBuildV2 配置版本历史；新配置对战旧配置与同版本镜像练习赛 API
 - [x] Replay v2 本地不可变仓库、真实 Runner 持久化钩子与玩家侧 Studio 投影
-- [ ] 把 v2、配置历史和练习赛接入玩家界面；新增占领模式
+- [x] 据点争夺模式：公开目标区、连续占领、争夺/离开重置、歼灭或占领获胜
+- [ ] 把 v2、配置历史、练习赛和 Replay Studio 接入玩家界面
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
 - [ ] 外部 Agent 接入 + 内置 BYOK Harness
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容

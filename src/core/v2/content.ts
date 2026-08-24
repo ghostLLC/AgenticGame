@@ -77,6 +77,14 @@ export interface SpawnPointV2 {
   turretDirection: Direction8;
 }
 
+export interface CaptureZoneV2 {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface MapSnapshotV2 {
   id: string;
   version: string;
@@ -84,6 +92,7 @@ export interface MapSnapshotV2 {
   height: number;
   terrainCells: readonly TerrainCellV2[];
   spawnPoints: readonly SpawnPointV2[];
+  captureZones?: readonly CaptureZoneV2[];
 }
 
 export interface BotArtifactSnapshotV2 {

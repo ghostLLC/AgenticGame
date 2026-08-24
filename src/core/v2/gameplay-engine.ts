@@ -2,6 +2,7 @@ import { dirDelta, dirDiff, turnDir } from '../constants.js';
 import type { Dir, TankAction } from '../types.js';
 import type {
   ContentSnapshotV2,
+  CaptureZoneV2,
   MapSnapshotV2,
   TerrainDefinitionV2,
   VehicleDefinitionV2,
@@ -48,6 +49,15 @@ export interface GameplayStateV2 {
   finished: boolean;
   winningTeamIds: string[];
   endReason: string | null;
+  objective: GameplayObjectiveStateV2 | null;
+}
+
+export interface GameplayObjectiveStateV2 {
+  zoneId: string;
+  capturingTeamId: string | null;
+  progress: number;
+  required: number;
+  contested: boolean;
 }
 
 export interface BattleViewV2 {
@@ -57,6 +67,7 @@ export interface BattleViewV2 {
   self: GameplayTankStateV2;
   visibleEnemies: GameplayTankStateV2[];
   visibleProjectiles: GameplayProjectileStateV2[];
+  objective: GameplayObjectiveStateV2 | null;
 }
 
 export type ImpactZoneV2 = 'front' | 'side' | 'rear';
@@ -75,6 +86,9 @@ export type GameplayEventV2 =
     baseDamage: number; damage: number; victimHp: number;
   }
   | { type: 'destroyed'; tick: number; teamId: string }
+  | { type: 'capture-progress'; tick: number; zoneId: string; teamId: string; progress: number; required: number }
+  | { type: 'capture-contested'; tick: number; zoneId: string; teamIds: string[] }
+  | { type: 'capture-reset'; tick: number; zoneId: string; teamId: string }
   | { type: 'match-ended'; tick: number; winningTeamIds: string[]; reason: string };
 
 export class GameplayEngineV2 {
@@ -83,6 +97,7 @@ export class GameplayEngineV2 {
   private readonly weapons = new Map<string, WeaponDefinitionV2>();
   private readonly terrains = new Map<string, TerrainDefinitionV2>();
   private readonly terrainGrid: string[][];
+  private readonly captureZone: CaptureZoneV2 | null;
 
   constructor(
     readonly config: MatchConfigV2,
@@ -92,12 +107,16 @@ export class GameplayEngineV2 {
     assertMatchConfigV2(config);
     if (config.teams.length !== 2) throw new Error('Gameplay v2 首期仅支持恰好两个队伍');
     if (config.mapId !== map.id) throw new Error(`地图引用不匹配: ${config.mapId} != ${map.id}`);
-    if (!content.modes.some((mode) => mode.id === config.modeId)) throw new Error(`未知模式引用: ${config.modeId}`);
+    const mode = content.modes.find((item) => item.id === config.modeId);
+    if (!mode) throw new Error(`未知模式引用: ${config.modeId}`);
     indexUnique(content.vehicles, this.vehicles, '车辆');
     indexUnique(content.weapons, this.weapons, '武器');
     indexUnique(content.terrains, this.terrains, '地形');
     if (map.spawnPoints.length < 2) throw new Error('Gameplay v2 地图至少需要两个出生点');
     this.terrainGrid = compileTerrainGrid(map, this.terrains);
+    const captureRules = resolveCaptureRules(mode.victory, map);
+    this.captureZone = captureRules?.zone ?? null;
+    if (this.captureZone) validateCaptureZone(this.captureZone, map, (x, y) => this.terrainAt(x, y));
 
     const tanks = config.teams.map((team, index) => {
       const vehicle = this.vehicles.get(team.loadout.vehicleId);
@@ -140,6 +159,13 @@ export class GameplayEngineV2 {
       finished: false,
       winningTeamIds: [],
       endReason: null,
+      objective: captureRules ? {
+        zoneId: captureRules.zone.id,
+        capturingTeamId: null,
+        progress: 0,
+        required: captureRules.required,
+        contested: false,
+      } : null,
     };
   }
 
@@ -285,6 +311,7 @@ export class GameplayEngineV2 {
     if (survivors.length <= 1) {
       this.endMatch(events, survivors.map((tank) => tank.teamId), 'destroyed');
     }
+    if (!this.state.finished) this.updateCaptureObjective(events);
 
     this.state.tick += 1;
     if (!this.state.finished && this.state.tick >= this.config.maxTicks) {
@@ -309,6 +336,7 @@ export class GameplayEngineV2 {
       self: { ...self },
       visibleEnemies,
       visibleProjectiles,
+      objective: this.state.objective ? { ...this.state.objective } : null,
     };
   }
 
@@ -347,6 +375,57 @@ export class GameplayEngineV2 {
     events.push({ type: 'match-ended', tick: this.state.tick, winningTeamIds: [...winningTeamIds], reason });
   }
 
+  private updateCaptureObjective(events: GameplayEventV2[]): void {
+    const objective = this.state.objective;
+    const zone = this.captureZone;
+    if (!objective || !zone) return;
+    const occupyingTeamIds = this.state.tanks
+      .filter((tank) => tank.alive && isInsideZone(tank.x, tank.y, zone))
+      .map((tank) => tank.teamId);
+
+    if (occupyingTeamIds.length === 1) {
+      const teamId = occupyingTeamIds[0]!;
+      if (objective.capturingTeamId !== teamId) {
+        if (objective.capturingTeamId && objective.progress > 0) {
+          events.push({
+            type: 'capture-reset', tick: this.state.tick, zoneId: zone.id,
+            teamId: objective.capturingTeamId,
+          });
+        }
+        objective.capturingTeamId = teamId;
+        objective.progress = 0;
+      }
+      objective.contested = false;
+      objective.progress += 1;
+      events.push({
+        type: 'capture-progress', tick: this.state.tick, zoneId: zone.id,
+        teamId, progress: objective.progress, required: objective.required,
+      });
+      if (objective.progress >= objective.required) this.endMatch(events, [teamId], 'captured');
+      return;
+    }
+
+    if (objective.capturingTeamId && objective.progress > 0) {
+      events.push({
+        type: 'capture-reset', tick: this.state.tick, zoneId: zone.id,
+        teamId: objective.capturingTeamId,
+      });
+    }
+    objective.capturingTeamId = null;
+    objective.progress = 0;
+    if (occupyingTeamIds.length > 1) {
+      if (!objective.contested) {
+        events.push({
+          type: 'capture-contested', tick: this.state.tick, zoneId: zone.id,
+          teamIds: occupyingTeamIds,
+        });
+      }
+      objective.contested = true;
+    } else {
+      objective.contested = false;
+    }
+  }
+
   private canSee(observer: GameplayTankStateV2, x: number, y: number, applyTargetTerrain: boolean): boolean {
     const distance = Math.max(Math.abs(x - observer.x), Math.abs(y - observer.y));
     const visibility = applyTargetTerrain ? this.terrainAt(x, y).visibilityModifierPermille : 1000;
@@ -354,6 +433,41 @@ export class GameplayEngineV2 {
     return lineCellsBetween(observer.x, observer.y, x, y)
       .every((cell) => !this.terrainAt(cell.x, cell.y).blocksVision);
   }
+}
+
+function resolveCaptureRules(
+  victory: JsonObject,
+  map: MapSnapshotV2,
+): { zone: CaptureZoneV2; required: number } | null {
+  if (victory.kind !== 'capture-or-elimination') return null;
+  const required = victory.captureTicks;
+  if (!Number.isSafeInteger(required) || (required as number) < 1) {
+    throw new Error('占领模式 captureTicks 必须是正整数');
+  }
+  if (map.captureZones?.length !== 1) throw new Error('占领模式首期必须且只能配置一个占领区域');
+  return { zone: map.captureZones[0]!, required: required as number };
+}
+
+function validateCaptureZone(
+  zone: CaptureZoneV2,
+  map: MapSnapshotV2,
+  terrainAt: (x: number, y: number) => TerrainDefinitionV2,
+): void {
+  if (!zone.id || !Number.isSafeInteger(zone.x) || !Number.isSafeInteger(zone.y)
+    || !Number.isSafeInteger(zone.width) || !Number.isSafeInteger(zone.height)
+    || zone.width < 1 || zone.height < 1
+    || zone.x < 0 || zone.y < 0 || zone.x + zone.width > map.width || zone.y + zone.height > map.height) {
+    throw new Error(`非法占领区域: ${zone.id}`);
+  }
+  for (let y = zone.y; y < zone.y + zone.height; y += 1) {
+    for (let x = zone.x; x < zone.x + zone.width; x += 1) {
+      if (terrainAt(x, y).blocksMovement) throw new Error(`占领区域包含不可通行地形: ${zone.id}@${x},${y}`);
+    }
+  }
+}
+
+function isInsideZone(x: number, y: number, zone: CaptureZoneV2): boolean {
+  return x >= zone.x && y >= zone.y && x < zone.x + zone.width && y < zone.y + zone.height;
 }
 
 function indexUnique<T extends { id: string }>(items: readonly T[], output: Map<string, T>, label: string): void {

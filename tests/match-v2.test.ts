@@ -27,6 +27,17 @@ module.exports = function createTank() {
   };
 };`;
 
+const idleBot = `
+module.exports = function createTank(ctx) {
+  return {
+    name: 'Idle',
+    onTick() {
+      console.log('capture-zones:' + (ctx.captureZones ? ctx.captureZones.length : -1));
+      return {};
+    }
+  };
+};`;
+
 function matchConfig(): MatchConfigV2 {
   return {
     schemaVersion: 2,
@@ -101,5 +112,49 @@ describe('runMatchV2', () => {
       ],
       createdAt: '2026-08-24T00:00:00.000Z',
     })).rejects.toThrow('Bot source hash mismatch: team-a');
+  });
+
+  it('runs capture mode through the real sandbox and records objective events in the verified bundle', async () => {
+    const captureConfig = matchConfig();
+    const codeHash = fullCodeHash(idleBot);
+    captureConfig.modeId = 'capture';
+    captureConfig.maxTicks = 40;
+    for (const team of captureConfig.teams) {
+      team.bot = { artifactId: 'idle-bot', version: '1.0.0', codeHash };
+    }
+    const captureMap = structuredClone(GAMEPLAY_MAP_FRONTIER_V2);
+    captureMap.captureZones = [{ id: 'west-spawn-zone', x: 5, y: 12, width: 1, height: 1 }];
+
+    const output = await runMatchV2({
+      matchConfig: captureConfig,
+      contentSnapshot: GAMEPLAY_CONTENT_V2,
+      mapSnapshot: captureMap,
+      bots: [{ code: idleBot }, { code: idleBot }],
+      createdAt: '2026-08-24T06:00:00.000Z',
+      tickBudgetMs: 100,
+    });
+
+    expect(output.summary).toMatchObject({
+      winningTeamIds: ['team-a'], reason: 'captured', ticks: 30,
+    });
+    expect(output.bundle.events.filter((event) => event.type === 'capture-progress')).toHaveLength(30);
+    expect(output.bundle.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        tick: 29,
+        type: 'capture-progress',
+        payload: { zoneId: 'west-spawn-zone', teamId: 'team-a', progress: 30, required: 30 },
+      }),
+      expect.objectContaining({
+        tick: 29,
+        type: 'match-ended',
+        payload: { winningTeamIds: ['team-a'], reason: 'captured' },
+      }),
+    ]));
+    expect(output.bundle.checkpoints).toHaveLength(31);
+    expect(output.bundle.logs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourceId: 'team-a', message: 'capture-zones:1' }),
+      expect.objectContaining({ sourceId: 'team-b', message: 'capture-zones:1' }),
+    ]));
+    expect(verifyMatchBundleV2(output.bundle)).toEqual({ ok: true, issues: [] });
   });
 });

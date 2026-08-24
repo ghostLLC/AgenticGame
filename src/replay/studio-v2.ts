@@ -7,7 +7,7 @@ import {
 } from './v2.js';
 
 export type ReplayParticipantOutcomeV2 = 'winner' | 'defeated' | 'draw';
-export type ReplayMomentKindV2 = 'start' | 'damage' | 'destruction' | 'system' | 'result';
+export type ReplayMomentKindV2 = 'start' | 'damage' | 'destruction' | 'objective' | 'system' | 'result';
 
 export interface ReplayStudioParticipantV2 {
   teamId: string;
@@ -74,6 +74,7 @@ export function createReplayStudioViewV2(bundle: MatchBundleV2): ReplayStudioVie
   if (!moments.some((moment) => moment.kind === 'result')) {
     moments.push(resultMoment(bundle, teams));
   }
+  moments.sort((a, b) => a.tick - b.tick);
 
   return {
     matchId: bundle.config.matchId,
@@ -146,6 +147,43 @@ function eventToMoment(
         ? '双方战成平局'
         : `${winningTeamIds.map((teamId) => teamName(teams, teamId)).join('、')} 获胜`,
       teamIds: winningTeamIds,
+    };
+  }
+  if (event.type === 'capture-progress') {
+    const teamId = textValue(event.payload.teamId);
+    const progress = numberValue(event.payload.progress);
+    const required = numberValue(event.payload.required);
+    if (progress !== 1 && progress !== required && progress % 10 !== 0) return null;
+    return {
+      tick: event.tick,
+      kind: 'objective',
+      title: progress >= required
+        ? `${teamName(teams, teamId)} 完成占领`
+        : progress === 1
+          ? `${teamName(teams, teamId)} 开始占领`
+          : `${teamName(teams, teamId)} 持续占领`,
+      summary: `占领进度 ${progress} / ${required}`,
+      teamIds: teamId ? [teamId] : [],
+    };
+  }
+  if (event.type === 'capture-contested') {
+    const teamIds = stringArrayValue(event.payload.teamIds);
+    return {
+      tick: event.tick,
+      kind: 'objective',
+      title: '目标区域正在争夺',
+      summary: `${teamIds.map((teamId) => teamName(teams, teamId)).join('、')} 均在区域内`,
+      teamIds,
+    };
+  }
+  if (event.type === 'capture-reset') {
+    const teamId = textValue(event.payload.teamId);
+    return {
+      tick: event.tick,
+      kind: 'objective',
+      title: `${teamName(teams, teamId)} 占领中断`,
+      summary: '连续占领进度已重置',
+      teamIds: teamId ? [teamId] : [],
     };
   }
   if (['bot-load-failure', 'bot-timeout', 'bot-error', 'invalid-action'].includes(event.type)) {

@@ -6,7 +6,7 @@
 
 ## 1. Goal
 
-Turn the existing v2 data contracts into a real deterministic duel that proves the first layer of richer gameplay: three meaningfully different vehicles, fog of war, terrain effects, directional armor, finite ammunition, weapon range/reload, and acceleration-based mobility. The result must run untrusted Bots through the existing worker sandbox and emit a verified self-contained `MatchBundleV2`.
+Turn the existing v2 data contracts into a real deterministic game that proves the first layer of richer gameplay: three meaningfully different vehicles, fog of war, terrain effects, directional armor, finite ammunition, weapon range/reload, acceleration-based mobility, and objective-driven capture play. The result must run untrusted Bots through the existing worker sandbox and emit a verified self-contained `MatchBundleV2`.
 
 ## 2. Compatibility boundary
 
@@ -37,7 +37,7 @@ Each vehicle is compatible with its role weapon. Equipment remains an empty vers
 
 ## 4. Terrain and map
 
-The `frontier-v2` map is a complete immutable cell snapshot with symmetric spawns and four terrain definitions:
+The `frontier-v2@2.1.0` map is a complete immutable cell snapshot with symmetric spawns, a passable central capture zone, and four terrain definitions:
 
 - `open-ground`: movement cost 1000‰, visibility 1000‰, blocks nothing.
 - `forest`: movement cost 1100‰, visibility 700‰, blocks nothing; a target in forest is harder to detect.
@@ -55,7 +55,8 @@ Terrain overlap is resolved by paint order `open → forest → mud → wall`, s
 5. Advance projectiles by integer substeps. Wall/edge and range expiry remove a projectile.
 6. On hit, classify the impact zone from projectile travel direction versus victim body direction, apply armor, emit the full damage explanation, and remove the projectile.
 7. Fire after movement when reload is zero and ammunition is positive. Firing consumes one round and creates a projectile that moves next tick. Empty-ammo attempts emit `dry-fire`.
-8. Resolve deaths, increment the tick, and at `maxTicks` compare remaining HP.
+8. Resolve deaths. In capture mode, update continuous uncontested occupancy and end immediately at the configured target.
+9. Increment the tick and at `maxTicks` compare remaining HP.
 
 For a projectile, source direction is `(travelDirection + 4) mod 8`. Relative source directions within 45° of the body front are `front`, exactly 90° is `side`, and directions within 45° of the rear are `rear`.
 
@@ -67,7 +68,7 @@ max(1, weapon.damage - max(0, armor[impactZone] - weapon.penetration))
 
 ## 6. Fog of war and Bot API
 
-`BattleViewV2` exposes the full friendly tank and only currently visible enemy/projectile records. A target is visible when:
+`BattleViewV2` exposes the full friendly tank, the public objective state, and only currently visible enemy/projectile records. A target is visible when:
 
 ```text
 chebyshevDistance * 1000 <= observerVisionRange * targetTerrain.visibilityModifierPermille
@@ -75,7 +76,7 @@ chebyshevDistance * 1000 <= observerVisionRange * targetTerrain.visibilityModifi
 
 and no intermediate cell has `blocksVision=true`. The observer always sees itself. Projectiles use open-ground visibility (1000‰) and the same line-of-sight rule.
 
-The init context contains schema version, team ID, field dimensions, immutable terrain cells, the selected vehicle and weapon definitions, rules, and deterministic `rng()`. The action remains `{ throttle, bodyTurn, turretTurn, fire }`, allowing simple v1 strategies to be adapted without inventing a second control vocabulary.
+The init context contains schema version, team ID, field dimensions, immutable terrain cells, public capture zones, the selected vehicle and weapon definitions, rules, and deterministic `rng()`. The action remains `{ throttle, bodyTurn, turretTurn, fire }`, allowing simple v1 strategies to be adapted without inventing a second control vocabulary.
 
 ## 7. MatchBundleV2 evidence
 
@@ -97,5 +98,5 @@ An untouched result must pass `verifyMatchBundleV2`. Same timestamp, seed, confi
 - Reload prevents early refire, ammunition reaches zero, dry fire is observable, and projectiles expire at weapon range.
 - Heavy body/turret rotation cadence is slower than scout cadence.
 - A real sandboxed v2 match emits a verified deterministic MatchBundleV2 whose checkpoints include mobility, ammo, visibility-independent authoritative state, and result.
-- Existing 55 tests remain green; new tests, typecheck, build, and `git diff --check` pass.
-
+- A single uncontested team wins capture mode after 30 continuous ticks; contesting or leaving resets progress, and objective events remain visible in Replay Studio.
+- All 92 tests, typecheck, build, and `git diff --check` pass.
