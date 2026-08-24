@@ -149,6 +149,9 @@ src/
     match-v2.ts     v2 引擎×沙盒 Runner：过滤视野、动作回退、权威时间线与 MatchBundleV2
   practice/
     run-practice-match-v2.ts  把两个 SavedBuild revision 组装为真实 Gameplay v2 练习赛
+  online/
+    async-room-service-v1.ts  双席位房间状态机、凭证隔离、Build 冻结与权威比赛
+    async-room-http-v1.ts     `/api/rooms` 创建/加入/选 Build/准备/查询 HTTP 契约
   replay/
     format.ts       回放自包含格式（地图+规则+代码指纹+逐帧快照+事件+日志）
     v2.ts           完整 Match Bundle v2 创建、时间线约束与篡改校验
@@ -215,8 +218,9 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **Replay Studio v2 后端**：真实 Runner 可通过 `onBundle` 原子保存不可变比赛包；仓库按 bundle hash 去重并在加载/列表时验证完整性；玩家侧投影提供配置、结果和关键时刻，默认不暴露源码与哈希。
 - **据点争夺模式**：`capture` 模式与 `frontier-v2@2.1.0` 中央目标区已进入真实引擎；连续占领 30 tick、双方争夺/离开重置、歼灭优先、Bot 公开目标上下文与 Replay Studio 关键时刻均已实现。
 - **AI-native 首期闭环**：统一 Tool Registry 同时供 MCP stdio 与内置 Harness 使用；外部 Agent 可读取游戏上下文、在真实 v2 沙箱评测 Bot；内置 BYOK 支持 OpenAI-compatible 端点、严格工具白名单、轮次/调用预算和密钥脱敏。
+- **双人异步竞技房间后端纵切**：双席位令牌、6 位房间码、验证后的 SavedBuild 后台同步、准备状态原子开赛、真实 Gameplay v2 比赛和隐私化公开投影已实现；`/api/rooms` 通过真实 HTTP 集成测试。浏览器 Build 存储/同步和公开部署入口仍在接入。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：102 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、回放仓库、Studio 投影、占领模式和 Agent Harness/MCP/BYOK provider；TypeScript 类型检查与构建通过。
+- **质量基线**：107 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、异步房间 HTTP、回放仓库、Studio 投影、占领模式和 Agent Harness/MCP/BYOK provider；TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -262,7 +266,7 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 102 项自动化测试（含 v1/v2、配置历史、玩法与 AI-native 接入）
+npm run test          # 107 项自动化测试（含 v1/v2、异步房间、配置历史、玩法与 AI-native 接入）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
@@ -298,7 +302,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；Build 历史与练习赛设计已在 Ardot 页面 `2:115` 重建并完成布局复检（`3:299`、`3:399`、`3:492`），Replay Studio 设计也已完成；下一步按设计接入玩家入口。
+**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；双人异步房间的状态机、HTTP 协议和 Ardot 流程已完成，下一步接入浏览器 Build 存储/同步与玩家入口。
 **$P3 AI 原生入口（进行中）**：MCP + OpenAI-compatible BYOK 首期闭环已完成；下一步是 Ardot Agent Center、Anthropic 原生适配与多 seed 评测矩阵。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。

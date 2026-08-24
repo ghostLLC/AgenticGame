@@ -39,11 +39,12 @@ npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
 npm run arena -- mcp  # 外部 Agent 的本地 MCP stdio 服务
-npm run test          # 自动化测试（102 项：含 Agent Harness / MCP / BYOK provider）
+npm run test          # 自动化测试（107 项：含异步房间、Agent Harness / MCP / BYOK provider）
 ```
 
-和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
-任意一方本地 `arena play` → 把回放 JSON 发给对方验证（或直接让对方重跑确认结果一致）。
+正式双人流程采用房间制：创建房间 → 朋友用邀请码加入 → 双方各自选择并锁定 SavedBuild →
+服务器自动比赛 → 双方查看同一结果与回放。旧的 `.js` 文件互传方式仅保留为单机兼容手段，
+不再作为产品主路径。
 
 ## 默认 v1 游戏规则（30 秒版）
 
@@ -101,6 +102,15 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 当前提供 TypeScript API；Build 历史与练习赛 Ardot 设计已在页面 `2:115` 重建并完成布局复检
 （主屏节点 `3:299`、`3:399`，状态基线 `3:492`），下一步按该设计接入玩家界面。
 契约见 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
+
+## 双人异步竞技房间
+
+房间制后端纵切已经建立：双方使用独立席位令牌进入同一房间，在后台同步各自经过验证的
+`SavedBuildV2`，准备后由服务器只启动一次真实 Gameplay v2 比赛。房间公开状态不会返回 Bot
+源码、代码哈希或任何席位令牌；比赛完成后返回双方一致的结果与 Bundle 标识。
+
+当前已完成领域状态机和 `/api/rooms` HTTP 契约，浏览器端 Build 存储/同步及公开部署入口仍在接入。
+规格与 Ardot 节点见 [异步竞技房间规格](docs/product/async-room-v1-spec.md)。
 
 ## Replay Studio v2 后端
 
