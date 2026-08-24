@@ -38,7 +38,8 @@ npm run arena -- validate my-tank.js
 npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
-npm run test          # 自动化测试（92 项：v1 兼容 + Gameplay/Replay v2 + 配置历史/练习赛/占领模式）
+npm run arena -- mcp  # 外部 Agent 的本地 MCP stdio 服务
+npm run test          # 自动化测试（102 项：含 Agent Harness / MCP / BYOK provider）
 ```
 
 和朋友的约战流程：把 `docs/tank-spec.md` 发给对方 → 对方的 AI 写 bot → 互发 `.js` 文件 →
@@ -67,6 +68,7 @@ src/runtime/    bot 沙盒（worker + VM 白名单上下文、时间预算、日
 src/runner/     v1/v2 对局驱动（内核×沙盒×完整比赛包；违规与崩溃判负）
 src/cli/        arena 命令行（play / self / validate / serve / demo / maps）
 src/replay/     Replay v1 + Match Bundle v2 契约、持久化仓库与 Replay Studio 投影
+src/agent/      统一游戏工具、受限 Agent 循环、MCP 服务与 BYOK provider
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
 bots/           内置基准 bot（也是给 AI 的参考实现）
 docs/           v1 规则书、产品规格、治理规则和实施计划
@@ -108,6 +110,17 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 
 接口与验收口径见 [Replay Studio v2 规格](docs/product/replay-studio-v2-spec.md)。
 
+## AI 原生接入（首个可运行纵切）
+
+- 外部 Agent：`npm run arena -- mcp` 启动本地 stdio 服务，Codex、Claude Code 等 MCP Host 可发现
+  `get_game_context` 与 `evaluate_bot`，后者直接运行真实 v2 沙箱比赛并返回已验证摘要。
+- 内置 BYOK：设置 `AGENTIC_GAME_API_KEY` 后运行
+  `npm run arena -- agent <bot.js> --model <id> --base-url <兼容端点>`；密钥不写入参数、配置、日志或回放。
+- Harness 采用工具白名单、模型轮次/工具调用预算、AbortSignal 和结果脱敏；外部与内置路径共享完全相同的游戏工具。
+
+接入配置、安全边界与当前 provider 范围见
+[AI-native Harness v1 规格](docs/product/ai-native-harness-v1-spec.md)。
+
 ## 设计原则
 
 1. **游戏体验先于技术展示。** 默认路径服务普通玩家，代码、seed 和规则细节进入渐进式高级入口。
@@ -133,7 +146,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] 据点争夺模式：公开目标区、连续占领、争夺/离开重置、歼灭或占领获胜
 - [ ] 把 v2、配置历史、练习赛和 Replay Studio 接入玩家界面
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
-- [ ] 外部 Agent 接入 + 内置 BYOK Harness
+- [x] 外部 Agent MCP 接入 + 内置 OpenAI-compatible BYOK Harness 首个可运行纵切
+- [ ] Agent Center UI、Anthropic 原生适配与多 seed 评测矩阵
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容
 
 ## 常见问题

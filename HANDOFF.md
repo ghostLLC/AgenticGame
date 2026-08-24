@@ -154,6 +154,11 @@ src/
     v2.ts           完整 Match Bundle v2 创建、时间线约束与篡改校验
     repository-v2.ts  MatchBundleV2 不可变原子落盘、幂等保存、回读校验与列表索引
     studio-v2.ts      玩家侧回放摘要、关键时刻与逐回合检查点定位
+  agent/
+    harness-v1.ts     provider-neutral 受限工具循环、白名单、预算与敏感值脱敏
+    game-tools-v1.ts  共享游戏工具；真实 v2 沙箱评测并验证 MatchBundleV2
+    mcp-server-v1.ts  外部 Agent MCP 工具服务
+    providers/        内置 BYOK 模型适配器（首批 OpenAI-compatible）
   server/
     ui.ts           HTTP 控制台服务（页面 + /api/play /api/upload /api/bots /api/replays /api/spec）
     console.html    控制台前端页面（拖拽上传、选bot、开战、结果、历史）
@@ -209,8 +214,9 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **新旧版本练习赛**：`runPracticeMatchV2` 支持当前 revision 对战任意历史 revision，以及同版本镜像自测；比赛复用真实 Gameplay v2 沙盒与 Bundle 路径。
 - **Replay Studio v2 后端**：真实 Runner 可通过 `onBundle` 原子保存不可变比赛包；仓库按 bundle hash 去重并在加载/列表时验证完整性；玩家侧投影提供配置、结果和关键时刻，默认不暴露源码与哈希。
 - **据点争夺模式**：`capture` 模式与 `frontier-v2@2.1.0` 中央目标区已进入真实引擎；连续占领 30 tick、双方争夺/离开重置、歼灭优先、Bot 公开目标上下文与 Replay Studio 关键时刻均已实现。
+- **AI-native 首期闭环**：统一 Tool Registry 同时供 MCP stdio 与内置 Harness 使用；外部 Agent 可读取游戏上下文、在真实 v2 沙箱评测 Bot；内置 BYOK 支持 OpenAI-compatible 端点、严格工具白名单、轮次/调用预算和密钥脱敏。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：92 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、回放仓库、Studio 投影和占领模式；TypeScript 类型检查与构建通过。
+- **质量基线**：102 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、回放仓库、Studio 投影、占领模式和 Agent Harness/MCP/BYOK provider；TypeScript 类型检查与构建通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -228,8 +234,8 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
   但后续可重构 `paths.ts` 或调整构建配置以消除警告。
 - `console.html` 的"复制规则书"依赖 `Clipboard API`，部分老浏览器可能要用回退逻辑（已提供）。
 - 打包版双击运行后会在 `exe 同目录`生成 `my-bots/` 和 `replays/`（可移植）。
-- `npm install` 当前报告 5 个既有依赖漏洞（3 moderate、1 high、1 critical）；尚未执行可能包含破坏性升级的
-  `npm audit fix --force`，需要单独审计依赖来源与兼容性。
+- 既有 5 项依赖告警均追溯到开发期 `vitest@2` / `vite` 测试栈；已定向升级至 `vitest@4.1.11`
+  并完成全量回归，当前 `npm audit` 为 0 项漏洞，未使用 `npm audit fix --force`。
 
 ---
 
@@ -251,9 +257,12 @@ npm run arena -- self my-tank.js                  # 镜像测试
 npm run arena -- demo                             # 内置示例对决并打开回放
 npm run arena -- serve replays/<文件>.json        # 只打开回放播放器
 npm run arena -- maps                             # 列出官方地图
+npm run arena -- mcp                              # 外部 Agent 的 MCP stdio 服务
+# 设置 AGENTIC_GAME_API_KEY 后：
+npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 81 项自动化测试（69 项既有基线 + 12 项配置历史/练习赛）
+npm run test          # 102 项自动化测试（含 v1/v2、配置历史、玩法与 AI-native 接入）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
@@ -290,7 +299,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
 **$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；Build 历史、练习赛与 Replay Studio Ardot 流程已验收，下一步接入玩家入口。
-**$P3 AI 原生入口**：外部 Agent 适配器与内置 TypeScript BYOK Harness，共享能力、预算、沙箱和评测。
+**$P3 AI 原生入口（进行中）**：MCP + OpenAI-compatible BYOK 首期闭环已完成；下一步是 Ardot Agent Center、Anthropic 原生适配与多 seed 评测矩阵。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。
 **$P6 安全加固**：正式公开比赛时，沙盒从 `vm` 升级到进程级隔离或 WASM（当前 `vm` 不是
