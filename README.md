@@ -112,8 +112,9 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 代码哈希或完整指纹，比赛完成后双方收到一致的结果投影与 Bundle 标识。
 
 `FriendDataChannelPeerV1` 已支持大消息分帧与重组；`webrtc-handshake-v1` 已支持无需服务器的手动
-offer/answer 邀请串。浏览器/桌面 RTCPeerConnection 实例化、二维码、STUN/TURN、断线恢复和玩家
-界面仍待接入。短房间码如果用于公网，需要一个只负责牵线的轻量信令服务，不是比赛服务器。
+offer/answer 邀请串；`FriendRoomBrowserConnectionV1` 已完成真实浏览器 `RTCPeerConnection` 实例化、
+直连/STUN/TURN 配置校验，以及建连、已连接、断开和失败状态投影。二维码、断线重连和玩家界面仍待
+接入。短房间码如果用于公网，需要一个只负责牵线的轻量信令服务，不是比赛服务器。
 规格见 [好友房间 P2P 规格](docs/product/friend-room-p2p-v1-spec.md)。原服务器权威实现已
 [封存为未来排位原型](docs/product/async-room-v1-spec.md)。
 
@@ -162,7 +163,8 @@ offer/answer 邀请串。浏览器/桌面 RTCPeerConnection 实例化、二维�
 - [x] 据点争夺模式：公开目标区、连续占领、争夺/离开重置、歼灭或占领获胜
 - [x] 好友房间 P2P 核心：房主权威会话、自动 Build 同步、真实比赛与 DataChannel 分帧
 - [x] 好友房间无服务器 WebRTC 手动 offer/answer 邀请协议
-- [ ] 好友房间浏览器/桌面建连、二维码、断线恢复与玩家入口
+- [x] 好友房间浏览器 WebRTC 建连控制器、直连/STUN/TURN 配置和通道生命周期状态
+- [ ] 好友房间二维码、断线恢复与玩家入口
 - [ ] 排位模式（云端权威原型已封存，等待账号、匹配、安全沙盒与运营条件）
 - [ ] 把 v2、配置历史、练习赛和 Replay Studio 接入玩家界面
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室

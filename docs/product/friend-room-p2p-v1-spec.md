@@ -40,6 +40,10 @@ A short six-character room code cannot work globally without some rendezvous dir
 is kept behind `FriendRoomPeerV1` so manual signaling, LAN discovery, or a small signaling relay can be chosen
 without changing room or match logic.
 
+STUN helps a peer learn its public-facing address; TURN relays encrypted WebRTC traffic only when a direct
+path cannot be established. Neither service is the match authority. A strictly service-free profile is also
+available, but is expected to work mainly on LANs or networks where peers are directly reachable.
+
 ## 4. Implemented vertical slice
 
 - `FriendRoomHostSessionV1`: host-authoritative state machine and real `runPracticeMatchV2` execution.
@@ -48,6 +52,9 @@ without changing room or match logic.
   reassembly, a 1 MiB default message ceiling, and non-text/invalid-frame rejection.
 - `webrtc-handshake-v1.ts`: structural RTCPeerConnection offer/answer lifecycle, URL-safe `AGFR1` invite and
   answer codes, full ICE-gathering wait, timeout, direction validation, and session binding.
+- `browser-connection-v1.ts`: real browser `RTCPeerConnection` construction, validated direct/STUN/TURN ICE
+  profiles, role-safe offer/answer orchestration, and observable gathering/waiting/connected/disconnected/
+  failed states driven by the actual DataChannel lifecycle.
 - Verified SavedBuild ingestion on both guest and host; a Build change clears that seat's readiness.
 - Player-facing snapshots omit source, code hash, record fingerprints, and transport internals.
 - Verified MatchBundle generation on the host with a shared result projection and bundle hash.
@@ -90,7 +97,8 @@ rejected and do not mutate room state.
 - [x] Both peers converge on the same public result snapshot.
 - [x] Large Unicode messages are framed and reassembled across a DataChannel-like transport.
 - [x] Transport-neutral WebRTC offer/answer lifecycle and no-service manual invite codes.
-- [ ] Browser/desktop RTCPeerConnection wiring, QR exchange, and production STUN/TURN configuration.
+- [x] Browser RTCPeerConnection wiring and validated direct/STUN/TURN configuration boundary.
+- [ ] Desktop shell wiring, QR exchange, and deployment-owned production STUN/TURN credentials.
 - [ ] Reconnect, host-leave handling, rematch, and room expiry.
 - [ ] Player UI wired to the Ardot Friend Room flow.
 - [ ] Optional signaling rendezvous for short invite codes.
@@ -98,12 +106,10 @@ rejected and do not mutate room state.
 ## 8. Ardot design source
 
 - File: `cocraft://localhost/file/718070578872647`.
-- Existing page pending terminology refresh: `04 异步竞技房间` (`3:512`).
-- Required revision: rename to Friend Room, state P2P/host authority clearly, remove server-only privacy claims,
-  and add the trusted-friends notice.
-
-The Ardot MCP service was healthy on port 50501 on 2026-08-26, but this Codex task had no attached MCP
-server, so the canvas revision could not be truthfully performed in this implementation pass.
+- Page: `04 好友房间` (`3:512`).
+- Entry, host/guest manual signaling, connected lobby, result, and failure states now use the P2P terminology.
+- The canvas states host-device authority, trusted-friend source disclosure, sanitized guest results, and the
+  explicit offer/answer exchange instead of promising a server-backed six-character code.
 
 ## 9. Ranked archive
 

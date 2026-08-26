@@ -1,10 +1,18 @@
 import type { FriendRoomPeerV1 } from './session-v1.js';
 
+export type FriendDataChannelEventTypeV1 = 'message' | 'open' | 'close' | 'error';
+
+export interface FriendDataChannelEventV1 {
+  data?: unknown;
+}
+
+export type FriendDataChannelStateV1 = 'connecting' | 'open' | 'closed' | 'error';
+
 export interface FriendDataChannelLikeV1 {
   readonly readyState: string;
   send(data: string): void;
-  addEventListener(type: 'message', listener: (event: { data: unknown }) => void): void;
-  removeEventListener(type: 'message', listener: (event: { data: unknown }) => void): void;
+  addEventListener(type: FriendDataChannelEventTypeV1, listener: (event: FriendDataChannelEventV1) => void): void;
+  removeEventListener(type: FriendDataChannelEventTypeV1, listener: (event: FriendDataChannelEventV1) => void): void;
 }
 
 export interface FriendDataChannelPeerOptionsV1 {
@@ -32,9 +40,13 @@ export class FriendDataChannelPeerV1 implements FriendRoomPeerV1 {
   private readonly frameCharacters: number;
   private readonly maxMessageCharacters: number;
   private readonly listeners = new Set<(payload: string) => void>();
+  private readonly stateListeners = new Set<(state: FriendDataChannelStateV1) => void>();
   private readonly pending = new Map<string, PendingMessageV1>();
   private nextMessageId = 1;
-  private readonly onMessage = (event: { data: unknown }) => this.receive(event.data);
+  private readonly onMessage = (event: FriendDataChannelEventV1) => this.receive(event.data);
+  private readonly onOpen = () => this.emitState('open');
+  private readonly onClose = () => this.emitState('closed');
+  private readonly onError = () => this.emitState('error');
 
   constructor(channel: FriendDataChannelLikeV1, options: FriendDataChannelPeerOptionsV1 = {}) {
     this.channel = channel;
@@ -47,6 +59,9 @@ export class FriendDataChannelPeerV1 implements FriendRoomPeerV1 {
       throw new Error('maxMessageCharacters must be an integer no smaller than frameCharacters');
     }
     channel.addEventListener('message', this.onMessage);
+    channel.addEventListener('open', this.onOpen);
+    channel.addEventListener('close', this.onClose);
+    channel.addEventListener('error', this.onError);
   }
 
   send(payload: string): void {
@@ -73,10 +88,28 @@ export class FriendDataChannelPeerV1 implements FriendRoomPeerV1 {
     return () => this.listeners.delete(listener);
   }
 
+  getReadyState(): string {
+    return this.channel.readyState;
+  }
+
+  subscribeState(listener: (state: FriendDataChannelStateV1) => void): () => void {
+    this.stateListeners.add(listener);
+    listener(normalizeReadyState(this.channel.readyState));
+    return () => this.stateListeners.delete(listener);
+  }
+
   dispose(): void {
     this.channel.removeEventListener('message', this.onMessage);
+    this.channel.removeEventListener('open', this.onOpen);
+    this.channel.removeEventListener('close', this.onClose);
+    this.channel.removeEventListener('error', this.onError);
     this.listeners.clear();
+    this.stateListeners.clear();
     this.pending.clear();
+  }
+
+  private emitState(state: FriendDataChannelStateV1): void {
+    this.stateListeners.forEach((listener) => listener(state));
   }
 
   private receive(data: unknown): void {
@@ -103,6 +136,12 @@ export class FriendDataChannelPeerV1 implements FriendRoomPeerV1 {
       this.listeners.forEach((listener) => listener(payload));
     }
   }
+}
+
+function normalizeReadyState(value: string): FriendDataChannelStateV1 {
+  if (value === 'open') return 'open';
+  if (value === 'closed' || value === 'closing') return 'closed';
+  return 'connecting';
 }
 
 function parseFrame(payload: string): FrameV1 {
