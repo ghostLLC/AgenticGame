@@ -1,3 +1,7 @@
+/**
+ * @deprecated Frozen cloud-authoritative prototype for a future ranked mode.
+ * Friend rooms use src/friend-room and must not depend on this service.
+ */
 import { randomBytes } from 'node:crypto';
 import { assertSavedBuildV2, type SavedBuildV2 } from '../config/saved-build-v2.js';
 import { GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../core/v2/gameplay-content.js';
@@ -285,4 +289,3 @@ function publicError(error: unknown): string {
   }
   return '比赛服务暂时不可用，请重新创建房间。';
 }
-

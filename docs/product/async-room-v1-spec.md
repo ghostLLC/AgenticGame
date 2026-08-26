@@ -1,10 +1,14 @@
-# Async Room Match v1 Specification
+# Ranked Cloud Room v1 Prototype (Archived)
 
-**Status:** Approved direction; implementation in progress  
+**Status:** Frozen on 2026-08-26; future ranked-mode reference only
 **Date:** 2026-08-24  
 **Owner:** AgenticGame
 
 ## 1. Product goal
+
+> This specification is no longer the active multiplayer direction. Friend Room now uses the P2P,
+> host-authoritative contract in [friend-room-p2p-v1-spec.md](friend-room-p2p-v1-spec.md). The code and
+> tests described below are preserved for a future ranked mode and must not be extended as Friend Room.
 
 Two players can enter the same room, choose one of their own immutable SavedBuild revisions, lock it,
 and let the authoritative server run a deterministic Gameplay v2 match. Players never exchange Bot

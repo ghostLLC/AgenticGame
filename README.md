@@ -39,12 +39,12 @@ npm run arena -- self my-tank.js
 npm run arena -- maps
 npm run arena -- serve replays/<文件>.json
 npm run arena -- mcp  # 外部 Agent 的本地 MCP stdio 服务
-npm run test          # 自动化测试（107 项：含异步房间、Agent Harness / MCP / BYOK provider）
+npm run test          # 自动化测试（含好友房间 P2P、封存排位原型、Agent Harness / MCP / BYOK provider）
 ```
 
-正式双人流程采用房间制：创建房间 → 朋友用邀请码加入 → 双方各自选择并锁定 SavedBuild →
-服务器自动比赛 → 双方查看同一结果与回放。旧的 `.js` 文件互传方式仅保留为单机兼容手段，
-不再作为产品主路径。
+正式双人流程采用好友房间：双方在线并建立 P2P 连接 → 各自选择并锁定 SavedBuild → 客人 Build
+由程序自动同步 → 房主设备运行比赛 → 双方查看同一结果。用户不再处理 `.js` 文件或上传流程。
+好友模式基于互信，房主设备会收到并执行客人的策略源码；未来排位才使用云端权威执行。
 
 ## 默认 v1 游戏规则（30 秒版）
 
@@ -70,6 +70,8 @@ src/runner/     v1/v2 对局驱动（内核×沙盒×完整比赛包；违规与
 src/cli/        arena 命令行（play / self / validate / serve / demo / maps）
 src/replay/     Replay v1 + Match Bundle v2 契约、持久化仓库与 Replay Studio 投影
 src/agent/      统一游戏工具、受限 Agent 循环、MCP 服务与 BYOK provider
+src/friend-room/ 好友房间 P2P 协议、房主权威会话与 DataChannel 分帧传输
+src/online/     已封存的未来排位/云端权威房间原型（不属于好友房间运行路径）
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
 bots/           内置基准 bot（也是给 AI 的参考实现）
 docs/           v1 规则书、产品规格、治理规则和实施计划
@@ -103,14 +105,16 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 （主屏节点 `3:299`、`3:399`，状态基线 `3:492`），下一步按该设计接入玩家界面。
 契约见 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
 
-## 双人异步竞技房间
+## 双人好友房间（P2P）
 
-房间制后端纵切已经建立：双方使用独立席位令牌进入同一房间，在后台同步各自经过验证的
-`SavedBuildV2`，准备后由服务器只启动一次真实 Gameplay v2 比赛。房间公开状态不会返回 Bot
-源码、代码哈希或任何席位令牌；比赛完成后返回双方一致的结果与 Bundle 标识。
+首个 P2P 纵切已经建立：双方通过 `FriendRoomPeerV1` 连接，客人选择的 `SavedBuildV2` 在后台
+自动同步到房主设备；双方准备后，仅房主启动一次真实 Gameplay v2 比赛。公开状态不返回源码、
+代码哈希或完整指纹，比赛完成后双方收到一致的结果投影与 Bundle 标识。
 
-当前已完成领域状态机和 `/api/rooms` HTTP 契约，浏览器端 Build 存储/同步及公开部署入口仍在接入。
-规格与 Ardot 节点见 [异步竞技房间规格](docs/product/async-room-v1-spec.md)。
+`FriendDataChannelPeerV1` 已支持大消息分帧与重组；浏览器/桌面 WebRTC 建连、断线恢复和玩家界面
+仍待接入。短房间码如果用于公网，需要一个只负责牵线的轻量信令服务，不是比赛服务器。
+规格见 [好友房间 P2P 规格](docs/product/friend-room-p2p-v1-spec.md)。原服务器权威实现已
+[封存为未来排位原型](docs/product/async-room-v1-spec.md)。
 
 ## Replay Studio v2 后端
 
@@ -155,6 +159,9 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] SavedBuildV2 配置版本历史；新配置对战旧配置与同版本镜像练习赛 API
 - [x] Replay v2 本地不可变仓库、真实 Runner 持久化钩子与玩家侧 Studio 投影
 - [x] 据点争夺模式：公开目标区、连续占领、争夺/离开重置、歼灭或占领获胜
+- [x] 好友房间 P2P 核心：房主权威会话、自动 Build 同步、真实比赛与 DataChannel 分帧
+- [ ] 好友房间 WebRTC 建连、断线恢复与玩家入口
+- [ ] 排位模式（云端权威原型已封存，等待账号、匹配、安全沙盒与运营条件）
 - [ ] 把 v2、配置历史、练习赛和 Replay Studio 接入玩家界面
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
 - [x] 外部 Agent MCP 接入 + 内置 OpenAI-compatible BYOK Harness 首个可运行纵切
@@ -163,7 +170,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 
 ## 常见问题
 
-**为什么 bot 用 JavaScript？** AI 写 JS 最顺、Node 沙盒成熟、朋友对战只需互发单个 .js 文件，零门槛。
+**为什么 bot 用 JavaScript？** AI 写 JS 最顺、Node 沙盒成熟；好友房间会在 P2P 连接中自动同步
+经过验证的 Build，玩家无需处理源码文件。
 
 **平局太多怎么办？** 让你的 AI 更快建立直线火力优势；1500 tick 打满后按 HP 判定，拖时间没有收益。
 

@@ -1,3 +1,7 @@
+/**
+ * @deprecated Frozen HTTP adapter for the future ranked/cloud mode.
+ * It is intentionally not a friend-room runtime dependency.
+ */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AsyncRoomServiceV1 } from './async-room-service-v1.js';
 
@@ -97,4 +101,3 @@ function json(response: ServerResponse, status: number, value: unknown): void {
   });
   response.end(JSON.stringify(value));
 }
-
