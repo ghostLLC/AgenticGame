@@ -32,7 +32,7 @@ of Friend Room.
 The match and Build data path does not require a game server. Establishing an Internet WebRTC connection may
 still use either:
 
-1. manual offer/answer exchange, which needs no service but has higher interaction cost; or
+1. manual offer/answer exchange, which is now implemented and needs no service but has higher interaction cost; or
 2. a lightweight signaling rendezvous, which only helps the two peers find each other and does not receive,
    execute, or store Builds and matches.
 
@@ -46,6 +46,8 @@ without changing room or match logic.
 - `FriendRoomGuestSessionV1`: hello, automatic Build transfer, ready control, snapshots, and bounded errors.
 - `FriendDataChannelPeerV1`: structural RTCDataChannel adapter with 16 KiB default frames, Unicode-safe
   reassembly, a 1 MiB default message ceiling, and non-text/invalid-frame rejection.
+- `webrtc-handshake-v1.ts`: structural RTCPeerConnection offer/answer lifecycle, URL-safe `AGFR1` invite and
+  answer codes, full ICE-gathering wait, timeout, direction validation, and session binding.
 - Verified SavedBuild ingestion on both guest and host; a Build change clears that seat's readiness.
 - Player-facing snapshots omit source, code hash, record fingerprints, and transport internals.
 - Verified MatchBundle generation on the host with a shared result projection and bundle hash.
@@ -87,7 +89,8 @@ rejected and do not mutate room state.
 - [x] Both ready states start exactly one real Gameplay v2 match on the host.
 - [x] Both peers converge on the same public result snapshot.
 - [x] Large Unicode messages are framed and reassembled across a DataChannel-like transport.
-- [ ] Browser/desktop WebRTC offer-answer lifecycle and ICE configuration.
+- [x] Transport-neutral WebRTC offer/answer lifecycle and no-service manual invite codes.
+- [ ] Browser/desktop RTCPeerConnection wiring, QR exchange, and production STUN/TURN configuration.
 - [ ] Reconnect, host-leave handling, rematch, and room expiry.
 - [ ] Player UI wired to the Ardot Friend Room flow.
 - [ ] Optional signaling rendezvous for short invite codes.
