@@ -73,4 +73,46 @@ describe('桌面好友房间比赛运行时 v1', () => {
       .toEqual(expect.arrayContaining(['configuring', 'running', 'complete']));
     expect(hostEvents.at(-1)?.snapshot?.status).toBe('complete');
   });
+
+  it('换用新连接后恢复原房间，不要求双方重新选择战术', () => {
+    let host!: DesktopFriendRoomRuntimeV1;
+    let guest!: DesktopFriendRoomRuntimeV1;
+    const hostEvents: DesktopFriendRoomEventV1[] = [];
+
+    host = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => guest.receivePeer(payload),
+      onEvent: (event) => hostEvents.push(event),
+      createdAt: () => '2026-08-27T00:00:00.000Z',
+      maxTicks: 8,
+    });
+    guest = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => host.receivePeer(payload),
+      onEvent: () => undefined,
+      createdAt: () => '2026-08-27T00:00:00.000Z',
+      maxTicks: 8,
+    });
+
+    host.start({ role: 'host', sessionId: 'friend-desktop-recovery', displayName: '乐淳' });
+    guest.start({ role: 'guest', displayName: 'Ghost' });
+    host.selectPreset('medium');
+    guest.selectPreset('heavy');
+    host.setReady(true);
+
+    host.transportClosed();
+    expect(hostEvents.at(-1)?.snapshot).toMatchObject({
+      participants: [
+        { seat: 'host', ready: false, build: { label: '中线突击队' } },
+        { seat: 'guest', connected: false, ready: false, build: { label: '钢铁堡垒队' } },
+      ],
+    });
+
+    guest.resumeTransport();
+    expect(hostEvents.at(-1)?.snapshot).toMatchObject({
+      status: 'configuring',
+      participants: [
+        { seat: 'host', build: { label: '中线突击队' } },
+        { seat: 'guest', connected: true, build: { label: '钢铁堡垒队' } },
+      ],
+    });
+  });
 });

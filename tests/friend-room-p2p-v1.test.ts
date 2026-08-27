@@ -146,6 +146,39 @@ describe('好友房间 P2P v1', () => {
     expect(host.getSnapshot().participants[1]?.build).toBeUndefined();
     expect(guest.getLastError()).toMatchObject({ code: 'invalid-message' });
   });
+
+  it('断线时取消准备，并允许同一房间恢复后保留双方 Build', () => {
+    const [hostPeer, guestPeer] = memoryPeerPair();
+    const host = new FriendRoomHostSessionV1({
+      peer: hostPeer,
+      sessionId: 'friend-session-recovery',
+      displayName: 'Host',
+      maxTicks: 4,
+    });
+    const guest = new FriendRoomGuestSessionV1({ peer: guestPeer, displayName: 'Guest' });
+
+    host.selectBuild(build('host-build', 'Host v1', passiveSource));
+    guest.selectBuild(build('guest-build', 'Guest v1', movingSource));
+    host.setReady(true);
+
+    host.markPeerDisconnected();
+    expect(host.getSnapshot()).toMatchObject({
+      participants: [
+        { seat: 'host', connected: true, ready: false, build: { buildId: 'host-build' } },
+        { seat: 'guest', connected: false, ready: false, build: { buildId: 'guest-build' } },
+      ],
+    });
+
+    guest.resume();
+    expect(host.getSnapshot()).toMatchObject({
+      status: 'configuring',
+      participants: [
+        { seat: 'host', connected: true, ready: false, build: { buildId: 'host-build' } },
+        { seat: 'guest', connected: true, ready: false, build: { buildId: 'guest-build' } },
+      ],
+    });
+    expect(guest.getSnapshot()).toEqual(host.getSnapshot());
+  });
 });
 
 class LinkedDataChannel implements FriendDataChannelLikeV1 {

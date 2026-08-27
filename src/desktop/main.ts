@@ -37,6 +37,14 @@ function installFriendRoomIpc(): void {
     if (!runtime) throw new Error('请先连接好友');
     runtime.requestRematch();
   });
+  ipcMain.handle('friend-room:transport-closed', (event) => {
+    roomRuntimes.get(event.sender.id)?.transportClosed();
+  });
+  ipcMain.handle('friend-room:resume-transport', (event) => {
+    const runtime = roomRuntimes.get(event.sender.id);
+    if (!runtime) throw new Error('请先进入好友房间');
+    runtime.resumeTransport();
+  });
   ipcMain.handle('friend-room:reset', (event) => roomRuntimes.delete(event.sender.id));
 }
 

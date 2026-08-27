@@ -11,6 +11,8 @@ import {
 class FakeEntryConnection implements FriendRoomEntryConnectionV1 {
   private state: FriendRoomBrowserConnectionStateV1 = 'idle';
   private readonly listeners = new Set<(state: FriendRoomBrowserConnectionStateV1) => void>();
+  disposed = false;
+  sessionId?: string;
 
   constructor(readonly role: FriendRoomRoleV1) {}
 
@@ -20,17 +22,20 @@ class FakeEntryConnection implements FriendRoomEntryConnectionV1 {
     listener(this.state);
     return () => this.listeners.delete(listener);
   }
-  async createInvite(): Promise<string> {
+  getSessionId(): string | undefined { return this.sessionId; }
+  async createInvite(sessionId: string): Promise<string> {
+    this.sessionId = sessionId;
     this.emit('waiting-answer');
     return 'INVITE-CARD';
   }
-  async acceptInvite(): Promise<string> {
+  async acceptInvite(inviteCode: string): Promise<string> {
+    this.sessionId = inviteCode === 'OTHER-ROOM' ? 'other-room' : 'friend-room-20260826';
     this.emit('waiting-host');
     return 'JOIN-CONFIRMATION';
   }
   async acceptAnswer(): Promise<void> { this.emit('connecting'); }
   connect(): void { this.emit('connected'); }
-  dispose(): void { this.listeners.clear(); }
+  dispose(): void { this.disposed = true; this.listeners.clear(); }
 
   private emit(state: FriendRoomBrowserConnectionStateV1): void {
     this.state = state;
@@ -85,5 +90,42 @@ describe('好友房间玩家入口控制器 v1', () => {
 
     await expect(controller.createRoom('  ')).rejects.toThrow('请先填写你的昵称');
     await expect(controller.joinRoom('Ghost', '  ')).rejects.toThrow('请粘贴好友发来的邀请卡');
+  });
+
+  it('为原房间创建新会合邀请，并拒绝客人误接入其他房间', async () => {
+    const connections: FakeEntryConnection[] = [];
+    const controller = new FriendRoomEntryControllerV1({
+      createConnection: (role) => {
+        const connection = new FakeEntryConnection(role);
+        connections.push(connection);
+        return connection;
+      },
+      createSessionId: () => 'friend-room-20260826',
+    });
+
+    await controller.createRoom('乐淳');
+    connections[0]!.connect();
+    await controller.createRecoveryInvite('friend-room-20260826');
+    expect(connections[0]!.disposed).toBe(true);
+    expect(controller.getSnapshot()).toMatchObject({
+      role: 'host',
+      nickname: '乐淳',
+      invitationCard: 'INVITE-CARD',
+      playerStatus: { title: '等待朋友回应' },
+    });
+
+    const guestController = new FriendRoomEntryControllerV1({
+      createConnection: (role) => {
+        const connection = new FakeEntryConnection(role);
+        connections.push(connection);
+        return connection;
+      },
+      createSessionId: () => 'unused',
+    });
+    await guestController.joinRoom('Ghost', 'INVITE-CARD');
+    connections.at(-1)!.connect();
+    await expect(guestController.acceptRecoveryInvite('OTHER-ROOM', 'friend-room-20260826'))
+      .rejects.toThrow('这不是当前好友房间的会合邀请');
+    expect(connections.at(-1)!.disposed).toBe(true);
   });
 });

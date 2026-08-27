@@ -19,14 +19,18 @@ describe('桌面游戏外壳 v1', () => {
     );
 
     expect(html).toContain('<link rel="icon" href="data:,">');
-    expect(html.match(/class="signal-field"/g)).toHaveLength(4);
+    expect(html.match(/class="signal-field"/g)).toHaveLength(8);
     expect(html).toContain('邀请卡已准备好');
     expect(html).toContain('点击后粘贴朋友发来的内容');
     expect(html).toContain('进入战前准备');
     expect(html).toContain('锁定战术');
     expect(html).toContain('准备出战');
     expect(html).toContain('本场战报');
+    expect(html).toContain('重新与好友会合');
+    expect(html).toContain('生成会合邀请');
+    expect(html).toContain('接好友回来');
     expect(css).toContain('.signal-field textarea { color: transparent;');
+    expect(css).toContain('.recovery-actions .signal-field textarea { color: transparent;');
     expect(css).toContain('[hidden] { display: none !important; }');
   });
 
@@ -88,6 +92,12 @@ describe('桌面游戏外壳 v1', () => {
       eyebrow: '未能连接',
       title: '请重新邀请好友',
       detail: '检查双方是否在线，然后重新创建好友房间。',
+      tone: 'danger',
+    });
+    expect(friendRoomPlayerStatusV1('disconnected')).toEqual({
+      eyebrow: '好友暂时离线',
+      title: '重新与好友会合',
+      detail: '房间仍然保留，房主可以生成新的会合邀请。',
       tone: 'danger',
     });
 

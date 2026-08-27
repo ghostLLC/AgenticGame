@@ -18,6 +18,7 @@ export interface FriendWebRtcPeerConnectionLikeV1 {
   createAnswer(): Promise<FriendSessionDescriptionV1>;
   setLocalDescription(description: FriendSessionDescriptionV1): Promise<void>;
   setRemoteDescription(description: FriendSessionDescriptionV1): Promise<void>;
+  close?(): void;
   addEventListener(
     type: 'icegatheringstatechange' | 'datachannel',
     listener: (() => void) | ((event: { channel: FriendDataChannelLikeV1 }) => void),

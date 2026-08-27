@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('agenticGameDesktop', {
     requestRematch(): Promise<void> {
       return ipcRenderer.invoke('friend-room:request-rematch');
     },
+    transportClosed(): Promise<void> {
+      return ipcRenderer.invoke('friend-room:transport-closed');
+    },
+    resumeTransport(): Promise<void> {
+      return ipcRenderer.invoke('friend-room:resume-transport');
+    },
     reset(): Promise<void> {
       return ipcRenderer.invoke('friend-room:reset');
     },

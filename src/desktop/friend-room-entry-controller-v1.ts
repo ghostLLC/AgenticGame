@@ -9,6 +9,7 @@ import {
 
 export interface FriendRoomEntryConnectionV1 {
   getState(): FriendRoomBrowserConnectionStateV1;
+  getSessionId(): string | undefined;
   subscribeState(listener: (state: FriendRoomBrowserConnectionStateV1) => void): () => void;
   createInvite(sessionId: string): Promise<string>;
   acceptInvite(inviteCode: string): Promise<string>;
@@ -76,6 +77,28 @@ export class FriendRoomEntryControllerV1 {
     await this.connection.acceptAnswer(normalizedConfirmation);
   }
 
+  async createRecoveryInvite(sessionId: string): Promise<void> {
+    if (this.snapshot.role !== 'host' || !this.snapshot.nickname) throw new Error('只有房主可以生成会合邀请');
+    const connection = this.replaceConnection('host');
+    const invitationCard = await connection.createInvite(sessionId);
+    this.update({ invitationCard, joinConfirmation: undefined });
+  }
+
+  async acceptRecoveryInvite(invitationCard: string, expectedSessionId: string): Promise<void> {
+    if (this.snapshot.role !== 'guest' || !this.snapshot.nickname) throw new Error('只有受邀好友可以使用会合邀请');
+    const normalizedInvitation = invitationCard.trim();
+    if (!normalizedInvitation) throw new Error('请粘贴房主发来的会合邀请');
+    const connection = this.replaceConnection('guest');
+    try {
+      const joinConfirmation = await connection.acceptInvite(normalizedInvitation);
+      if (connection.getSessionId() !== expectedSessionId) throw new Error('这不是当前好友房间的会合邀请');
+      this.update({ joinConfirmation, invitationCard: undefined });
+    } catch (error) {
+      connection.dispose();
+      throw error;
+    }
+  }
+
   reset(): void {
     this.unsubscribeState?.();
     this.unsubscribeState = undefined;
@@ -90,6 +113,24 @@ export class FriendRoomEntryControllerV1 {
     const connection = this.options.createConnection(role);
     this.connection = connection;
     this.snapshot = { role, nickname, playerStatus: friendRoomPlayerStatusV1(connection.getState()) };
+    this.unsubscribeState = connection.subscribeState((state) => {
+      this.update({ playerStatus: friendRoomPlayerStatusV1(state) });
+    });
+    this.notify();
+    return connection;
+  }
+
+  private replaceConnection(role: FriendRoomRoleV1): FriendRoomEntryConnectionV1 {
+    this.unsubscribeState?.();
+    this.connection?.dispose();
+    const connection = this.options.createConnection(role);
+    this.connection = connection;
+    this.snapshot = {
+      ...this.snapshot,
+      invitationCard: undefined,
+      joinConfirmation: undefined,
+      playerStatus: friendRoomPlayerStatusV1(connection.getState()),
+    };
     this.unsubscribeState = connection.subscribeState((state) => {
       this.update({ playerStatus: friendRoomPlayerStatusV1(state) });
     });

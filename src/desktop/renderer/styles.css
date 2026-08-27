@@ -28,6 +28,9 @@ button { border: 0; }
 .breadcrumb b { padding: 0 8px; color: #5f554e; }
 .connection-pill, .trust-pill { border-radius: 99px; background: #133c2b; color: #7be3ad; padding: 9px 14px; font-size: 12px; white-space: nowrap; }
 .connection-pill span { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #18ca69; box-shadow: 0 0 12px #18ca69; }
+.connection-pill b { font-weight: 700; }
+.connection-pill[data-state="offline"] { color: #ffb29d; background: #4a2821; }
+.connection-pill[data-state="offline"] span { background: #ff7958; box-shadow: 0 0 12px rgba(255, 121, 88, .75); }
 
 .workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: 230px 1fr; gap: 20px; }
 .sidebar { min-height: 0; padding: 22px 18px; display: flex; flex-direction: column; gap: 8px; background: rgba(33, 28, 25, .96); border: 1px solid var(--line); border-radius: 18px; }
@@ -101,6 +104,14 @@ button:disabled { opacity: .45; cursor: default; }
 .tactics-panel label { display: block; margin-bottom: 7px; color: #d9cec4; font-size: 12px; font-weight: 700; }
 .tactics-panel select { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #43382f; border-radius: 11px; outline: 0; color: #efe8e1; background: #1e1917; }
 .tactics-panel .primary-button, .tactics-panel .secondary-button { margin-top: 0; }
+.recovery-panel { margin-top: 16px; padding: 22px; display: grid; grid-template-columns: minmax(220px, .8fr) minmax(360px, 1.2fr); gap: 24px; border-radius: 15px; background: linear-gradient(110deg, #38231f, #29231f); border: 1px solid rgba(255, 157, 131, .18); }
+.recovery-copy p { margin: 0 0 5px; color: #ff9d83; font-size: 11px; font-weight: 800; }
+.recovery-copy h2 { margin: 0 0 7px; }
+.recovery-copy span { color: #cbb5ac; font-size: 12px; line-height: 1.55; }
+.recovery-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 10px; }
+.recovery-actions .primary-button, .recovery-actions .secondary-button, .recovery-actions .join-button { margin-top: 0; }
+.recovery-actions textarea { width: 100%; min-height: 48px; border: 1px solid transparent; border-radius: 11px; padding: 12px; color: #efe8e1; background: var(--field); }
+.recovery-actions .signal-field textarea { color: transparent; caret-color: transparent; }
 .result-panel { margin-top: 16px; padding: 22px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-radius: 15px; background: linear-gradient(110deg, #173528, #21251f); border: 1px solid rgba(83, 217, 149, .18); }
 .result-panel p { margin: 0 0 5px; color: var(--green); font-size: 11px; font-weight: 800; }
 .result-panel h2 { margin: 0 0 5px; }
@@ -125,6 +136,7 @@ button:disabled { opacity: .45; cursor: default; }
   .participant-grid { grid-template-columns: 1fr; }
   .versus { display: none; }
   .tactics-panel { grid-template-columns: 1fr; }
+  .recovery-panel, .recovery-actions { grid-template-columns: 1fr; }
   .result-panel { align-items: stretch; flex-direction: column; }
   .result-panel .primary-button { width: 100%; }
   .trust-pill { display: none; }

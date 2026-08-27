@@ -13,7 +13,7 @@
     <header class="topbar">
       <div class="brand"><span>AGENTICGAME</span><i></i><strong>坦克竞技场</strong></div>
       <div class="breadcrumb">好友房间 <b>/</b> 连接大厅</div>
-      <div class="connection-pill"><span></span>好友直连</div>
+      <div id="connection-pill" class="connection-pill"><span></span><b id="connection-label">好友直连</b></div>
     </header>
 
     <div class="workspace">
@@ -136,6 +136,39 @@
             <button id="lock-preset" class="secondary-button" type="button">锁定战术</button>
             <button id="ready-match" class="primary-button" type="button">准备出战</button>
           </div>
+
+          <section id="recovery-panel" class="recovery-panel" hidden>
+            <div class="recovery-copy">
+              <p>好友暂时离线</p>
+              <h2>重新与好友会合</h2>
+              <span>房间、战术和已完成战报都还在。重新交换一次邀请即可继续。</span>
+            </div>
+            <div id="recovery-host" class="recovery-actions" hidden>
+              <button id="create-recovery-invite" data-action class="secondary-button" type="button">生成会合邀请</button>
+              <div class="signal-field">
+                <textarea id="recovery-invitation-result" readonly aria-label="新的会合邀请"></textarea>
+                <span aria-hidden="true">新的会合邀请会显示在这里</span>
+              </div>
+              <button id="copy-recovery-invitation" class="secondary-button" type="button">复制会合邀请</button>
+              <div class="signal-field">
+                <textarea id="recovery-confirmation-input" aria-label="好友发回的会合确认"></textarea>
+                <span aria-hidden="true">粘贴好友发回的会合确认</span>
+              </div>
+              <button id="confirm-recovery-friend" data-action class="primary-button" type="button">接好友回来</button>
+            </div>
+            <div id="recovery-guest" class="recovery-actions" hidden>
+              <div class="signal-field">
+                <textarea id="recovery-invitation-input" aria-label="房主发来的会合邀请"></textarea>
+                <span aria-hidden="true">粘贴房主发来的会合邀请</span>
+              </div>
+              <button id="accept-recovery-invite" data-action class="join-button" type="button">生成会合确认</button>
+              <div class="signal-field">
+                <textarea id="recovery-confirmation-result" readonly aria-label="发回房主的会合确认"></textarea>
+                <span aria-hidden="true">会合确认会显示在这里</span>
+              </div>
+              <button id="copy-recovery-confirmation" class="secondary-button" type="button">复制会合确认</button>
+            </div>
+          </section>
 
           <article id="result-panel" class="result-panel" hidden>
             <div>

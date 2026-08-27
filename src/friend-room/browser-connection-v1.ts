@@ -98,6 +98,10 @@ export class FriendRoomBrowserConnectionV1 {
     return this.peer;
   }
 
+  getSessionId(): string | undefined {
+    return this.sessionId;
+  }
+
   subscribeState(listener: (state: FriendRoomBrowserConnectionStateV1) => void): () => void {
     this.stateListeners.add(listener);
     listener(this.state);
@@ -160,6 +164,7 @@ export class FriendRoomBrowserConnectionV1 {
     this.unsubscribePeerState = undefined;
     this.peer?.dispose();
     this.peer = undefined;
+    this.connection.close?.();
     this.stateListeners.clear();
   }
 

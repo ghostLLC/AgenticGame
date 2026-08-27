@@ -117,6 +117,15 @@ export class DesktopFriendRoomRuntimeV1 {
     this.emitCurrentSnapshot();
   }
 
+  transportClosed(): void {
+    if (this.host) this.emitSnapshot(this.host.markPeerDisconnected());
+  }
+
+  resumeTransport(): void {
+    if (this.guest) this.guest.resume();
+    this.emitCurrentSnapshot();
+  }
+
   async waitForSettlement(): Promise<void> {
     this.trackSettlement();
     await this.settlement;

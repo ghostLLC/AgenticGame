@@ -68,6 +68,10 @@ available, but is expected to work mainly on LANs or networks where peers are di
   compatibility with `AGFR1`, cap both encoded and decompressed sizes, and reject malformed payloads.
 - After a completed match, both participants can request a rematch. The host keeps the connection and selected
   Builds, clears readiness/result state only after both agree, and then starts a new host-authoritative match.
+- If the DataChannel closes while both applications remain open, the host creates a new offer for the same
+  `sessionId`. The guest verifies that ID before returning an answer, sends `resume(sessionId, revision)` on the
+  replacement channel, and receives the current authoritative snapshot. Builds and completed results remain;
+  pre-match readiness is cleared on disconnect.
 
 ## 5. State machine
 
@@ -86,6 +90,7 @@ The host owns every state transition. Guest messages are requests, never authori
 Guest to host:
 
 - `hello(displayName)`
+- `resume(sessionId, revision)`
 - `select-build(SavedBuildV2)`
 - `set-ready(boolean)`
 
@@ -112,8 +117,9 @@ rejected and do not mutate room state.
 - [x] Battle preparation, three preset tactics, ready synchronization, host match execution, and shared report.
 - [x] Compressed invitation/confirmation exchange with legacy invitation compatibility.
 - [x] Two-sided rematch confirmation without reconnecting or reselecting Builds.
+- [x] Same-room manual recovery onto a fresh DataChannel while both applications remain open.
 - [ ] QR rendering/scanning and optional deployment-owned TURN credentials.
-- [ ] Reconnect, host-leave handling, rematch, and room expiry.
+- [ ] Application-restart recovery, host-leave handling, and room expiry.
 - [x] Player UI wired to the Friend Room entry and battle-preparation flow.
 - [ ] Optional signaling rendezvous for short invite codes.
 

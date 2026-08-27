@@ -89,6 +89,7 @@ interface InternalParticipantV1 {
 
 type GuestMessageV1 =
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'hello'; displayName: string }
+  | { protocol: 'agentic-game-friend-room'; version: 1; type: 'resume'; sessionId: string; revision: number }
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'select-build'; build: SavedBuildV2 }
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'set-ready'; ready: boolean }
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'request-rematch' };
@@ -144,6 +145,21 @@ export class FriendRoomHostSessionV1 {
     return this.getSnapshot();
   }
 
+  markPeerDisconnected(): FriendRoomSnapshotV1 {
+    if (!this.guest || !this.guest.connected) return this.getSnapshot();
+    this.guest.connected = false;
+    if (this.status === 'configuring' || this.status === 'waiting-for-peer') {
+      this.host.ready = false;
+      this.guest.ready = false;
+    }
+    if (this.status === 'complete') {
+      this.host.rematchRequested = false;
+      this.guest.rematchRequested = false;
+    }
+    this.changed();
+    return this.getSnapshot();
+  }
+
   getSnapshot(): FriendRoomSnapshotV1 {
     const participants = [this.host, this.guest].filter((value): value is InternalParticipantV1 => value !== undefined);
     return {
@@ -177,6 +193,15 @@ export class FriendRoomHostSessionV1 {
         return;
       }
       if (!this.guest) throw new ProtocolInputError('invalid-state', 'Guest hello is required first');
+      if (message.type === 'resume') {
+        if (message.sessionId !== this.options.sessionId) {
+          throw new ProtocolInputError('invalid-state', 'Recovery room does not match');
+        }
+        this.guest.connected = true;
+        this.changed();
+        return;
+      }
+      if (!this.guest.connected) throw new ProtocolInputError('invalid-state', 'Guest must resume the room first');
       if (message.type === 'request-rematch') {
         if (this.status !== 'complete') throw new ProtocolInputError('invalid-state', 'The match must finish before a rematch');
         this.guest.rematchRequested = true;
@@ -324,6 +349,17 @@ export class FriendRoomGuestSessionV1 {
     this.send({ protocol: PROTOCOL, version: 1, type: 'request-rematch' });
   }
 
+  resume(): void {
+    if (!this.snapshot) throw new Error('Friend room has not received its first host snapshot');
+    this.send({
+      protocol: PROTOCOL,
+      version: 1,
+      type: 'resume',
+      sessionId: this.snapshot.sessionId,
+      revision: this.snapshot.revision,
+    });
+  }
+
   getSnapshot(): FriendRoomSnapshotV1 {
     if (!this.snapshot) throw new Error('Friend room has not received its first host snapshot');
     return structuredClone(this.snapshot);
@@ -357,6 +393,21 @@ function parseGuestMessage(payload: string): GuestMessageV1 {
   }
   if (value.type === 'select-build' && 'build' in value) {
     return { protocol: PROTOCOL, version: 1, type: 'select-build', build: value.build as SavedBuildV2 };
+  }
+  if (
+    value.type === 'resume'
+    && typeof value.sessionId === 'string'
+    && Number.isSafeInteger(value.revision)
+    && (value.revision as number) > 0
+  ) {
+    validateSessionId(value.sessionId);
+    return {
+      protocol: PROTOCOL,
+      version: 1,
+      type: 'resume',
+      sessionId: value.sessionId,
+      revision: value.revision as number,
+    };
   }
   if (value.type === 'set-ready' && typeof value.ready === 'boolean') {
     return { protocol: PROTOCOL, version: 1, type: 'set-ready', ready: value.ready };

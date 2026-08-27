@@ -81,9 +81,9 @@ const PLAYER_STATUS: Record<FriendRoomBrowserConnectionStateV1, FriendRoomPlayer
     tone: 'success',
   },
   disconnected: {
-    eyebrow: '好友已离线',
-    title: '连接已经中断',
-    detail: '返回大厅后可以重新邀请好友。',
+    eyebrow: '好友暂时离线',
+    title: '重新与好友会合',
+    detail: '房间仍然保留，房主可以生成新的会合邀请。',
     tone: 'danger',
   },
   failed: {

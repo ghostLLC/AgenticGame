@@ -24,6 +24,8 @@ declare global {
         selectPreset(presetId: FriendRoomPresetIdV1): Promise<void>;
         setReady(ready: boolean): Promise<void>;
         requestRematch(): Promise<void>;
+        transportClosed(): Promise<void>;
+        resumeTransport(): Promise<void>;
         reset(): Promise<void>;
         onPeerPayload(listener: (payload: string) => void): void;
         onEvent(listener: (event: DesktopFriendRoomEventV1) => void): void;
@@ -37,6 +39,7 @@ let activeSessionId: string | undefined;
 let roomRuntimeStarted = false;
 let unsubscribePeerMessages: (() => void) | undefined;
 let lastRoomSnapshot: FriendRoomSnapshotV1 | undefined;
+let recoveryActive = false;
 
 const controller = new FriendRoomEntryControllerV1({
   createConnection: (role: FriendRoomRoleV1) => {
@@ -70,6 +73,8 @@ const statusCard = element<HTMLElement>('status-card');
 const statusEyebrow = element<HTMLElement>('status-eyebrow');
 const statusTitle = element<HTMLElement>('status-title');
 const statusDetail = element<HTMLElement>('status-detail');
+const connectionPill = element<HTMLElement>('connection-pill');
+const connectionLabel = element<HTMLElement>('connection-label');
 const toast = element<HTMLElement>('toast');
 const roomColumns = element<HTMLElement>('room-columns');
 const prepSection = element<HTMLElement>('prep-section');
@@ -78,6 +83,13 @@ const presetSelect = element<HTMLSelectElement>('preset-select');
 const readyMatch = element<HTMLButtonElement>('ready-match');
 const resultPanel = element<HTMLElement>('result-panel');
 const rematchButton = element<HTMLButtonElement>('rematch-button');
+const recoveryPanel = element<HTMLElement>('recovery-panel');
+const recoveryHost = element<HTMLElement>('recovery-host');
+const recoveryGuest = element<HTMLElement>('recovery-guest');
+const recoveryInvitationResult = element<HTMLTextAreaElement>('recovery-invitation-result');
+const recoveryInvitationInput = element<HTMLTextAreaElement>('recovery-invitation-input');
+const recoveryConfirmationResult = element<HTMLTextAreaElement>('recovery-confirmation-result');
+const recoveryConfirmationInput = element<HTMLTextAreaElement>('recovery-confirmation-input');
 
 let currentSnapshot: FriendRoomEntrySnapshotV1 = controller.getSnapshot();
 
@@ -89,9 +101,25 @@ controller.subscribe((snapshot) => {
   statusDetail.textContent = snapshot.playerStatus.detail;
   hostFollowup.hidden = !snapshot.invitationCard;
   guestFollowup.hidden = !snapshot.joinConfirmation;
-  if (snapshot.invitationCard) invitationResult.value = snapshot.invitationCard;
-  if (snapshot.joinConfirmation) confirmationResult.value = snapshot.joinConfirmation;
-  if (snapshot.playerStatus.tone === 'success') void enterBattlePreparation(snapshot);
+  if (snapshot.invitationCard) {
+    if (roomRuntimeStarted) recoveryInvitationResult.value = snapshot.invitationCard;
+    else invitationResult.value = snapshot.invitationCard;
+  }
+  if (snapshot.joinConfirmation) {
+    if (roomRuntimeStarted) recoveryConfirmationResult.value = snapshot.joinConfirmation;
+    else confirmationResult.value = snapshot.joinConfirmation;
+  }
+  const connectionState = activeConnection?.getState();
+  if (roomRuntimeStarted && !recoveryActive && (connectionState === 'disconnected' || connectionState === 'failed')) {
+    recoveryActive = true;
+    unsubscribePeerMessages?.();
+    unsubscribePeerMessages = undefined;
+    void window.agenticGameDesktop?.friendRoom.transportClosed();
+  }
+  renderRecoveryPanel();
+  if (connectionState === 'connected' && (!roomRuntimeStarted || recoveryActive)) {
+    void enterBattlePreparation(snapshot);
+  }
 });
 
 window.agenticGameDesktop?.friendRoom.onPeerPayload((payload) => {
@@ -147,6 +175,34 @@ rematchButton.addEventListener('click', () => {
   });
 });
 
+element<HTMLButtonElement>('create-recovery-invite').addEventListener('click', () => {
+  void runAction(async () => {
+    const sessionId = requireCurrentRoom();
+    detachPeerMessages();
+    await controller.createRecoveryInvite(sessionId);
+  });
+});
+
+element<HTMLButtonElement>('copy-recovery-invitation').addEventListener('click', () => {
+  copyText(recoveryInvitationResult.value, '会合邀请已复制');
+});
+
+element<HTMLButtonElement>('confirm-recovery-friend').addEventListener('click', () => {
+  void runAction(() => controller.confirmFriend(recoveryConfirmationInput.value));
+});
+
+element<HTMLButtonElement>('accept-recovery-invite').addEventListener('click', () => {
+  void runAction(async () => {
+    const sessionId = requireCurrentRoom();
+    detachPeerMessages();
+    await controller.acceptRecoveryInvite(recoveryInvitationInput.value, sessionId);
+  });
+});
+
+element<HTMLButtonElement>('copy-recovery-confirmation').addEventListener('click', () => {
+  copyText(recoveryConfirmationResult.value, '会合确认已复制');
+});
+
 element<HTMLButtonElement>('reset-room').addEventListener('click', () => void resetRoom());
 
 async function runAction(action: () => Promise<void>): Promise<void> {
@@ -181,25 +237,32 @@ function showToast(message: string, danger: boolean): void {
 }
 
 async function enterBattlePreparation(snapshot: FriendRoomEntrySnapshotV1): Promise<void> {
-  if (roomRuntimeStarted || !snapshot.role || !window.agenticGameDesktop || !activeConnection) return;
+  if (!snapshot.role || !window.agenticGameDesktop || !activeConnection) return;
   const peer = activeConnection.getPeer();
   if (!peer) return;
-  roomRuntimeStarted = true;
+  const resuming = roomRuntimeStarted;
+  detachPeerMessages();
   unsubscribePeerMessages = peer.subscribe((payload) => {
     window.agenticGameDesktop?.friendRoom.receivePeer(payload);
   });
   try {
-    await window.agenticGameDesktop.friendRoom.start({
-      role: snapshot.role,
-      displayName: snapshot.nickname,
-      ...(snapshot.role === 'host' ? { sessionId: activeSessionId } : {}),
-    });
+    if (resuming) await window.agenticGameDesktop.friendRoom.resumeTransport();
+    else {
+      await window.agenticGameDesktop.friendRoom.start({
+        role: snapshot.role,
+        displayName: snapshot.nickname,
+        ...(snapshot.role === 'host' ? { sessionId: activeSessionId } : {}),
+      });
+      roomRuntimeStarted = true;
+    }
+    recoveryActive = false;
+    recoveryPanel.hidden = true;
     roomColumns.hidden = true;
     prepSection.hidden = false;
   } catch (error) {
-    roomRuntimeStarted = false;
-    unsubscribePeerMessages?.();
-    unsubscribePeerMessages = undefined;
+    if (!resuming) roomRuntimeStarted = false;
+    else recoveryActive = true;
+    detachPeerMessages();
     showToast(error instanceof Error ? error.message : '无法进入战前准备', true);
   }
 }
@@ -216,7 +279,7 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   const mine = snapshot.participants.find((item) => item.seat === currentSnapshot.role);
   resultPanel.hidden = true;
   readyMatch.textContent = mine?.ready ? '取消准备' : '准备出战';
-  const locked = snapshot.status === 'running' || snapshot.status === 'complete' || snapshot.status === 'failed';
+  const locked = recoveryActive || snapshot.status === 'running' || snapshot.status === 'complete' || snapshot.status === 'failed';
   presetSelect.disabled = locked || Boolean(mine?.ready);
   element<HTMLButtonElement>('lock-preset').disabled = locked || Boolean(mine?.ready);
   readyMatch.disabled = locked || !mine?.build;
@@ -249,14 +312,47 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
     prepState.textContent = `${readyCount} / 2 已准备`;
     setPlayerStatus('战前准备', '选择战术并准备出战', '双方准备完成后，比赛会自动开始。', 'waiting');
   }
+  renderRecoveryPanel();
 }
 
 function renderParticipant(seat: 'host' | 'guest', participant: FriendRoomSnapshotV1['participants'][number] | undefined): void {
   element<HTMLElement>(`${seat}-player-name`).textContent = participant?.displayName ?? (seat === 'host' ? '等待房主' : '等待好友');
   element<HTMLElement>(`${seat}-player-build`).textContent = participant?.build?.label ?? '尚未选择战术';
   const readiness = element<HTMLElement>(`${seat}-player-ready`);
-  readiness.textContent = participant?.ready ? '已准备' : '准备中';
+  readiness.textContent = participant && !participant.connected ? '暂时离线' : participant?.ready ? '已准备' : '准备中';
   readiness.classList.toggle('ready', Boolean(participant?.ready));
+}
+
+function renderRecoveryPanel(): void {
+  recoveryPanel.hidden = !recoveryActive;
+  connectionPill.dataset.state = recoveryActive ? 'offline' : 'online';
+  connectionLabel.textContent = recoveryActive ? '好友暂时离线' : '好友直连';
+  recoveryHost.hidden = currentSnapshot.role !== 'host';
+  recoveryGuest.hidden = currentSnapshot.role !== 'guest';
+  if (!recoveryActive) return;
+  setPlayerStatus(
+    '好友暂时离线',
+    '重新与好友会合',
+    currentSnapshot.role === 'host'
+      ? '生成新的会合邀请，好友确认后即可回到原房间。'
+      : '等待房主发来新的会合邀请，原有战术和战报不会丢失。',
+    'danger',
+  );
+  presetSelect.disabled = true;
+  element<HTMLButtonElement>('lock-preset').disabled = true;
+  readyMatch.disabled = true;
+  rematchButton.disabled = true;
+}
+
+function requireCurrentRoom(): string {
+  const sessionId = lastRoomSnapshot?.sessionId;
+  if (!sessionId) throw new Error('当前好友房间尚未准备好');
+  return sessionId;
+}
+
+function detachPeerMessages(): void {
+  unsubscribePeerMessages?.();
+  unsubscribePeerMessages = undefined;
 }
 
 function setPlayerStatus(eyebrow: string, title: string, detail: string, tone: string): void {
@@ -267,15 +363,16 @@ function setPlayerStatus(eyebrow: string, title: string, detail: string, tone: s
 }
 
 async function resetRoom(): Promise<void> {
-  unsubscribePeerMessages?.();
-  unsubscribePeerMessages = undefined;
+  detachPeerMessages();
   roomRuntimeStarted = false;
+  recoveryActive = false;
   activeSessionId = undefined;
   activeConnection = undefined;
   lastRoomSnapshot = undefined;
   await window.agenticGameDesktop?.friendRoom.reset();
   prepSection.hidden = true;
   resultPanel.hidden = true;
+  recoveryPanel.hidden = true;
   roomColumns.hidden = false;
   controller.reset();
 }

@@ -50,6 +50,7 @@ class FakePeerConnection implements FriendWebRtcPeerConnectionLikeV1 {
   remoteDescription: FriendSessionDescriptionV1 | null = null;
   iceGatheringState: 'new' | 'gathering' | 'complete' = 'complete';
   readonly channel = new ObservableDataChannel();
+  closed = false;
   private readonly dataChannelListeners = new Set<(event: { channel: FriendDataChannelLikeV1 }) => void>();
 
   createDataChannel(): FriendDataChannelLikeV1 { return this.channel; }
@@ -60,6 +61,7 @@ class FakePeerConnection implements FriendWebRtcPeerConnectionLikeV1 {
     this.remoteDescription = value;
     if (value.type === 'offer') this.dataChannelListeners.forEach((listener) => listener({ channel: this.channel }));
   }
+  close(): void { this.closed = true; }
   addEventListener(type: 'icegatheringstatechange' | 'datachannel', listener: (() => void) | ((event: { channel: FriendDataChannelLikeV1 }) => void)): void {
     if (type === 'datachannel') this.dataChannelListeners.add(listener as (event: { channel: FriendDataChannelLikeV1 }) => void);
   }
@@ -115,6 +117,7 @@ describe('好友房间浏览器 WebRTC 接线 v1', () => {
     });
 
     const invite = await host.createInvite('friend-session-6');
+    expect(host.getSessionId()).toBe('friend-session-6');
     expect(host.getState()).toBe('waiting-answer');
     const answer = await guest.acceptInvite(invite);
     expect(guest.getState()).toBe('waiting-host');
@@ -131,6 +134,11 @@ describe('好友房间浏览器 WebRTC 接线 v1', () => {
     hostCreated[0]!.connection.channel.close();
     expect(host.getState()).toBe('disconnected');
     expect(hostCreated[0]!.configuration).toEqual({ iceServers: [] });
+
+    host.dispose();
+    guest.dispose();
+    expect(hostCreated[0]!.connection.closed).toBe(true);
+    expect(guestCreated[0]!.connection.closed).toBe(true);
   });
 
   it('在浏览器不支持 WebRTC 或角色调用错误时快速失败', async () => {
