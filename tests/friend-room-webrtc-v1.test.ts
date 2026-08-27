@@ -4,8 +4,10 @@ import {
   acceptFriendRoomHostAnswerV1,
   createFriendRoomGuestAnswerV1,
   createFriendRoomHostOfferV1,
+  decodeFriendRoomSignal,
   decodeFriendRoomSignalV1,
   encodeFriendRoomSignalV1,
+  encodeFriendRoomSignalV2,
   type FriendSessionDescriptionV1,
   type FriendWebRtcPeerConnectionLikeV1,
 } from '../src/friend-room/webrtc-handshake-v1.js';
@@ -63,13 +65,51 @@ class FakePeerConnection implements FriendWebRtcPeerConnectionLikeV1 {
 }
 
 describe('好友房间 WebRTC 手动信令 v1', () => {
+  it('把真实长度的邀请压缩为适合聊天分享的 v2 邀请卡，并兼容旧邀请', async () => {
+    const candidate = 'a=candidate:860182107 1 udp 1677729535 203.0.113.7 40285 typ srflx raddr 0.0.0.0 rport 0 generation 0 network-cost 999\r\n';
+    const signal = {
+      protocol: 'agentic-game-friend-signal' as const,
+      version: 1 as const,
+      sessionId: 'friend-compressed-1',
+      kind: 'offer' as const,
+      description: { type: 'offer' as const, sdp: `v=0\r\n${candidate.repeat(24)}` },
+    };
+
+    const legacy = encodeFriendRoomSignalV1(signal);
+    const compact = await encodeFriendRoomSignalV2(signal);
+
+    expect(compact).toMatch(/^AGFR2\./);
+    expect(compact.length).toBeLessThan(legacy.length * 0.35);
+    expect(await decodeFriendRoomSignal(compact)).toEqual(signal);
+    expect(await decodeFriendRoomSignal(legacy)).toEqual(signal);
+  });
+
+  it('压缩后仍能回读接近 SDP 上限且不易压缩的邀请', async () => {
+    let sdp = 'v=0\r\n';
+    let state = 0x12345678;
+    while (sdp.length < 90_000) {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      sdp += String.fromCharCode(33 + (state % 90));
+    }
+    const signal = {
+      protocol: 'agentic-game-friend-signal' as const,
+      version: 1 as const,
+      sessionId: 'friend-large-1',
+      kind: 'offer' as const,
+      description: { type: 'offer' as const, sdp },
+    };
+
+    const compact = await encodeFriendRoomSignalV2(signal);
+    expect(await decodeFriendRoomSignal(compact)).toEqual(signal);
+  });
+
   it('无需房间服务器即可用 offer/answer 邀请串起双方 PeerConnection', async () => {
     const hostConnection = new FakePeerConnection();
     const host = await createFriendRoomHostOfferV1(hostConnection, { sessionId: 'friend-session-4' });
 
     expect(hostConnection.labels).toEqual(['agentic-game-friend-room-v1']);
-    expect(host.inviteCode).toMatch(/^AGFR1\./);
-    expect(decodeFriendRoomSignalV1(host.inviteCode)).toEqual({
+    expect(host.inviteCode).toMatch(/^AGFR2\./);
+    expect(await decodeFriendRoomSignal(host.inviteCode)).toEqual({
       protocol: 'agentic-game-friend-signal',
       version: 1,
       sessionId: 'friend-session-4',

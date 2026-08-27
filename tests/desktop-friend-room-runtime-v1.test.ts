@@ -51,5 +51,26 @@ describe('桌面好友房间比赛运行时 v1', () => {
       ],
       result: { ticks: 8 },
     });
+
+    const rematchEventStart = hostEvents.length;
+    host.requestRematch();
+    expect(hostEvents.at(-1)?.snapshot?.status).toBe('complete');
+    expect(hostEvents.at(-1)?.snapshot?.participants[0]).toMatchObject({ seat: 'host', rematchRequested: true });
+    guest.requestRematch();
+    expect(hostEvents.at(-1)?.snapshot).toMatchObject({
+      status: 'configuring',
+      participants: [
+        { seat: 'host', ready: false, rematchRequested: false, build: { label: '游骑侦察队' } },
+        { seat: 'guest', ready: false, rematchRequested: false, build: { label: '钢铁堡垒队' } },
+      ],
+    });
+    expect(hostEvents.at(-1)?.snapshot?.result).toBeUndefined();
+
+    host.setReady(true);
+    guest.setReady(true);
+    await host.waitForSettlement();
+    expect(hostEvents.slice(rematchEventStart).map((event) => event.snapshot?.status).filter(Boolean))
+      .toEqual(expect.arrayContaining(['configuring', 'running', 'complete']));
+    expect(hostEvents.at(-1)?.snapshot?.status).toBe('complete');
   });
 });

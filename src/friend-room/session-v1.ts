@@ -24,6 +24,7 @@ export interface FriendRoomParticipantV1 {
   displayName: string;
   connected: boolean;
   ready: boolean;
+  rematchRequested: boolean;
   build?: FriendRoomPublicBuildV1;
 }
 
@@ -82,13 +83,15 @@ interface InternalParticipantV1 {
   displayName: string;
   connected: boolean;
   ready: boolean;
+  rematchRequested: boolean;
   build?: SavedBuildV2;
 }
 
 type GuestMessageV1 =
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'hello'; displayName: string }
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'select-build'; build: SavedBuildV2 }
-  | { protocol: 'agentic-game-friend-room'; version: 1; type: 'set-ready'; ready: boolean };
+  | { protocol: 'agentic-game-friend-room'; version: 1; type: 'set-ready'; ready: boolean }
+  | { protocol: 'agentic-game-friend-room'; version: 1; type: 'request-rematch' };
 
 type HostMessageV1 =
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'snapshot'; snapshot: FriendRoomSnapshotV1 }
@@ -133,6 +136,14 @@ export class FriendRoomHostSessionV1 {
     return this.getSnapshot();
   }
 
+  requestRematch(): FriendRoomSnapshotV1 {
+    this.assertComplete();
+    this.host.rematchRequested = true;
+    this.changed();
+    this.restartIfBothWant();
+    return this.getSnapshot();
+  }
+
   getSnapshot(): FriendRoomSnapshotV1 {
     const participants = [this.host, this.guest].filter((value): value is InternalParticipantV1 => value !== undefined);
     return {
@@ -166,6 +177,13 @@ export class FriendRoomHostSessionV1 {
         return;
       }
       if (!this.guest) throw new ProtocolInputError('invalid-state', 'Guest hello is required first');
+      if (message.type === 'request-rematch') {
+        if (this.status !== 'complete') throw new ProtocolInputError('invalid-state', 'The match must finish before a rematch');
+        this.guest.rematchRequested = true;
+        this.changed();
+        this.restartIfBothWant();
+        return;
+      }
       if (message.type === 'select-build') {
         this.assertConfigurable();
         try {
@@ -208,6 +226,23 @@ export class FriendRoomHostSessionV1 {
     if (this.status !== 'waiting-for-peer' && this.status !== 'configuring') {
       throw new Error('Friend room is not configurable');
     }
+  }
+
+  private assertComplete(): void {
+    if (this.status !== 'complete') throw new Error('Friend room match is not complete');
+  }
+
+  private restartIfBothWant(): void {
+    if (this.status !== 'complete' || !this.guest || !this.host.rematchRequested || !this.guest.rematchRequested) return;
+    this.status = 'configuring';
+    this.result = undefined;
+    this.error = undefined;
+    this.settlement = undefined;
+    this.host.ready = false;
+    this.guest.ready = false;
+    this.host.rematchRequested = false;
+    this.guest.rematchRequested = false;
+    this.changed();
   }
 
   private startIfReady(): void {
@@ -285,6 +320,10 @@ export class FriendRoomGuestSessionV1 {
     this.send({ protocol: PROTOCOL, version: 1, type: 'set-ready', ready });
   }
 
+  requestRematch(): void {
+    this.send({ protocol: PROTOCOL, version: 1, type: 'request-rematch' });
+  }
+
   getSnapshot(): FriendRoomSnapshotV1 {
     if (!this.snapshot) throw new Error('Friend room has not received its first host snapshot');
     return structuredClone(this.snapshot);
@@ -322,6 +361,9 @@ function parseGuestMessage(payload: string): GuestMessageV1 {
   if (value.type === 'set-ready' && typeof value.ready === 'boolean') {
     return { protocol: PROTOCOL, version: 1, type: 'set-ready', ready: value.ready };
   }
+  if (value.type === 'request-rematch') {
+    return { protocol: PROTOCOL, version: 1, type: 'request-rematch' };
+  }
   throw new ProtocolInputError('invalid-message', 'Guest message type was rejected');
 }
 
@@ -350,7 +392,7 @@ function parseEnvelope(payload: string): Record<string, unknown> {
 }
 
 function participant(seat: FriendRoomSeatV1, displayName: string): InternalParticipantV1 {
-  return { seat, displayName: validateDisplayName(displayName), connected: true, ready: false };
+  return { seat, displayName: validateDisplayName(displayName), connected: true, ready: false, rematchRequested: false };
 }
 
 function publicParticipant(value: InternalParticipantV1): FriendRoomParticipantV1 {
@@ -359,6 +401,7 @@ function publicParticipant(value: InternalParticipantV1): FriendRoomParticipantV
     displayName: value.displayName,
     connected: value.connected,
     ready: value.ready,
+    rematchRequested: value.rematchRequested,
     ...(value.build ? { build: publicBuild(value.build) } : {}),
   };
 }

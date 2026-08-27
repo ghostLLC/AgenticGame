@@ -59,8 +59,11 @@ export interface FriendRoomGuestAnswerV1 {
 }
 
 const SIGNAL_PREFIX = 'AGFR1.';
+const COMPACT_SIGNAL_PREFIX = 'AGFR2.';
 const DATA_CHANNEL_LABEL = 'agentic-game-friend-room-v1';
 const MAX_SIGNAL_CHARACTERS = 200_000;
+const MAX_COMPACT_SIGNAL_CHARACTERS = 200_000;
+const MAX_DECOMPRESSED_SIGNAL_BYTES = 150_000;
 
 export async function createFriendRoomHostOfferV1(
   connection: FriendWebRtcPeerConnectionLikeV1,
@@ -74,7 +77,7 @@ export async function createFriendRoomHostOfferV1(
   await waitForIceGathering(connection, options.iceGatheringTimeoutMs);
   const description = validateDescription(connection.localDescription ?? offer, 'offer');
   return {
-    inviteCode: encodeFriendRoomSignalV1({
+    inviteCode: await encodeFriendRoomSignalV2({
       protocol: 'agentic-game-friend-signal',
       version: 1,
       sessionId: options.sessionId,
@@ -90,7 +93,7 @@ export async function createFriendRoomGuestAnswerV1(
   inviteCode: string,
   options: FriendRoomGuestAnswerOptionsV1 = {},
 ): Promise<FriendRoomGuestAnswerV1> {
-  const signal = decodeFriendRoomSignalV1(inviteCode);
+  const signal = await decodeFriendRoomSignal(inviteCode);
   if (signal.kind !== 'offer') throw new Error('Expected an offer signal');
   const peerReady = waitForDataChannel(connection, options.dataChannel);
   await connection.setRemoteDescription(signal.description);
@@ -100,7 +103,7 @@ export async function createFriendRoomGuestAnswerV1(
   const description = validateDescription(connection.localDescription ?? answer, 'answer');
   return {
     sessionId: signal.sessionId,
-    answerCode: encodeFriendRoomSignalV1({
+    answerCode: await encodeFriendRoomSignalV2({
       protocol: 'agentic-game-friend-signal',
       version: 1,
       sessionId: signal.sessionId,
@@ -117,7 +120,7 @@ export async function acceptFriendRoomHostAnswerV1(
   expectedSessionId: string,
 ): Promise<void> {
   validateSessionId(expectedSessionId);
-  const signal = decodeFriendRoomSignalV1(answerCode);
+  const signal = await decodeFriendRoomSignal(answerCode);
   if (signal.kind !== 'answer') throw new Error('Expected an answer signal');
   if (signal.sessionId !== expectedSessionId) throw new Error('Signal session does not match');
   await connection.setRemoteDescription(signal.description);
@@ -139,6 +142,112 @@ export function decodeFriendRoomSignalV1(code: string): FriendRoomSignalV1 {
     throw new Error('Invalid friend signal code');
   }
   return validateSignal(value);
+}
+
+export async function encodeFriendRoomSignalV2(signal: FriendRoomSignalV1): Promise<string> {
+  const validated = validateSignal(signal);
+  const compact: [string, 0 | 1, string] = [
+    validated.sessionId,
+    validated.kind === 'offer' ? 0 : 1,
+    validated.description.sdp,
+  ];
+  const compressed = await compressBytes(new TextEncoder().encode(JSON.stringify(compact)));
+  return `${COMPACT_SIGNAL_PREFIX}${encodeBase64Url(compressed)}`;
+}
+
+export async function decodeFriendRoomSignal(code: string): Promise<FriendRoomSignalV1> {
+  if (code.startsWith(SIGNAL_PREFIX)) return decodeFriendRoomSignalV1(code);
+  if (!code.startsWith(COMPACT_SIGNAL_PREFIX) || code.length > MAX_COMPACT_SIGNAL_CHARACTERS) {
+    throw new Error('Invalid friend signal code');
+  }
+  try {
+    const compressed = decodeBase64Url(code.slice(COMPACT_SIGNAL_PREFIX.length));
+    const bytes = await decompressBytes(compressed);
+    const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
+    if (!Array.isArray(value) || value.length !== 3) throw new Error('invalid tuple');
+    const [sessionId, kindCode, sdp] = value;
+    if (typeof sessionId !== 'string' || (kindCode !== 0 && kindCode !== 1) || typeof sdp !== 'string') {
+      throw new Error('invalid tuple');
+    }
+    const kind = kindCode === 0 ? 'offer' : 'answer';
+    return validateSignal({
+      protocol: 'agentic-game-friend-signal',
+      version: 1,
+      sessionId,
+      kind,
+      description: { type: kind, sdp },
+    });
+  } catch {
+    throw new Error('Invalid friend signal code');
+  }
+}
+
+async function compressBytes(input: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([ownedArrayBuffer(input)]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function decompressBytes(input: Uint8Array): Promise<Uint8Array> {
+  const reader = new Blob([ownedArrayBuffer(input)]).stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_DECOMPRESSED_SIGNAL_BYTES) {
+      await reader.cancel();
+      throw new Error('signal is too large');
+    }
+    chunks.push(value);
+  }
+  const output = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return output;
+}
+
+function ownedArrayBuffer(input: Uint8Array): ArrayBuffer {
+  const output = new ArrayBuffer(input.byteLength);
+  new Uint8Array(output).set(input);
+  return output;
+}
+
+const BASE64_URL_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+function encodeBase64Url(input: Uint8Array): string {
+  let output = '';
+  for (let index = 0; index < input.length; index += 3) {
+    const first = input[index]!;
+    const second = input[index + 1];
+    const third = input[index + 2];
+    output += BASE64_URL_ALPHABET[first >>> 2];
+    output += BASE64_URL_ALPHABET[((first & 3) << 4) | ((second ?? 0) >>> 4)];
+    if (second !== undefined) output += BASE64_URL_ALPHABET[((second & 15) << 2) | ((third ?? 0) >>> 6)];
+    if (third !== undefined) output += BASE64_URL_ALPHABET[third & 63];
+  }
+  return output;
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  if (!value || value.length % 4 === 1 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('invalid base64');
+  const bytes: number[] = [];
+  for (let index = 0; index < value.length; index += 4) {
+    const a = BASE64_URL_ALPHABET.indexOf(value[index]!);
+    const b = BASE64_URL_ALPHABET.indexOf(value[index + 1]!);
+    const c = value[index + 2] === undefined ? -1 : BASE64_URL_ALPHABET.indexOf(value[index + 2]!);
+    const d = value[index + 3] === undefined ? -1 : BASE64_URL_ALPHABET.indexOf(value[index + 3]!);
+    if (a < 0 || b < 0 || (c < 0 && value[index + 2] !== undefined) || (d < 0 && value[index + 3] !== undefined)) {
+      throw new Error('invalid base64');
+    }
+    bytes.push((a << 2) | (b >>> 4));
+    if (c >= 0) bytes.push(((b & 15) << 4) | (c >>> 2));
+    if (d >= 0) bytes.push(((c & 3) << 6) | d);
+  }
+  return new Uint8Array(bytes);
 }
 
 function validateSignal(value: unknown): FriendRoomSignalV1 {

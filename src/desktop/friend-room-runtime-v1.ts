@@ -110,6 +110,13 @@ export class DesktopFriendRoomRuntimeV1 {
     this.trackSettlement();
   }
 
+  requestRematch(): void {
+    if (this.host) this.host.requestRematch();
+    else if (this.guest) this.guest.requestRematch();
+    else throw new Error('请先连接好友');
+    this.emitCurrentSnapshot();
+  }
+
   async waitForSettlement(): Promise<void> {
     this.trackSettlement();
     await this.settlement;
@@ -127,6 +134,7 @@ export class DesktopFriendRoomRuntimeV1 {
   }
 
   private emitSnapshot(snapshot: FriendRoomSnapshotV1): void {
+    if (snapshot.status === 'configuring') this.settlement = undefined;
     this.options.onEvent({ kind: 'snapshot', snapshot });
   }
 

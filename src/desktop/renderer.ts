@@ -23,6 +23,7 @@ declare global {
         receivePeer(payload: string): void;
         selectPreset(presetId: FriendRoomPresetIdV1): Promise<void>;
         setReady(ready: boolean): Promise<void>;
+        requestRematch(): Promise<void>;
         reset(): Promise<void>;
         onPeerPayload(listener: (payload: string) => void): void;
         onEvent(listener: (event: DesktopFriendRoomEventV1) => void): void;
@@ -76,6 +77,7 @@ const prepState = element<HTMLElement>('prep-state');
 const presetSelect = element<HTMLSelectElement>('preset-select');
 const readyMatch = element<HTMLButtonElement>('ready-match');
 const resultPanel = element<HTMLElement>('result-panel');
+const rematchButton = element<HTMLButtonElement>('rematch-button');
 
 let currentSnapshot: FriendRoomEntrySnapshotV1 = controller.getSnapshot();
 
@@ -136,6 +138,12 @@ readyMatch.addEventListener('click', () => {
   void runAction(async () => {
     const mine = lastRoomSnapshot?.participants.find((item) => item.seat === currentSnapshot.role);
     await window.agenticGameDesktop?.friendRoom.setReady(!mine?.ready);
+  });
+});
+
+rematchButton.addEventListener('click', () => {
+  void runAction(async () => {
+    await window.agenticGameDesktop?.friendRoom.requestRematch();
   });
 });
 
@@ -206,6 +214,7 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   renderParticipant('guest', guest);
 
   const mine = snapshot.participants.find((item) => item.seat === currentSnapshot.role);
+  resultPanel.hidden = true;
   readyMatch.textContent = mine?.ready ? '取消准备' : '准备出战';
   const locked = snapshot.status === 'running' || snapshot.status === 'complete' || snapshot.status === 'failed';
   presetSelect.disabled = locked || Boolean(mine?.ready);
@@ -222,8 +231,16 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
       : snapshot.result.winningSeats.includes(currentSnapshot.role ?? 'host') ? '你赢得了比赛' : '好友赢得了比赛';
     element<HTMLElement>('result-title').textContent = winner;
     element<HTMLElement>('result-detail').textContent = `战斗持续 ${snapshot.result.ticks} 回合 · 双方剩余耐久 ${snapshot.result.hp[0]} : ${snapshot.result.hp[1]}`;
+    rematchButton.textContent = mine?.rematchRequested ? '等待好友确认' : '再来一局';
+    rematchButton.disabled = Boolean(mine?.rematchRequested);
     resultPanel.hidden = false;
-    setPlayerStatus('本场战报', winner, '完整比赛结果已经同步到双方设备。', 'success');
+    const someoneWantsRematch = snapshot.participants.some((item) => item.rematchRequested);
+    setPlayerStatus(
+      '本场战报',
+      winner,
+      someoneWantsRematch ? '一方已经发起再来一局，等待另一方确认。' : '完整比赛结果已经同步到双方设备。',
+      'success',
+    );
   } else if (snapshot.status === 'failed') {
     prepState.textContent = '比赛未完成';
     setPlayerStatus('比赛未完成', '请重新创建好友房间', snapshot.error ?? '房主设备未能完成比赛。', 'danger');

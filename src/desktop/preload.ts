@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld('agenticGameDesktop', {
     setReady(ready: boolean): Promise<void> {
       return ipcRenderer.invoke('friend-room:set-ready', ready);
     },
+    requestRematch(): Promise<void> {
+      return ipcRenderer.invoke('friend-room:request-rematch');
+    },
     reset(): Promise<void> {
       return ipcRenderer.invoke('friend-room:reset');
     },

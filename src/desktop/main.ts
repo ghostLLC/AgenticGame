@@ -32,6 +32,11 @@ function installFriendRoomIpc(): void {
     if (typeof ready !== 'boolean') throw new Error('准备状态无效');
     roomRuntimes.get(event.sender.id)?.setReady(ready);
   });
+  ipcMain.handle('friend-room:request-rematch', (event) => {
+    const runtime = roomRuntimes.get(event.sender.id);
+    if (!runtime) throw new Error('请先连接好友');
+    runtime.requestRematch();
+  });
   ipcMain.handle('friend-room:reset', (event) => roomRuntimes.delete(event.sender.id));
 }
 

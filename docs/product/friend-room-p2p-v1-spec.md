@@ -64,6 +64,10 @@ available, but is expected to work mainly on LANs or networks where peers are di
   host execution, and the same result projection on both clients.
 - Default discovery profile uses `stun:stun.cloudflare.com:3478` and deliberately ships without TURN
   credentials or a project-owned server.
+- `AGFR2` compact invitations gzip a minimal signal tuple and encode it as Base64URL; decoders retain backward
+  compatibility with `AGFR1`, cap both encoded and decompressed sizes, and reject malformed payloads.
+- After a completed match, both participants can request a rematch. The host keeps the connection and selected
+  Builds, clears readiness/result state only after both agree, and then starts a new host-authoritative match.
 
 ## 5. State machine
 
@@ -106,7 +110,9 @@ rejected and do not mutate room state.
 - [x] Browser RTCPeerConnection wiring and validated direct/STUN/TURN configuration boundary.
 - [x] Desktop shell wiring, player-language invite exchange, and default public STUN discovery.
 - [x] Battle preparation, three preset tactics, ready synchronization, host match execution, and shared report.
-- [ ] QR/invitation compression and optional deployment-owned TURN credentials.
+- [x] Compressed invitation/confirmation exchange with legacy invitation compatibility.
+- [x] Two-sided rematch confirmation without reconnecting or reselecting Builds.
+- [ ] QR rendering/scanning and optional deployment-owned TURN credentials.
 - [ ] Reconnect, host-leave handling, rematch, and room expiry.
 - [x] Player UI wired to the Friend Room entry and battle-preparation flow.
 - [ ] Optional signaling rendezvous for short invite codes.
