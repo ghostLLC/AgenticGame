@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' stun:; img-src 'self' data:">
+  <title>AgenticGame · 坦克竞技场</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <div class="brand"><span>AGENTICGAME</span><i></i><strong>坦克竞技场</strong></div>
+      <div class="breadcrumb">好友房间 <b>/</b> 连接大厅</div>
+      <div class="connection-pill"><span></span>好友直连</div>
+    </header>
+
+    <div class="workspace">
+      <nav class="sidebar" aria-label="作战中心">
+        <p class="nav-label">作战中心</p>
+        <button disabled>指挥中心</button>
+        <button disabled>我的车库</button>
+        <button disabled>AI 教练</button>
+        <button class="active" aria-current="page">好友房间</button>
+        <button disabled>回放工作室</button>
+        <div class="sidebar-spacer"></div>
+        <section class="sync-note">
+          <strong>战术自动同步</strong>
+          <p>无需账号即可邀请好友；同一网络下连接最稳定。</p>
+        </section>
+      </nav>
+
+      <section class="content">
+        <div class="hero-row">
+          <div>
+            <p class="eyebrow">FRIEND MATCH <span>·</span> 好友对战</p>
+            <h1>带上你的战车，与好友开战</h1>
+            <p class="subtitle">发送邀请并确认加入后即可直连；战术配置自动同步，比赛由房主设备裁定。</p>
+          </div>
+          <div class="trust-pill">好友对战 <span>·</span> 房主设备裁定</div>
+        </div>
+
+        <section id="status-card" class="status-card" data-tone="neutral" aria-live="polite">
+          <p id="status-eyebrow">好友房间</p>
+          <h2 id="status-title">带上你的战车，与好友开战</h2>
+          <span id="status-detail">创建邀请或接受朋友的邀请，即可进入好友房间。</span>
+          <button id="reset-room" class="text-button" type="button">重新开始</button>
+        </section>
+
+        <div id="room-columns" class="room-columns">
+          <article class="room-card host-card">
+            <p class="step orange">01 <span>·</span> 我来发起</p>
+            <h2>创建好友房间</h2>
+            <p class="card-copy">生成邀请卡发给朋友，收到加入确认后即可一起进入房间。</p>
+            <label for="host-name">你的昵称</label>
+            <input id="host-name" maxlength="20" placeholder="例如：乐淳" autocomplete="nickname">
+            <button id="create-room" data-action class="primary-button" type="button">生成邀请</button>
+
+            <div id="host-followup" class="followup" hidden>
+              <label for="invitation-result">好友邀请卡</label>
+              <div class="signal-field">
+                <textarea id="invitation-result" readonly aria-label="好友邀请卡"></textarea>
+                <span aria-hidden="true">邀请卡已准备好</span>
+              </div>
+              <button id="copy-invitation" class="secondary-button" type="button">复制邀请卡</button>
+              <label for="confirmation-input">朋友发回的加入确认</label>
+              <div class="signal-field">
+                <textarea id="confirmation-input" aria-label="朋友发回的加入确认"></textarea>
+                <span aria-hidden="true">点击后粘贴朋友发来的内容</span>
+              </div>
+              <button id="confirm-friend" data-action class="primary-button" type="button">接好友进入房间</button>
+            </div>
+          </article>
+
+          <article class="room-card guest-card">
+            <p class="step blue">02 <span>·</span> 我收到邀请</p>
+            <h2>接受朋友的邀请</h2>
+            <p class="card-copy">粘贴朋友发来的邀请卡，确认加入后把回执发还给房主。</p>
+            <label for="invitation-input">房主的好友邀请卡</label>
+            <div class="signal-field">
+              <textarea id="invitation-input" aria-label="房主的好友邀请卡"></textarea>
+              <span aria-hidden="true">点击后粘贴朋友发来的内容</span>
+            </div>
+            <label for="guest-name">你的昵称</label>
+            <input id="guest-name" maxlength="20" placeholder="例如：Ghost" autocomplete="nickname">
+            <button id="join-room" data-action class="join-button" type="button">确认加入</button>
+
+            <div id="guest-followup" class="followup" hidden>
+              <label for="confirmation-result">好友加入确认</label>
+              <div class="signal-field">
+                <textarea id="confirmation-result" readonly aria-label="好友加入确认"></textarea>
+                <span aria-hidden="true">加入确认已准备好</span>
+              </div>
+              <button id="copy-confirmation" class="secondary-button" type="button">复制加入确认</button>
+              <p class="waiting-copy">发回房主后，请保持游戏在线。</p>
+            </div>
+          </article>
+        </div>
+
+        <section id="prep-section" class="prep-section" hidden>
+          <div class="prep-heading">
+            <div>
+              <p class="eyebrow">BATTLE READY <span>·</span> 战前准备</p>
+              <h2>进入战前准备</h2>
+              <p>选择本场战术。双方准备完成后，比赛会在房主设备上自动开始。</p>
+            </div>
+            <div id="prep-state" class="prep-state">等待双方选择战术</div>
+          </div>
+
+          <div class="participant-grid">
+            <article class="participant-card host-seat">
+              <span>房主</span>
+              <h3 id="host-player-name">等待房主</h3>
+              <p id="host-player-build">尚未选择战术</p>
+              <b id="host-player-ready">准备中</b>
+            </article>
+            <div class="versus">VS</div>
+            <article class="participant-card guest-seat">
+              <span>好友</span>
+              <h3 id="guest-player-name">等待好友</h3>
+              <p id="guest-player-build">尚未选择战术</p>
+              <b id="guest-player-ready">准备中</b>
+            </article>
+          </div>
+
+          <div class="tactics-panel">
+            <div>
+              <label for="preset-select">本场战术</label>
+              <select id="preset-select">
+                <option value="scout">游骑侦察队 · 机动侦察</option>
+                <option value="medium">中线突击队 · 攻守均衡</option>
+                <option value="heavy">钢铁堡垒队 · 正面推进</option>
+              </select>
+            </div>
+            <button id="lock-preset" class="secondary-button" type="button">锁定战术</button>
+            <button id="ready-match" class="primary-button" type="button">准备出战</button>
+          </div>
+
+          <article id="result-panel" class="result-panel" hidden>
+            <p>本场战报</p>
+            <h2 id="result-title">比赛结束</h2>
+            <span id="result-detail"></span>
+          </article>
+        </section>
+      </section>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

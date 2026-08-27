@@ -2,7 +2,7 @@
 
 > 本文档面向**接手本项目的下一位 AI agent**（或协作者）。包含：
 > 完整玩法逻辑、代码架构、当前进度、已验证项、已知问题、打包指引、以及下一步路线图。
-> 所有内容截至 2026-08-24 实际完成与验证状态，请以此为准。
+> 所有内容截至 2026-08-27 实际完成与验证状态，请以此为准。
 
 ---
 
@@ -154,6 +154,11 @@ src/
     data-channel-peer-v1.ts   DataChannel 大消息分帧、重组与边界校验
     webrtc-handshake-v1.ts    无服务器 offer/answer 邀请串、ICE 等待与会话绑定
     browser-connection-v1.ts  浏览器 RTCPeerConnection 工厂、ICE 配置与连接状态机
+  desktop/
+    main.ts                   Electron 独立窗口、安全 IPC 与房间比赛运行时托管
+    preload.ts                最小化剪贴板/好友房间桥接，不向页面开放 Node 权限
+    renderer.ts               玩家邀请、战前准备、双方状态与战报交互
+    friend-room-runtime-v1.ts 三套预设战术、Build 同步和房主真实比赛接线
   online/
     async-room-service-v1.ts  已封存：未来排位的云端权威双席位房间原型
     async-room-http-v1.ts     已封存：未来排位 `/api/rooms` HTTP 原型
@@ -224,9 +229,10 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **据点争夺模式**：`capture` 模式与 `frontier-v2@2.1.0` 中央目标区已进入真实引擎；连续占领 30 tick、双方争夺/离开重置、歼灭优先、Bot 公开目标上下文与 Replay Studio 关键时刻均已实现。
 - **AI-native 首期闭环**：统一 Tool Registry 同时供 MCP stdio 与内置 Harness 使用；外部 Agent 可读取游戏上下文、在真实 v2 沙箱评测 Bot；内置 BYOK 支持 OpenAI-compatible 端点、严格工具白名单、轮次/调用预算和密钥脱敏。
 - **好友房间 P2P 首期纵切**：`FriendRoomHostSessionV1` 由房主设备权威维护状态并执行真实 Gameplay v2；客人 Build 通过 `FriendRoomPeerV1` 自动同步，双方收到脱敏结果投影。`FriendDataChannelPeerV1` 已覆盖 Unicode 大消息分帧/重组、上限校验和通道生命周期；`webrtc-handshake-v1` 已覆盖无服务器手动 offer/answer、ICE 等待、方向与会话校验；`FriendRoomBrowserConnectionV1` 已接入真实浏览器 RTCPeerConnection、直连/STUN/TURN 配置与连接状态机。
+- **好友房间桌面可玩纵切**：Electron `BrowserWindow` 已替代“启动本地服务再打开浏览器”的玩家路径；玩家通过邀请卡/加入确认建立真实 DataChannel，进入战前准备后选择游骑侦察、中线突击或钢铁堡垒战术。双方准备即由房主设备运行真实比赛，并同步同一战报。页面不开放 Node 权限，默认文案不暴露底层联机术语。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：116 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、好友房间 P2P、WebRTC 手动信令与浏览器连接控制器、封存排位 HTTP 原型、回放仓库、Studio 投影、占领模式和 Agent Harness/MCP/BYOK provider；TypeScript 类型检查通过。
+- **质量基线**：126 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、好友房间 P2P、WebRTC 手动信令、浏览器连接控制器、桌面入口/比赛运行时、封存排位 HTTP 原型、回放仓库、Studio 投影、占领模式和 Agent Harness/MCP/BYOK provider；TypeScript 类型检查通过。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -275,6 +281,8 @@ npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 npm run test          # 116 项自动化测试（含 v1/v2、好友房间 P2P/WebRTC、封存排位原型、配置历史、玩法与 AI-native 接入）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
+npm run desktop       # 构建并启动独立桌面游戏窗口
+npm run pack:desktop-folder # 生成 release/AgenticGame-win-x64/AgenticGame.exe
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
 ```
 
@@ -308,7 +316,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；好友房间 P2P 核心、DataChannel 适配、无服务器手动 offer/answer、浏览器 RTCPeerConnection 和 ICE 配置边界已完成，下一步是桌面外壳接线、二维码、断线恢复和玩家入口。云端权威房间已封存为未来排位原型。
+**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；好友房间 P2P 核心、无服务器手动邀请、独立桌面入口、战前准备和真实房主比赛闭环已完成，下一步是邀请卡压缩/二维码、断线恢复、再来一局和完整回放入口。云端权威房间已封存为未来排位原型。
 **$P3 AI 原生入口（进行中）**：MCP + OpenAI-compatible BYOK 首期闭环已完成；下一步是 Ardot Agent Center、Anthropic 原生适配与多 seed 评测矩阵。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。
@@ -332,4 +340,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.4（2026-08-24）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*
+*文档版本：v1.5（2026-08-27）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*

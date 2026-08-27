@@ -3,8 +3,8 @@
 **游戏优先、代码可选的 AI 原生坦克策略游戏。** 目标体验是让普通玩家从选车、装配和预设指挥官开始；
 想深入的玩家再让 Codex、Claude Code 等外部 Agent 编写 Bot，或使用内置 BYOK Harness 描述战术并生成 Bot。
 
-当前默认 CLI/UI 仍是 RoboCode / MIT Battlecode 风格的 v0.1 玩法；v0.2 已具备可独立运行的首期玩法
-引擎与沙盒 Runner，正在继续接入配置管理、回放工作室和面向普通玩家的新用户体验。
+当前已有两条可运行入口：保留给开发者与 Agent 的 CLI，以及面向普通玩家的独立桌面游戏窗口。
+桌面端首个纵切已完成好友邀请、直连、战前准备、三套预设战术、双方准备、房主自动开赛和战报同步。
 
 ## 玩法闭环
 
@@ -22,10 +22,17 @@
 
 ## 快速开始
 
-需要 Node.js ≥ 20。
+玩家测试版位于 `release/AgenticGame-win-x64/AgenticGame.exe`；如通过 ZIP 分发，解压完整目录后运行，
+不要只复制其中的 EXE。开发环境需要 Node.js ≥ 20：
 
 ```bash
 npm install
+
+# 正常游戏窗口（好友房间）
+npm run desktop
+
+# 生成 Windows x64 可运行目录
+npm run pack:desktop-folder
 
 # 内置示例对战（Chaser vs Sniper）并自动打开网页回放
 npm run arena -- demo
@@ -71,6 +78,7 @@ src/cli/        arena 命令行（play / self / validate / serve / demo / maps�
 src/replay/     Replay v1 + Match Bundle v2 契约、持久化仓库与 Replay Studio 投影
 src/agent/      统一游戏工具、受限 Agent 循环、MCP 服务与 BYOK provider
 src/friend-room/ 好友房间 P2P 协议、房主权威会话与 DataChannel 分帧传输
+src/desktop/    独立游戏窗口、玩家入口、战前准备、桌面比赛运行时与安全 IPC
 src/online/     已封存的未来排位/云端权威房间原型（不属于好友房间运行路径）
 viewer/         单文件网页回放播放器（canvas 渲染、逐帧、调速、事件与日志）
 bots/           内置基准 bot（也是给 AI 的参考实现）
@@ -107,14 +115,14 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 
 ## 双人好友房间（P2P）
 
-首个 P2P 纵切已经建立：双方通过 `FriendRoomPeerV1` 连接，客人选择的 `SavedBuildV2` 在后台
-自动同步到房主设备；双方准备后，仅房主启动一次真实 Gameplay v2 比赛。公开状态不返回源码、
-代码哈希或完整指纹，比赛完成后双方收到一致的结果投影与 Bundle 标识。
+首个可玩的 P2P 纵切已经建立：桌面游戏窗口支持创建邀请、接受邀请和交换加入确认；连接成功后，
+双方选择三套内置战术之一并准备，客人配置在后台同步到房主设备，仅房主启动一次真实 Gameplay v2
+比赛，最终战报回传双方。默认玩家界面不显示源码、代码哈希、协议名或连接参数。
 
-`FriendDataChannelPeerV1` 已支持大消息分帧与重组；`webrtc-handshake-v1` 已支持无需服务器的手动
-offer/answer 邀请串；`FriendRoomBrowserConnectionV1` 已完成真实浏览器 `RTCPeerConnection` 实例化、
-直连/STUN/TURN 配置校验，以及建连、已连接、断开和失败状态投影。二维码、断线重连和玩家界面仍待
-接入。短房间码如果用于公网，需要一个只负责牵线的轻量信令服务，不是比赛服务器。
+`FriendDataChannelPeerV1` 已支持大消息分帧与重组；底层采用无需自有游戏服务器的手动邀请确认，
+默认只使用公共 STUN 帮助发现公网地址，不使用中继。严格 NAT 下仍可能无法直连，这是无自有 TURN
+时的明确边界。二维码、断线重连和邀请卡压缩仍待接入；短房间码若用于公网，需要一个只负责牵线的
+轻量信令服务，不是比赛服务器。
 规格见 [好友房间 P2P 规格](docs/product/friend-room-p2p-v1-spec.md)。原服务器权威实现已
 [封存为未来排位原型](docs/product/async-room-v1-spec.md)。
 
@@ -164,7 +172,8 @@ offer/answer 邀请串；`FriendRoomBrowserConnectionV1` 已完成真实浏览�
 - [x] 好友房间 P2P 核心：房主权威会话、自动 Build 同步、真实比赛与 DataChannel 分帧
 - [x] 好友房间无服务器 WebRTC 手动 offer/answer 邀请协议
 - [x] 好友房间浏览器 WebRTC 建连控制器、直连/STUN/TURN 配置和通道生命周期状态
-- [ ] 好友房间二维码、断线恢复与玩家入口
+- [x] 好友房间独立桌面窗口、玩家入口、战前准备、预设战术与战报同步
+- [ ] 好友房间二维码、邀请卡压缩、断线恢复与再来一局
 - [ ] 排位模式（云端权威原型已封存，等待账号、匹配、安全沙盒与运营条件）
 - [ ] 把 v2、配置历史、练习赛和 Replay Studio 接入玩家界面
 - [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室

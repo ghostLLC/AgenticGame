@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "AgenticGame #1 — 坦克竞技场：让 AI agent 编写坦克代码进行对战的本地竞技游戏",
   "type": "module",
+  "main": "dist/desktop/main.cjs",
   "bin": {
     "arena": "dist/cli/index.js"
   },
@@ -12,6 +13,10 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
+    "desktop": "npm run build:desktop && electron .",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "pack:desktop-folder": "npm run build:desktop && node scripts/pack-desktop-folder.mjs",
+    "pack:desktop": "npm run build:desktop && electron-builder --win portable --x64",
     "build:exe": "node scripts/pack.mjs"
   },
   "engines": {
@@ -21,10 +26,28 @@
     "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^22.16.0",
     "@yao-pkg/pkg": "^6.22.0",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.11"
+  },
+  "build": {
+    "appId": "com.ghostllc.agenticgame",
+    "productName": "AgenticGame",
+    "artifactName": "AgenticGame-${version}-win-x64.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["portable"],
+      "signAndEditExecutable": false
+    }
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

@@ -8,6 +8,11 @@ replays/*.json
 
 .mimosa/
 .playwright-mcp/
+.playwright-cli/
+.cache/
+output/
+release/
+release-new/
 .worktrees/
 
 *.log

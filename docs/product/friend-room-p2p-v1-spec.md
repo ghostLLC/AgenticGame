@@ -1,7 +1,7 @@
 # Friend Room P2P v1 Specification
 
 **Status:** Active implementation
-**Date:** 2026-08-26
+**Date:** 2026-08-27
 **Owner:** AgenticGame
 
 ## 1. Product decision
@@ -58,6 +58,12 @@ available, but is expected to work mainly on LANs or networks where peers are di
 - Verified SavedBuild ingestion on both guest and host; a Build change clears that seat's readiness.
 - Player-facing snapshots omit source, code hash, record fingerprints, and transport internals.
 - Verified MatchBundle generation on the host with a shared result projection and bundle hash.
+- `src/desktop/`: sandboxed Electron game window, manual invite/confirmation entry, masked invitation fields,
+  player-language connection states, and a host-side IPC runtime that never grants Node access to the UI.
+- Battle preparation UI with three built-in player-facing tactics, synchronized Build/ready states, automatic
+  host execution, and the same result projection on both clients.
+- Default discovery profile uses `stun:stun.cloudflare.com:3478` and deliberately ships without TURN
+  credentials or a project-owned server.
 
 ## 5. State machine
 
@@ -98,9 +104,11 @@ rejected and do not mutate room state.
 - [x] Large Unicode messages are framed and reassembled across a DataChannel-like transport.
 - [x] Transport-neutral WebRTC offer/answer lifecycle and no-service manual invite codes.
 - [x] Browser RTCPeerConnection wiring and validated direct/STUN/TURN configuration boundary.
-- [ ] Desktop shell wiring, QR exchange, and deployment-owned production STUN/TURN credentials.
+- [x] Desktop shell wiring, player-language invite exchange, and default public STUN discovery.
+- [x] Battle preparation, three preset tactics, ready synchronization, host match execution, and shared report.
+- [ ] QR/invitation compression and optional deployment-owned TURN credentials.
 - [ ] Reconnect, host-leave handling, rematch, and room expiry.
-- [ ] Player UI wired to the Ardot Friend Room flow.
+- [x] Player UI wired to the Friend Room entry and battle-preparation flow.
 - [ ] Optional signaling rendezvous for short invite codes.
 
 ## 8. Ardot design source

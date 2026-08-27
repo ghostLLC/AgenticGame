@@ -46,6 +46,10 @@ export interface FriendRoomBrowserConnectionOptionsV1 {
   dataChannel?: FriendDataChannelPeerOptionsV1;
 }
 
+export function createDefaultFriendRoomIceProfileV1(): FriendIceProfileV1 {
+  return { mode: 'stun', urls: ['stun:stun.cloudflare.com:3478'] };
+}
+
 export function createFriendRoomRtcConfigurationV1(profile: FriendIceProfileV1): FriendRtcConfigurationV1 {
   if (profile.mode === 'direct') return { iceServers: [] };
   if (profile.mode === 'stun') {

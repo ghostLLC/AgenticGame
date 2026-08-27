@@ -1,0 +1,106 @@
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { createDefaultFriendRoomIceProfileV1 } from '../src/friend-room/browser-connection-v1.js';
+import {
+  createDesktopBrowserWindowOptionsV1,
+  friendRoomPlayerStatusV1,
+} from '../src/desktop/window-contract-v1.js';
+
+describe('桌面游戏外壳 v1', () => {
+  it('把联机凭据呈现成游戏邀请卡，而不是暴露成技术文本', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+    const css = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/styles.css', import.meta.url)),
+      'utf8',
+    );
+
+    expect(html).toContain('<link rel="icon" href="data:,">');
+    expect(html.match(/class="signal-field"/g)).toHaveLength(4);
+    expect(html).toContain('邀请卡已准备好');
+    expect(html).toContain('点击后粘贴朋友发来的内容');
+    expect(html).toContain('进入战前准备');
+    expect(html).toContain('锁定战术');
+    expect(html).toContain('准备出战');
+    expect(html).toContain('本场战报');
+    expect(css).toContain('.signal-field textarea { color: transparent;');
+    expect(css).toContain('[hidden] { display: none !important; }');
+  });
+
+  it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {
+    const buildScript = readFileSync(
+      fileURLToPath(new URL('../scripts/build-desktop.mjs', import.meta.url)),
+      'utf8',
+    );
+    expect(buildScript).toContain("src/runtime/bot-worker.mjs");
+    expect(buildScript).toContain("join(output, 'bot-worker.js')");
+    const folderPackScript = readFileSync(
+      fileURLToPath(new URL('../scripts/pack-desktop-folder.mjs', import.meta.url)),
+      'utf8',
+    );
+    expect(folderPackScript).toContain("join(releaseRoot, 'AgenticGame-win-x64')");
+    expect(folderPackScript).toContain("renameSync(join(target, 'electron.exe'), join(target, 'AgenticGame.exe'))");
+  });
+
+  it('用隔离的本地游戏窗口承载界面，而不是把 Node 权限交给渲染层', () => {
+    expect(createDesktopBrowserWindowOptionsV1('D:/AgenticGame/dist/preload.cjs')).toEqual({
+      width: 1440,
+      height: 900,
+      minWidth: 1100,
+      minHeight: 700,
+      show: false,
+      backgroundColor: '#1a1614',
+      autoHideMenuBar: true,
+      title: 'AgenticGame · 坦克竞技场',
+      webPreferences: {
+        preload: 'D:/AgenticGame/dist/preload.cjs',
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+  });
+
+  it('默认使用无需自有账号的公网地址发现，并且不悄悄依赖中继服务器', () => {
+    expect(createDefaultFriendRoomIceProfileV1()).toEqual({
+      mode: 'stun',
+      urls: ['stun:stun.cloudflare.com:3478'],
+    });
+  });
+
+  it('把底层连接状态翻译成正常游戏语言', () => {
+    expect(friendRoomPlayerStatusV1('waiting-answer')).toEqual({
+      eyebrow: '邀请卡已生成',
+      title: '等待朋友回应',
+      detail: '把邀请卡发给朋友，收到加入确认后粘贴回来。',
+      tone: 'waiting',
+    });
+    expect(friendRoomPlayerStatusV1('connected')).toEqual({
+      eyebrow: '好友已连接',
+      title: '可以进入战前准备',
+      detail: '双方的战术配置会在房间内自动同步。',
+      tone: 'success',
+    });
+    expect(friendRoomPlayerStatusV1('failed')).toEqual({
+      eyebrow: '未能连接',
+      title: '请重新邀请好友',
+      detail: '检查双方是否在线，然后重新创建好友房间。',
+      tone: 'danger',
+    });
+
+    const allPlayerCopy = JSON.stringify([
+      friendRoomPlayerStatusV1('idle'),
+      friendRoomPlayerStatusV1('gathering'),
+      friendRoomPlayerStatusV1('waiting-answer'),
+      friendRoomPlayerStatusV1('waiting-host'),
+      friendRoomPlayerStatusV1('connecting'),
+      friendRoomPlayerStatusV1('connected'),
+      friendRoomPlayerStatusV1('disconnected'),
+      friendRoomPlayerStatusV1('failed'),
+    ]);
+    expect(allPlayerCopy).not.toMatch(/P2P|WebRTC|offer|answer|STUN|TURN|DataChannel|AGFR/i);
+  });
+});
