@@ -13,6 +13,7 @@ import type {
   DesktopFriendRoomStartV1,
   FriendRoomPresetIdV1,
 } from './friend-room-runtime-v1.js';
+import { FriendRoomReplayControllerV1 } from './friend-room-replay-controller-v1.js';
 
 declare global {
   interface Window {
@@ -40,6 +41,8 @@ let roomRuntimeStarted = false;
 let unsubscribePeerMessages: (() => void) | undefined;
 let lastRoomSnapshot: FriendRoomSnapshotV1 | undefined;
 let recoveryActive = false;
+let replayTimer: number | undefined;
+const replayController = new FriendRoomReplayControllerV1();
 
 const controller = new FriendRoomEntryControllerV1({
   createConnection: (role: FriendRoomRoleV1) => {
@@ -83,6 +86,16 @@ const presetSelect = element<HTMLSelectElement>('preset-select');
 const readyMatch = element<HTMLButtonElement>('ready-match');
 const resultPanel = element<HTMLElement>('result-panel');
 const rematchButton = element<HTMLButtonElement>('rematch-button');
+const viewReplayButton = element<HTMLButtonElement>('view-replay-button');
+const prepLobby = element<HTMLElement>('prep-lobby');
+const replayPanel = element<HTMLElement>('replay-panel');
+const replayBattlefield = element<HTMLElement>('replay-battlefield');
+const replayTimeline = element<HTMLInputElement>('replay-timeline');
+const replayPlay = element<HTMLButtonElement>('replay-play');
+const replayTick = element<HTMLElement>('replay-tick');
+const replayRoster = element<HTMLElement>('replay-roster');
+const replayObjective = element<HTMLElement>('replay-objective');
+const replayMoments = element<HTMLElement>('replay-moments');
 const recoveryPanel = element<HTMLElement>('recovery-panel');
 const recoveryHost = element<HTMLElement>('recovery-host');
 const recoveryGuest = element<HTMLElement>('recovery-guest');
@@ -173,6 +186,20 @@ rematchButton.addEventListener('click', () => {
   void runAction(async () => {
     await window.agenticGameDesktop?.friendRoom.requestRematch();
   });
+});
+
+viewReplayButton.addEventListener('click', () => {
+  void runAction(async () => openReplay());
+});
+
+element<HTMLButtonElement>('close-replay-button').addEventListener('click', () => closeReplay());
+element<HTMLButtonElement>('replay-previous').addEventListener('click', () => stepReplay(-1));
+element<HTMLButtonElement>('replay-next').addEventListener('click', () => stepReplay(1));
+replayPlay.addEventListener('click', () => toggleReplayPlayback());
+replayTimeline.addEventListener('input', () => {
+  stopReplayTimer();
+  replayController.seek(Number(replayTimeline.value));
+  renderReplayFrame();
 });
 
 element<HTMLButtonElement>('create-recovery-invite').addEventListener('click', () => {
@@ -269,6 +296,7 @@ async function enterBattlePreparation(snapshot: FriendRoomEntrySnapshotV1): Prom
 
 function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   lastRoomSnapshot = snapshot;
+  if (snapshot.status !== 'complete' && replayController.getSnapshot().open) resetReplayView();
   roomColumns.hidden = true;
   prepSection.hidden = false;
   const host = snapshot.participants.find((item) => item.seat === 'host');
@@ -296,6 +324,7 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
     element<HTMLElement>('result-detail').textContent = `战斗持续 ${snapshot.result.ticks} 回合 · 双方剩余耐久 ${snapshot.result.hp[0]} : ${snapshot.result.hp[1]}`;
     rematchButton.textContent = mine?.rematchRequested ? '等待好友确认' : '再来一局';
     rematchButton.disabled = Boolean(mine?.rematchRequested);
+    viewReplayButton.disabled = !snapshot.replay;
     resultPanel.hidden = false;
     const someoneWantsRematch = snapshot.participants.some((item) => item.rematchRequested);
     setPlayerStatus(
@@ -344,6 +373,157 @@ function renderRecoveryPanel(): void {
   rematchButton.disabled = true;
 }
 
+function openReplay(): void {
+  const replay = lastRoomSnapshot?.replay;
+  if (!replay) throw new Error('本场比赛还没有可用回放');
+  replayController.open(replay);
+  prepLobby.hidden = true;
+  replayPanel.hidden = false;
+  element<HTMLElement>('replay-title').textContent = replay.participants.map((item) => item.displayName).join(' vs ');
+  element<HTMLElement>('replay-subtitle').textContent = `${replay.modeName} · ${replay.map.id} · 逐回合完整战术记录`;
+  buildReplayMap();
+  renderReplayFrame();
+  setPlayerStatus('完整回放', `${replay.modeName} · ${replay.result.ticks} 回合`, '拖动时间轴或播放，逐回合查看双方战术执行。', 'success');
+  replayPanel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+function closeReplay(): void {
+  resetReplayView();
+  if (lastRoomSnapshot) renderRoomSnapshot(lastRoomSnapshot);
+}
+
+function resetReplayView(): void {
+  stopReplayTimer();
+  replayController.close();
+  replayPanel.hidden = true;
+  prepLobby.hidden = false;
+}
+
+function buildReplayMap(): void {
+  const snapshot = replayController.getSnapshot();
+  const replay = snapshot.replay;
+  if (!replay) return;
+  replayBattlefield.replaceChildren();
+  replayBattlefield.style.setProperty('--map-width', String(replay.map.width));
+  replayBattlefield.style.aspectRatio = `${replay.map.width} / ${replay.map.height}`;
+  for (const cell of replay.map.terrainCells) {
+    const node = document.createElement('span');
+    node.className = `replay-cell terrain-${cell.terrainId}`;
+    if (replay.map.captureZones.some((zone) => (
+      cell.x >= zone.x && cell.x < zone.x + zone.width && cell.y >= zone.y && cell.y < zone.y + zone.height
+    ))) node.classList.add('capture-zone');
+    node.style.gridColumn = String(cell.x + 1);
+    node.style.gridRow = String(cell.y + 1);
+    replayBattlefield.append(node);
+  }
+  replayTimeline.max = String(replay.frames.length - 1);
+  replayRoster.replaceChildren(...replay.participants.map((participant) => {
+    const node = document.createElement('article');
+    node.className = `replay-player team-${participant.teamId}`;
+    const name = document.createElement('b');
+    name.textContent = participant.displayName;
+    const loadout = document.createElement('span');
+    loadout.textContent = `${participant.vehicleName} · ${participant.weaponName}`;
+    node.append(name, loadout);
+    return node;
+  }));
+  replayMoments.replaceChildren(...replay.moments.map((moment) => {
+    const node = document.createElement('article');
+    node.className = 'replay-moment';
+    node.dataset.tick = String(moment.tick);
+    const title = document.createElement('b');
+    title.textContent = `${moment.tick} 回合 · ${moment.title}`;
+    const summary = document.createElement('span');
+    summary.textContent = moment.summary;
+    node.append(title, summary);
+    return node;
+  }));
+}
+
+function renderReplayFrame(): void {
+  const snapshot = replayController.getSnapshot();
+  if (!snapshot.open || !snapshot.replay || !snapshot.frame) return;
+  replayBattlefield.querySelectorAll('.replay-entity').forEach((node) => node.remove());
+  for (const tank of snapshot.frame.tanks) {
+    const node = document.createElement('span');
+    node.className = `replay-entity replay-tank team-${tank.teamId}${tank.alive ? '' : ' destroyed'}`;
+    node.style.gridColumn = String(tank.x + 1);
+    node.style.gridRow = String(tank.y + 1);
+    node.style.transform = `rotate(${tank.bodyDirection * 45}deg)`;
+    node.title = `${tank.displayName} · ${tank.hp}/${tank.maxHp} 耐久`;
+    const turret = document.createElement('i');
+    turret.style.transform = `translateX(-50%) rotate(${(tank.turretDirection - tank.bodyDirection) * 45}deg)`;
+    node.append(turret);
+    replayBattlefield.append(node);
+  }
+  for (const projectile of snapshot.frame.projectiles) {
+    const node = document.createElement('span');
+    node.className = 'replay-entity replay-projectile';
+    node.style.gridColumn = String(projectile.x + 1);
+    node.style.gridRow = String(projectile.y + 1);
+    replayBattlefield.append(node);
+  }
+  const tankByTeam = new Map(snapshot.frame.tanks.map((tank) => [tank.teamId, tank]));
+  replayRoster.querySelectorAll<HTMLElement>('.replay-player').forEach((node) => {
+    node.querySelector('meter')?.remove();
+    const teamId = node.classList.contains('team-historical') ? 'historical' : 'current';
+    const tank = tankByTeam.get(teamId);
+    if (!tank) return;
+    const meter = document.createElement('meter');
+    meter.min = 0;
+    meter.max = tank.maxHp;
+    meter.value = Math.max(0, tank.hp);
+    meter.title = `${tank.hp} / ${tank.maxHp} 耐久 · ${tank.ammunition} 发弹药`;
+    node.append(meter);
+  });
+  replayTimeline.value = String(snapshot.frameIndex);
+  replayTick.textContent = `第 ${snapshot.frame.tick} 回合`;
+  replayPlay.textContent = snapshot.playing ? '暂停' : '播放';
+  replayObjective.textContent = snapshot.frame.objective
+    ? snapshot.frame.objective.contested
+      ? '目标区域争夺中'
+      : snapshot.frame.objective.capturingTeamId
+        ? `占领进度 ${snapshot.frame.objective.progress} / ${snapshot.frame.objective.required}`
+        : '目标区域无人占领'
+    : '歼灭对方战车';
+  replayMoments.querySelectorAll<HTMLElement>('.replay-moment').forEach((node) => {
+    node.classList.toggle('active', Number(node.dataset.tick) === snapshot.frame!.tick);
+  });
+}
+
+function stepReplay(delta: -1 | 1): void {
+  stopReplayTimer();
+  const snapshot = replayController.getSnapshot();
+  if (!snapshot.open || !snapshot.replay) return;
+  const target = Math.max(0, Math.min(snapshot.replay.frames.length - 1, snapshot.frameIndex + delta));
+  replayController.seek(target);
+  renderReplayFrame();
+}
+
+function toggleReplayPlayback(): void {
+  const snapshot = replayController.getSnapshot();
+  if (!snapshot.open) return;
+  if (snapshot.playing) {
+    replayController.pause();
+    stopReplayTimer();
+    renderReplayFrame();
+    return;
+  }
+  replayController.play();
+  stopReplayTimer();
+  replayTimer = window.setInterval(() => {
+    const stillPlaying = replayController.advance();
+    renderReplayFrame();
+    if (!stillPlaying) stopReplayTimer();
+  }, 260);
+  renderReplayFrame();
+}
+
+function stopReplayTimer(): void {
+  if (replayTimer !== undefined) window.clearInterval(replayTimer);
+  replayTimer = undefined;
+}
+
 function requireCurrentRoom(): string {
   const sessionId = lastRoomSnapshot?.sessionId;
   if (!sessionId) throw new Error('当前好友房间尚未准备好');
@@ -364,6 +544,7 @@ function setPlayerStatus(eyebrow: string, title: string, detail: string, tone: s
 
 async function resetRoom(): Promise<void> {
   detachPeerMessages();
+  resetReplayView();
   roomRuntimeStarted = false;
   recoveryActive = false;
   activeSessionId = undefined;

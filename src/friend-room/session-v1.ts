@@ -2,6 +2,7 @@ import { assertSavedBuildV2, type SavedBuildV2 } from '../config/saved-build-v2.
 import { GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../core/v2/gameplay-content.js';
 import { runPracticeMatchV2, type PracticeMatchOutputV2 } from '../practice/run-practice-match-v2.js';
 import { verifyMatchBundleV2, type MatchBundleV2 } from '../replay/v2.js';
+import { createFriendRoomReplayV1, type FriendRoomReplayV1 } from './replay-v1.js';
 
 export interface FriendRoomPeerV1 {
   send(payload: string): void;
@@ -48,6 +49,7 @@ export interface FriendRoomSnapshotV1 {
   mapId: string;
   participants: FriendRoomParticipantV1[];
   result?: FriendRoomResultV1;
+  replay?: FriendRoomReplayV1;
   error?: string;
 }
 
@@ -108,6 +110,7 @@ export class FriendRoomHostSessionV1 {
   private revision = 1;
   private readonly createdAt: string;
   private result?: FriendRoomResultV1;
+  private replay?: FriendRoomReplayV1;
   private error?: string;
   private settlement?: Promise<void>;
 
@@ -173,6 +176,7 @@ export class FriendRoomHostSessionV1 {
       mapId: GAMEPLAY_MAP_FRONTIER_V2.id,
       participants: participants.map(publicParticipant),
       ...(this.result ? { result: structuredClone(this.result) } : {}),
+      ...(this.replay ? { replay: structuredClone(this.replay) } : {}),
       ...(this.error ? { error: this.error } : {}),
     };
   }
@@ -261,6 +265,7 @@ export class FriendRoomHostSessionV1 {
     if (this.status !== 'complete' || !this.guest || !this.host.rematchRequested || !this.guest.rematchRequested) return;
     this.status = 'configuring';
     this.result = undefined;
+    this.replay = undefined;
     this.error = undefined;
     this.settlement = undefined;
     this.host.ready = false;
@@ -303,6 +308,7 @@ export class FriendRoomHostSessionV1 {
       const verification = verifyMatchBundleV2(output.bundle);
       if (!verification.ok) throw new Error('Friend room produced an invalid bundle');
       await this.options.onBundle?.(output.bundle);
+      this.replay = createFriendRoomReplayV1(output.bundle);
       this.result = {
         winningSeats: output.summary.winningTeamIds.flatMap((teamId) =>
           teamId === 'current' ? ['host' as const] : teamId === 'historical' ? ['guest' as const] : [],

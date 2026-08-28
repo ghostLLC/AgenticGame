@@ -99,6 +99,7 @@
         </div>
 
         <section id="prep-section" class="prep-section" hidden>
+          <div id="prep-lobby">
           <div class="prep-heading">
             <div>
               <p class="eyebrow">BATTLE READY <span>·</span> 战前准备</p>
@@ -176,8 +177,51 @@
               <h2 id="result-title">比赛结束</h2>
               <span id="result-detail"></span>
             </div>
-            <button id="rematch-button" class="primary-button" type="button">再来一局</button>
+            <div class="result-actions">
+              <button id="view-replay-button" class="secondary-button" type="button">查看完整回放</button>
+              <button id="rematch-button" class="primary-button" type="button">再来一局</button>
+            </div>
           </article>
+          </div>
+
+          <section id="replay-panel" class="replay-panel" hidden>
+            <header class="replay-header">
+              <div>
+                <p class="eyebrow">BATTLE REPLAY <span>·</span> 完整回放</p>
+                <h2 id="replay-title">战术回放</h2>
+                <span id="replay-subtitle">逐回合查看双方机动、炮弹与战斗关键时刻。</span>
+              </div>
+              <button id="close-replay-button" class="text-button replay-close" type="button">退出回放</button>
+            </header>
+
+            <div class="replay-layout">
+              <div class="replay-stage-card">
+                <div id="replay-battlefield" class="replay-battlefield" aria-label="战术回放地图"></div>
+                <div class="replay-controls">
+                  <button id="replay-previous" class="replay-step" type="button" aria-label="上一回合">◀</button>
+                  <button id="replay-play" class="primary-button" type="button">播放</button>
+                  <button id="replay-next" class="replay-step" type="button" aria-label="下一回合">▶</button>
+                  <input id="replay-timeline" type="range" min="0" value="0" aria-label="回放时间轴">
+                  <b id="replay-tick">第 0 回合</b>
+                </div>
+              </div>
+
+              <aside class="replay-sidebar">
+                <section>
+                  <p>双方状态</p>
+                  <div id="replay-roster" class="replay-roster"></div>
+                </section>
+                <section>
+                  <p>战场目标</p>
+                  <strong id="replay-objective">歼灭对方战车</strong>
+                </section>
+                <section class="moment-section">
+                  <p>关键时刻</p>
+                  <div id="replay-moments" class="replay-moments"></div>
+                </section>
+              </aside>
+            </div>
+          </section>
         </section>
       </section>
     </div>

@@ -119,7 +119,19 @@ describe('好友房间 P2P v1', () => {
     expect(host.getSnapshot()).toMatchObject({
       status: 'complete',
       result: { reason: 'max-ticks', ticks: 4 },
+      replay: {
+        map: { id: 'frontier-v2', width: 32, height: 24 },
+        frames: expect.arrayContaining([expect.objectContaining({
+          tick: 0,
+          tanks: expect.arrayContaining([
+            expect.objectContaining({ teamId: 'current' }),
+            expect.objectContaining({ teamId: 'historical' }),
+          ]),
+        })]),
+      },
     });
+    expect(host.getSnapshot().replay?.frames).toHaveLength(5);
+    expect(JSON.stringify(host.getSnapshot().replay)).not.toMatch(/module\.exports|codeHash|bundleHash|[0-9a-f]{64}/);
   });
 
   it('拒绝篡改 Build 和客人伪造的房主消息，且不污染房间状态', () => {
@@ -178,6 +190,28 @@ describe('好友房间 P2P v1', () => {
       ],
     });
     expect(guest.getSnapshot()).toEqual(host.getSnapshot());
+  });
+
+  it('把默认 120 回合完整回放控制在单条 DataChannel 消息上限内', async () => {
+    const [hostPeer, guestPeer] = memoryPeerPair();
+    const host = new FriendRoomHostSessionV1({
+      peer: hostPeer,
+      sessionId: 'friend-session-full-replay',
+      displayName: 'Host',
+      maxTicks: 120,
+      tickBudgetMs: 100,
+    });
+    const guest = new FriendRoomGuestSessionV1({ peer: guestPeer, displayName: 'Guest' });
+    host.selectBuild(build('host-build', 'Host', passiveSource));
+    guest.selectBuild(build('guest-build', 'Guest', passiveSource));
+    host.setReady(true);
+    guest.setReady(true);
+
+    await host.waitForSettlement();
+
+    const snapshot = host.getSnapshot();
+    expect(snapshot.replay?.frames).toHaveLength(121);
+    expect(JSON.stringify(snapshot).length).toBeLessThan(900_000);
   });
 });
 

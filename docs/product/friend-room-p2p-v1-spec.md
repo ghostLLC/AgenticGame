@@ -72,6 +72,9 @@ available, but is expected to work mainly on LANs or networks where peers are di
   `sessionId`. The guest verifies that ID before returning an answer, sends `resume(sessionId, revision)` on the
   replacement channel, and receives the current authoritative snapshot. Builds and completed results remain;
   pre-match readiness is cleared on disconnect.
+- After bundle verification, the host projects a public replay containing map terrain, capture zones, every
+  checkpoint's tank/projectile/objective state, and player-facing key moments. Bot source, code hashes, bundle
+  hashes, raw actions, and debug logs are excluded before the replay is sent to either client.
 
 ## 5. State machine
 
@@ -118,6 +121,7 @@ rejected and do not mutate room state.
 - [x] Compressed invitation/confirmation exchange with legacy invitation compatibility.
 - [x] Two-sided rematch confirmation without reconnecting or reselecting Builds.
 - [x] Same-room manual recovery onto a fresh DataChannel while both applications remain open.
+- [x] Full public per-tick replay shared to both players with tactical map, timeline, playback, and key moments.
 - [ ] QR rendering/scanning and optional deployment-owned TURN credentials.
 - [ ] Application-restart recovery, host-leave handling, and room expiry.
 - [x] Player UI wired to the Friend Room entry and battle-preparation flow.
