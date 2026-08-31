@@ -247,7 +247,7 @@ git commit -m "feat: add desktop application services"
 - Produces: `DesktopAppShellControllerV1`, `OnboardingControllerV1`, `desktopApiClientV1(window)`.
 - Consumes: `DesktopBootstrapV1`, `PlayerProfileV1`, `FriendRoomReplayV1`, `DesktopApiV1`.
 
-- [ ] **Step 1: Write failing controller tests**
+- [x] **Step 1: Write failing controller tests**
 
 Test these real transitions:
 
@@ -262,23 +262,23 @@ disabled future page -> falls back to command center
 
 Also assert navigation never uses a technical page ID and errors leave the current stable state intact.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/desktop-app-shell-v1.test.ts`
 
 Expected: FAIL because the controllers do not exist.
 
-- [ ] **Step 3: Implement pure controllers**
+- [x] **Step 3: Implement pure controllers**
 
 Controllers hold view state and call the injected `DesktopApiV1`; they do not touch `document`. Tutorial run exposes cancellable `running` state, public replay, lessons, retry and safe error text. Page IDs come only from the profile contract.
 
-- [ ] **Step 4: Run focused GREEN**
+- [x] **Step 4: Run focused GREEN**
 
 Run: `npm test -- tests/desktop-app-shell-v1.test.ts`
 
 Expected: all shell/controller transitions PASS.
 
-- [ ] **Step 5: Commit the renderer controllers**
+- [x] **Step 5: Commit the renderer controllers**
 
 ```bash
 git add src/desktop/renderer/app-shell-controller-v1.ts src/desktop/renderer/onboarding-controller-v1.ts src/desktop/renderer/desktop-api-client-v1.ts tests/desktop-app-shell-v1.test.ts
