@@ -216,7 +216,7 @@ Use an in-memory registrar recording channel names and handlers. Assert exactly 
 
 - [ ] **Step 5: Implement versioned API types and IPC registrar**
 
-Define `DesktopApiV1` in a renderer-safe module containing only data contracts. Register handlers in `main.ts` with the real `ipcMain`; initialize the service with `join(app.getPath('userData'), 'AgenticGame')` after `app.whenReady()`.
+Define `DesktopApiV1` in a renderer-safe module containing only data contracts. Register handlers in `main.ts` with the real `ipcMain`; initialize the service directly with `app.getPath('userData')` after `app.whenReady()` because Electron already returns an application-specific directory.
 
 - [ ] **Step 6: Extend preload and the isolation regression**
 
