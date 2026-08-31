@@ -2,7 +2,7 @@
 
 > 本文档面向**接手本项目的下一位 AI agent**（或协作者）。包含：
 > 完整玩法逻辑、代码架构、当前进度、已验证项、已知问题、打包指引、以及下一步路线图。
-> 所有内容截至 2026-08-27 实际完成与验证状态，请以此为准。
+> 所有内容截至 2026-09-01 实际完成与验证状态，请以此为准。
 
 ---
 
@@ -201,7 +201,7 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 
 ---
 
-## 四、当前进度（截至 2026-08-24）
+## 四、当前进度（截至 2026-09-01）
 
 ### ✅ 已完成并验证
 - **引擎**：确定性 tick 结算（移动/开火/炮弹逐子步判定/碰撞/死亡/平局/超时），17 项单元测试全过
@@ -232,9 +232,19 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **AI-native 首期闭环**：统一 Tool Registry 同时供 MCP stdio 与内置 Harness 使用；外部 Agent 可读取游戏上下文、在真实 v2 沙箱评测 Bot；内置 BYOK 支持 OpenAI-compatible 端点、严格工具白名单、轮次/调用预算和密钥脱敏。
 - **好友房间 P2P 首期纵切**：`FriendRoomHostSessionV1` 由房主设备权威维护状态并执行真实 Gameplay v2；客人 Build 通过 `FriendRoomPeerV1` 自动同步，双方收到脱敏结果投影。`FriendDataChannelPeerV1` 已覆盖 Unicode 大消息分帧/重组、上限校验和通道生命周期；`webrtc-handshake-v1` 已覆盖无服务器手动 offer/answer、ICE 等待、方向与会话校验；`FriendRoomBrowserConnectionV1` 已接入真实浏览器 RTCPeerConnection、直连/STUN/TURN 配置与连接状态机。
 - **好友房间桌面可玩纵切**：Electron `BrowserWindow` 已替代“启动本地服务再打开浏览器”的玩家路径；`AGFR2` 将邀请与加入确认压缩为 gzip + Base64URL，并兼容旧 `AGFR1`。玩家进入战前准备后选择游骑侦察、中线突击或钢铁堡垒战术，双方准备即由房主设备运行真实比赛并同步同一战报；赛后双方确认即可保留连接与战术再来一局。若 DataChannel 中断但应用仍在运行，房主可用同一 `sessionId` 生成新会合邀请，新连接接管原房间并保留双方 Build 和既有战报；未开赛的准备状态会清除。房主还会从已校验 Bundle 生成无源码/哈希的公开回放，向双方同步地图、每 tick 单位/炮弹/据点状态和关键时刻，桌面端以战术地图、时间轴和播放控件呈现。页面不开放 Node 权限，默认文案不暴露底层联机术语。
+- **Public Beta Slice 1 桌面基础**：玩家档案保存到 Electron `userData`，采用临时文件、同步落盘、原子替换和损坏隔离；首次进入完成昵称、作战风格、真实 Gameplay v2 教学战斗、战后复盘后进入指挥中心，重启可从已保存阶段恢复。Renderer 仅使用五个白名单 IPC 能力，背景在引导期间设为 inert，1440×900 与 1100×700 无横向溢出。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：134 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、好友房间 P2P、压缩/旧版兼容信令、浏览器连接控制器、桌面入口/比赛运行时、再来一局、断线恢复、公开逐回合回放、封存排位 HTTP 原型、回放仓库、Studio 投影、占领模式和 Agent Harness/MCP/BYOK provider；TypeScript 类型检查通过。
+- **质量基线**：161 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、好友房间 P2P、压缩/旧版兼容信令、浏览器连接控制器、桌面入口/比赛运行时、再来一局、断线恢复、公开逐回合回放、封存排位 HTTP 原型、回放仓库、Studio 投影、占领模式、Agent Harness/MCP/BYOK provider、玩家档案、原子持久化、真实教学战斗、应用服务/IPC 与桌面导航控制器；TypeScript 类型检查与生产依赖审计通过。
+
+### Public Beta Slice 1 Windows 候选
+
+- 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
+- 分发包：`release/AgenticGame-0.1.0-slice1-win-x64.zip`
+- ZIP 字节数：`162038628`
+- SHA-256：`E9E67D851A18218CD0B80A6F830F63D9360EBB9FAB9954C6197375BE6C5F43B9`
+- 进程冒烟：2026-09-01 启动后 `Responding=True`，检查结束后候选进程为 0。
+- 边界：这是已验证的 Slice 1 候选，不是完整 Public Beta B；Slice 2–6（车库/练习赛、回放库、局域网发现与重启恢复、Agent Center、最终 Beta 安装与双机验收）仍待连续完成。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -280,7 +290,7 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 134 项自动化测试（含 v1/v2、好友房间 P2P/WebRTC/断线恢复/公开回放、封存排位原型、配置历史、玩法与 AI-native 接入）
+npm run test          # 161 项自动化测试（含 v1/v2、桌面首次体验、好友房间、配置历史、玩法与 AI-native 接入）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口
@@ -318,7 +328,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已完成；好友房间 P2P 核心、压缩手动邀请、独立桌面入口、战前准备、真实房主比赛、再来一局、应用存活期间的断线恢复和双方公开逐回合回放已完成，下一步是二维码、应用重启后的恢复和回放本地历史入口。云端权威房间已封存为未来排位原型。
+**$P2 中层体验（进行中）**：桌面基础与可恢复首次体验已完成；配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已有后端。接下来连续完成车库/练习赛 UI、回放库、局域网发现与应用重启恢复。云端权威房间继续封存为未来排位原型。
 **$P3 AI 原生入口（进行中）**：MCP + OpenAI-compatible BYOK 首期闭环已完成；下一步是 Ardot Agent Center、Anthropic 原生适配与多 seed 评测矩阵。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。
@@ -342,4 +352,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.5（2026-08-27）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*
+*文档版本：v1.6（2026-09-01）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*

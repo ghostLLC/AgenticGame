@@ -327,7 +327,7 @@ Run: `npm test -- tests/desktop-shell-v1.test.ts tests/desktop-app-shell-v1.test
 
 Expected: tests PASS, TypeScript exits 0, and `dist/desktop/renderer` is produced.
 
-- [ ] **Step 7: Commit the player-facing shell**
+- [x] **Step 7: Commit the player-facing shell**
 
 ```bash
 git add src/desktop/renderer.ts src/desktop/renderer/index.html src/desktop/renderer/styles.css src/desktop/renderer/app-shell-view-v1.ts src/desktop/renderer/onboarding-view-v1.ts tests/desktop-shell-v1.test.ts
@@ -347,7 +347,7 @@ git commit -m "feat: add command center onboarding"
 - Consumes: the complete Slice 1 application.
 - Produces: fresh verification evidence, Windows candidate package, documentation state and knowledge-base sync input.
 
-- [ ] **Step 1: Run the full automated gate**
+- [x] **Step 1: Run the full automated gate**
 
 Run in order:
 
@@ -362,15 +362,15 @@ git diff --check
 
 Expected: every command exits 0, all test files pass, and audit reports 0 vulnerabilities.
 
-- [ ] **Step 2: Run real-browser visual acceptance**
+- [x] **Step 2: Run real-browser visual acceptance**
 
 Serve `dist/desktop/renderer`, open at 1440×900, and capture first-run doctrine selection, tutorial replay and completed command center. Verify keyboard focus, no horizontal overflow, no console errors/warnings, and the existing friend-room page still opens.
 
-- [ ] **Step 3: Build and smoke the Windows candidate**
+- [x] **Step 3: Build and smoke the Windows candidate**
 
 Run `npm run pack:desktop-folder`, create the versioned ZIP from the exact release directory, start `AgenticGame.exe` hidden, confirm `Responding=true`, then stop only that process. Record ZIP bytes and SHA-256.
 
-- [ ] **Step 4: Update documentation honestly**
+- [x] **Step 4: Update documentation honestly**
 
 Document completed Slice 1 behavior, current test count, candidate hash and remaining Slice 2–6 boundaries. Do not call B complete; call this a verified Slice 1 candidate.
 
