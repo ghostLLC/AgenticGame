@@ -17,5 +17,14 @@ export function createDesktopPreloadApiV1(invoke: DesktopInvokeV1): DesktopApiV1
     tutorial: {
       run: () => invoke('tutorial:run') as ReturnType<DesktopApiV1['tutorial']['run']>,
     },
+    garage: {
+      get: () => invoke('garage:get') as ReturnType<DesktopApiV1['garage']['get']>,
+      save: (input) => invoke('garage:save', input) as ReturnType<DesktopApiV1['garage']['save']>,
+      quarantine: () => invoke('garage:quarantine') as ReturnType<DesktopApiV1['garage']['quarantine']>,
+      exportDiagnostic: () => invoke('garage:export-diagnostic') as ReturnType<DesktopApiV1['garage']['exportDiagnostic']>,
+    },
+    practice: {
+      run: (input) => invoke('practice:run', input) as ReturnType<DesktopApiV1['practice']['run']>,
+    },
   };
 }

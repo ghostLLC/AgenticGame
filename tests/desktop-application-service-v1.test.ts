@@ -5,6 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DesktopApplicationServiceV1 } from '../src/desktop/application-service-v1.js';
 import { PlayerProfileRepositoryV1 } from '../src/desktop/player-profile-repository-v1.js';
+import { SavedBuildRepositoryV2 } from '../src/config/saved-build-repository-v2.js';
+import { ReplayRepositoryV2 } from '../src/replay/repository-v2.js';
+import { BuildRevisionNoteRepositoryV1 } from '../src/desktop/build-revision-note-repository-v1.js';
+import { GarageServiceV1 } from '../src/desktop/garage-service-v1.js';
+import { PracticeMatchServiceV1 } from '../src/desktop/practice-match-service-v1.js';
 
 const roots: string[] = [];
 
@@ -16,9 +21,21 @@ async function service(): Promise<DesktopApplicationServiceV1> {
   const root = await mkdtemp(join(tmpdir(), 'agentic-game-application-'));
   roots.push(root);
   let minute = 0;
+  const now = () => `2026-08-31T10:${String(minute++).padStart(2, '0')}:00.000Z`;
+  const quarantineRoot = join(root, 'quarantine');
+  const buildRepository = new SavedBuildRepositoryV2(join(root, 'builds'), { quarantineRoot, now });
+  const replayRepository = new ReplayRepositoryV2(join(root, 'replays'));
   return new DesktopApplicationServiceV1({
     profileRepository: new PlayerProfileRepositoryV1(root),
-    now: () => `2026-08-31T10:${String(minute++).padStart(2, '0')}:00.000Z`,
+    garageService: new GarageServiceV1({
+      buildRepository,
+      noteRepository: new BuildRevisionNoteRepositoryV1(join(root, 'build-metadata'), { quarantineRoot, now }),
+      replayRepository,
+      diagnosticsRoot: join(root, 'diagnostics'),
+      now,
+    }),
+    practiceService: new PracticeMatchServiceV1({ buildRepository, replayRepository, now }),
+    now,
     createPlayerId: () => '11111111-1111-4111-8111-111111111111',
   });
 }
@@ -56,5 +73,27 @@ describe('DesktopApplicationServiceV1', () => {
     await expect(app.runTutorial()).rejects.toThrow('请先建立指挥官档案');
     await expect(app.advanceTutorial('replay')).rejects.toThrow('请先建立指挥官档案');
     await expect(app.rememberPage('garage')).rejects.toThrow('请先建立指挥官档案');
+  });
+
+  it('只允许完成新手教程的玩家使用车库和练习赛', async () => {
+    const app = await service();
+    await expect(app.getGarage()).rejects.toThrow('请先建立指挥官档案');
+    await expect(app.runPractice({ currentRevision: 1, opponentRevision: 1, modeId: 'duel' }))
+      .rejects.toThrow('请先建立指挥官档案');
+
+    await app.createProfile({ displayName: '乐淳', doctrine: 'medium' });
+    await expect(app.getGarage()).rejects.toThrow('请先完成新手教程');
+    await app.advanceTutorial('replay');
+    await app.advanceTutorial('complete');
+
+    const garage = await app.getGarage();
+    const updated = await app.saveGarageRevision({
+      label: '侧翼突击', vehicleId: 'scout', weaponId: 'light-cannon', tacticId: 'scout', note: '尝试侧翼',
+    });
+    const match = await app.runPractice({ currentRevision: 2, opponentRevision: 1, modeId: 'duel', seed: 7 });
+
+    expect(garage).toMatchObject({ status: 'ready', currentRevision: 1 });
+    expect(updated).toMatchObject({ status: 'ready', currentRevision: 2 });
+    expect(match).toMatchObject({ currentRevision: 2, opponentRevision: 1, modeName: '歼灭决斗' });
   });
 });

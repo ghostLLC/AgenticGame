@@ -290,41 +290,41 @@ git commit -m "feat: persist desktop practice matches"
 - Consumes: Task 2 and 3 services.
 - Produces: whitelisted `garage.get/save/quarantine/exportDiagnostic` and `practice.run` APIs plus pure loading/running/success/error UI state machines.
 
-- [ ] **Step 1: Write failing application and IPC contract tests**
+- [x] **Step 1: Write failing application and IPC contract tests**
 
 Assert the application service requires a completed profile before garage/practice operations. Assert exact new channel order and malformed label, incompatible loadout, revision, mode and seed inputs are rejected by IPC before service execution. Assert preload maps every method to a fixed channel and still has no generic `invoke`.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/desktop-application-service-v1.test.ts tests/desktop-application-ipc-v1.test.ts`
 
 Expected: FAIL because the new methods and channels are missing.
 
-- [ ] **Step 3: Wire services into the application composition root**
+- [x] **Step 3: Wire services into the application composition root**
 
 Extend `DesktopApplicationServiceV1` with explicit garage/practice dependencies and methods. In `main.ts`, construct roots under `app.getPath('userData')`: `builds`, `build-metadata`, `replays`, `quarantine`, and `diagnostics`. Register only typed channels; do not expose a path or file picker.
 
-- [ ] **Step 4: Write failing controller behavior tests**
+- [x] **Step 4: Write failing controller behavior tests**
 
 Assert garage load/save/quarantine states preserve the last healthy snapshot on errors. Assert practice cannot run without two selectable revisions, transitions `idle → running → complete`, prevents a second concurrent run, and keeps a completed result if a later run fails.
 
-- [ ] **Step 5: Run controller tests and verify RED**
+- [x] **Step 5: Run controller tests and verify RED**
 
 Run: `npm test -- tests/desktop-garage-practice-controller-v1.test.ts`
 
 Expected: FAIL because the controller modules do not exist.
 
-- [ ] **Step 6: Implement minimal pure controllers**
+- [x] **Step 6: Implement minimal pure controllers**
 
 Controllers depend only on `DesktopApiV1`, return structured-cloned snapshots and map unknown exceptions to player-actionable Chinese text. They do not touch DOM, Node, repositories or raw replay bundles.
 
-- [ ] **Step 7: Run focused GREEN and typecheck**
+- [x] **Step 7: Run focused GREEN and typecheck**
 
 Run: `npm test -- tests/desktop-application-service-v1.test.ts tests/desktop-application-ipc-v1.test.ts tests/desktop-garage-practice-controller-v1.test.ts && npm run typecheck`
 
 Expected: all tests PASS.
 
-- [ ] **Step 8: Commit the desktop boundary**
+- [x] **Step 8: Commit the desktop boundary**
 
 ```bash
 git add src/desktop/application-service-v1.ts src/desktop/application-ipc-v1.ts src/desktop/desktop-api-v1.ts src/desktop/desktop-preload-api-v1.ts src/desktop/main.ts src/desktop/renderer/garage-controller-v1.ts src/desktop/renderer/practice-lab-controller-v1.ts tests/desktop-application-service-v1.test.ts tests/desktop-application-ipc-v1.test.ts tests/desktop-garage-practice-controller-v1.test.ts

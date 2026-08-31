@@ -9,6 +9,11 @@ import { createDesktopBrowserWindowOptionsV1 } from './window-contract-v1.js';
 import { DesktopApplicationServiceV1 } from './application-service-v1.js';
 import { registerDesktopApplicationIpcV1 } from './application-ipc-v1.js';
 import { PlayerProfileRepositoryV1 } from './player-profile-repository-v1.js';
+import { SavedBuildRepositoryV2 } from '../config/saved-build-repository-v2.js';
+import { ReplayRepositoryV2 } from '../replay/repository-v2.js';
+import { BuildRevisionNoteRepositoryV1 } from './build-revision-note-repository-v1.js';
+import { GarageServiceV1 } from './garage-service-v1.js';
+import { PracticeMatchServiceV1 } from './practice-match-service-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
@@ -74,8 +79,19 @@ function createGameWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  const userDataRoot = app.getPath('userData');
+  const quarantineRoot = join(userDataRoot, 'quarantine');
+  const buildRepository = new SavedBuildRepositoryV2(join(userDataRoot, 'builds'), { quarantineRoot });
+  const replayRepository = new ReplayRepositoryV2(join(userDataRoot, 'replays'));
   const applicationService = new DesktopApplicationServiceV1({
-    profileRepository: new PlayerProfileRepositoryV1(app.getPath('userData')),
+    profileRepository: new PlayerProfileRepositoryV1(userDataRoot),
+    garageService: new GarageServiceV1({
+      buildRepository,
+      noteRepository: new BuildRevisionNoteRepositoryV1(join(userDataRoot, 'build-metadata'), { quarantineRoot }),
+      replayRepository,
+      diagnosticsRoot: join(userDataRoot, 'diagnostics'),
+    }),
+    practiceService: new PracticeMatchServiceV1({ buildRepository, replayRepository }),
   });
   registerDesktopApplicationIpcV1({
     handle: (channel, handler) => ipcMain.handle(channel, handler),

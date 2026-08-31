@@ -6,6 +6,8 @@ import type {
 } from './player-profile-v1.js';
 import type { DesktopBootstrapV1 } from './application-service-v1.js';
 import type { TutorialMatchResultV1 } from './tutorial-match-service-v1.js';
+import type { GarageDiagnosticExportV1, GarageSaveInputV1, GarageSnapshotV1 } from './garage-service-v1.js';
+import type { PracticeResultViewV1, PracticeRunInputV1 } from './practice-match-service-v1.js';
 
 export interface DesktopApiV1 {
   app: {
@@ -20,5 +22,14 @@ export interface DesktopApiV1 {
   };
   tutorial: {
     run(): Promise<TutorialMatchResultV1>;
+  };
+  garage: {
+    get(): Promise<GarageSnapshotV1>;
+    save(input: GarageSaveInputV1): Promise<GarageSnapshotV1>;
+    quarantine(): Promise<GarageSnapshotV1>;
+    exportDiagnostic(): Promise<GarageDiagnosticExportV1>;
+  };
+  practice: {
+    run(input: PracticeRunInputV1): Promise<PracticeResultViewV1>;
   };
 }
