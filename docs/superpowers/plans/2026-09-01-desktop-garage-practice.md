@@ -92,7 +92,7 @@ Run: `npm test -- tests/saved-build-repository-v2.test.ts tests/saved-build-v2.t
 
 Expected: all tests PASS and the original corruption test still throws from `list`.
 
-- [ ] **Step 6: Commit the repository recovery boundary**
+- [x] **Step 6: Commit the repository recovery boundary**
 
 ```bash
 git add src/config/saved-build-repository-v2.ts tests/saved-build-repository-v2.test.ts
@@ -111,17 +111,17 @@ git commit -m "feat: inspect and quarantine build history"
 - Consumes: `PlayerProfileV1`, `SavedBuildRepositoryV2`, `ReplayRepositoryV2`, `GAMEPLAY_CONTENT_V2`, and the preset doctrine behavior.
 - Produces: `BuildRevisionNoteRepositoryV1`, `GarageServiceV1.getSnapshot(profile)`, `saveRevision(profile, input)`, `quarantineDamagedHistory(profile)`, and `exportDiagnostic(profile)`.
 
-- [ ] **Step 1: Write failing note-repository tests**
+- [x] **Step 1: Write failing note-repository tests**
 
 Use a real temporary root. Assert strict `{ version: 1, buildId, revision, tacticId, note, createdAt }`, atomic persistence, exact load, trimmed 0–240 character note, unknown-key rejection and path traversal rejection.
 
-- [ ] **Step 2: Run note tests and verify RED**
+- [x] **Step 2: Run note tests and verify RED**
 
 Run: `npm test -- tests/build-revision-note-repository-v1.test.ts`
 
 Expected: FAIL because the repository module does not exist.
 
-- [ ] **Step 3: Implement the note repository**
+- [x] **Step 3: Implement the note repository**
 
 Store notes at `<root>/<buildId>/<revision>.json` using sibling temporary write, file sync and rename. Export:
 
@@ -137,7 +137,7 @@ export interface BuildRevisionNoteV1 {
 }
 ```
 
-- [ ] **Step 4: Write failing garage behavior tests**
+- [x] **Step 4: Write failing garage behavior tests**
 
 With real repositories, assert:
 
@@ -149,13 +149,13 @@ With real repositories, assert:
 6. quarantine moves the damaged tail and a subsequent save replaces the broken revision number;
 7. exported diagnostics contain issue codes and revision numbers but no Bot source or full fingerprint.
 
-- [ ] **Step 5: Run garage tests and verify RED**
+- [x] **Step 5: Run garage tests and verify RED**
 
 Run: `npm test -- tests/desktop-garage-service-v1.test.ts`
 
 Expected: FAIL because `GarageServiceV1` does not exist.
 
-- [ ] **Step 6: Implement `GarageServiceV1` projections**
+- [x] **Step 6: Implement `GarageServiceV1` projections**
 
 Use the stable local Build ID `commander-main`. Export these player contracts:
 
@@ -185,13 +185,13 @@ export interface GarageRevisionViewV1 {
 
 The snapshot also exposes literal vehicle/compatible-weapon stats, the current healthy revision, save state and a sanitized issue summary. Keep source and fingerprints out of all view types. Generate the Bot source internally from the three tactic IDs.
 
-- [ ] **Step 7: Run GREEN, typecheck and privacy assertions**
+- [x] **Step 7: Run GREEN, typecheck and privacy assertions**
 
 Run: `npm test -- tests/build-revision-note-repository-v1.test.ts tests/desktop-garage-service-v1.test.ts tests/saved-build-repository-v2.test.ts && npm run typecheck`
 
 Expected: all tests PASS; serialized garage snapshots and diagnostics do not contain `module.exports` or 64-character hashes.
 
-- [ ] **Step 8: Commit the garage domain service**
+- [x] **Step 8: Commit the garage domain service**
 
 ```bash
 git add src/desktop/build-revision-note-repository-v1.ts src/desktop/garage-service-v1.ts tests/build-revision-note-repository-v1.test.ts tests/desktop-garage-service-v1.test.ts
