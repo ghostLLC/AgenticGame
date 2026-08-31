@@ -382,6 +382,6 @@ git commit -m "docs: record desktop foundation slice"
 git push origin main
 ```
 
-- [ ] **Step 6: Sync Feishu and read back**
+- [x] **Step 6: Sync Feishu and read back**
 
 Update the existing UX implementation-state block in place and append one stable-key entry each to technical architecture, development log and quality report. Use the final commit short hash as the stable key. Re-read all four pages and verify exactly one matching heading per append-only page.
