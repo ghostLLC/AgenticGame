@@ -374,7 +374,7 @@ Run `npm run pack:desktop-folder`, create the versioned ZIP from the exact relea
 
 Document completed Slice 1 behavior, current test count, candidate hash and remaining Slice 2–6 boundaries. Do not call B complete; call this a verified Slice 1 candidate.
 
-- [ ] **Step 5: Commit and push the verified slice**
+- [x] **Step 5: Commit and push the verified slice**
 
 ```bash
 git add README.md HANDOFF.md docs/superpowers/plans/2026-08-31-desktop-foundation-onboarding.md
