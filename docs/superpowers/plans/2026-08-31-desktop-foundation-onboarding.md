@@ -139,41 +139,41 @@ git commit -m "feat: persist player profiles atomically"
 - Modify: `tests/desktop-friend-room-runtime-v1.test.ts`
 
 **Interfaces:**
-- Produces: `createPresetBuildV1(presetId, displayName, createdAt)`, `runTutorialMatchV1({ doctrine, displayName, now? })`.
-- Returns: `{ replay: FriendRoomReplayV1; winningTeamIds: string[]; lesson: { title: string; detail: string }[] }`.
+- Produces: `createPresetBuildV1(presetId, createdAt, displayName?)`, `runTutorialMatchV1({ doctrine, displayName, now? })`.
+- Returns: `{ replay: FriendRoomReplayV1; winningTeamIds: string[]; lessons: { title: string; detail: string }[] }`.
 - Consumes: existing `runPracticeMatchV2`, verified MatchBundle v2, `createFriendRoomReplayV1`.
 
-- [ ] **Step 1: Write the failing tutorial behavior test**
+- [x] **Step 1: Write the failing tutorial behavior test**
 
 Test all three doctrines. Assert that each run returns a verified public replay with at least two frames, exactly two public participants, no source/hash/action/log material in serialized output, and 1–3 player-language lessons selected from movement, vision, armor, ammunition, hit, destruction, or objective moments.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/tutorial-match-service-v1.test.ts`
 
 Expected: FAIL because the tutorial service does not exist.
 
-- [ ] **Step 3: Extract preset construction without changing friend-room behavior**
+- [x] **Step 3: Extract preset construction without changing friend-room behavior**
 
 Move the existing private preset Build construction from `friend-room-runtime-v1.ts` into `preset-builds-v1.ts`. Keep preset IDs, loadouts, labels and Bot source byte-for-byte equivalent. Update the friend runtime to call the exported factory.
 
-- [ ] **Step 4: Run the friend-room regression before tutorial implementation**
+- [x] **Step 4: Run the friend-room regression before tutorial implementation**
 
 Run: `npm test -- tests/desktop-friend-room-runtime-v1.test.ts`
 
 Expected: existing friend-room runtime tests PASS after the behavior-preserving extraction.
 
-- [ ] **Step 5: Implement the tutorial service**
+- [x] **Step 5: Implement the tutorial service**
 
 Create the chosen preset as team `current`; create a deterministic teaching opponent using an existing legal Bot artifact and a fixed Gameplay v2 map/mode configuration. Run the real practice service, verify the bundle, project it through `createFriendRoomReplayV1`, then derive at most three lessons from public moments. Do not return or persist either Bot source.
 
-- [ ] **Step 6: Run focused GREEN and privacy checks**
+- [x] **Step 6: Run focused GREEN and privacy checks**
 
 Run: `npm test -- tests/tutorial-match-service-v1.test.ts tests/desktop-friend-room-runtime-v1.test.ts`
 
 Expected: both files PASS and serialized tutorial result contains no 64-character hash or `module.exports`.
 
-- [ ] **Step 7: Commit the tutorial service**
+- [x] **Step 7: Commit the tutorial service**
 
 ```bash
 git add src/desktop/preset-builds-v1.ts src/desktop/tutorial-match-service-v1.ts src/desktop/friend-room-runtime-v1.ts tests/tutorial-match-service-v1.test.ts tests/desktop-friend-room-runtime-v1.test.ts
