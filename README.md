@@ -4,7 +4,9 @@
 想深入的玩家再让 Codex、Claude Code 等外部 Agent 编写 Bot，或使用内置 BYOK Harness 描述战术并生成 Bot。
 
 当前已有两条可运行入口：保留给开发者与 Agent 的 CLI，以及面向普通玩家的独立桌面游戏窗口。
-桌面端已具备本地玩家档案、可恢复首次体验、真实教学战斗、战后复盘、指挥中心，以及压缩好友邀请、直连、战前准备、三套预设战术、双方准备、房主自动开赛、战报同步、再来一局、房间内断线恢复和双方可看的逐回合战术回放。
+桌面端已具备本地玩家档案、可恢复首次体验、真实教学战斗、战后复盘、指挥中心、不可变版本车库、
+新旧版本/镜像练习赛，以及压缩好友邀请、直连、战前准备、三套预设战术、双方准备、房主自动开赛、
+战报同步、再来一局、房间内断线恢复和双方可看的逐回合战术回放。
 
 ## 玩法闭环
 
@@ -22,8 +24,8 @@
 
 ## 快速开始
 
-当前 Slice 1 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
-`release/AgenticGame-0.1.0-slice1-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
+当前 Slice 2 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
+`release/AgenticGame-0.1.0-slice2-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
 该候选用于内部持续开发，不代表 Public Beta B 已完成。开发环境需要 Node.js ≥ 20：
 
 ```bash
@@ -97,7 +99,7 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - Bot 只收到当前可见敌人和炮弹；真实动作、战斗事件、状态、日志和源码进入可校验 MatchBundleV2。
 - `capture` 据点争夺要求单方连续控制中央区域 30 tick；双方争夺或离开会重置进度，歼灭仍可直接获胜。
 
-目前通过 TypeScript API 使用 `runMatchV2`；尚未接入 CLI、网页控制台和播放器。精确规则与接口见
+目前桌面车库/练习赛与 TypeScript API 均使用 `runMatchV2`；CLI、旧网页控制台和旧播放器仍是 v1 路径。精确规则与接口见
 [Gameplay v2 纵切规格](docs/product/gameplay-v2-vertical-slice-spec.md) 和
 [Bot 规则书的 v2 章节](docs/tank-spec.md#11-gameplay-v2-开发者预览)。
 
@@ -110,9 +112,16 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - `runPracticeMatchV2` 可让当前 revision 对战任意历史 revision，也支持同版本镜像自测。
 - 练习赛仍走真实 worker 沙盒和 MatchBundleV2，不使用简化模拟器。
 
-当前提供 TypeScript API；Build 历史与练习赛 Ardot 设计已在页面 `2:115` 重建并完成布局复检
-（主屏节点 `3:299`、`3:399`，状态基线 `3:492`），下一步按该设计接入玩家界面。
-契约见 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
+桌面端现在提供“我的车库”与“战术实验室”：玩家可调整战车、兼容主炮与预设作战风格，为每次调整
+填写名称和说明并保存为不可变版本；版本历史展示字面差异和由已验证回放反推的胜/负/平。练习赛支持
+新版本对战旧版本和镜像训练，可选歼灭或据点模式，真实经过 worker 沙盒并保存 Replay v2，只向默认
+界面投影胜负、回合数和最多三个关键时刻。损坏历史会停止新保存，但健康版本仍可用；玩家可先导出
+脱敏检查报告，再把损坏尾部移动到可恢复隔离区。契约见
+[Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
+
+这些桌面数据全部位于 Electron `userData`：`profile/` 保存玩家档案，`builds/` 保存不可变配置，
+`build-metadata/` 保存玩家说明，`replays/` 保存已验证比赛，`quarantine/` 保存可恢复隔离数据，
+`diagnostics/` 保存脱敏检查报告。默认页面不显示源码、代码指纹、原始动作、日志或比赛种子。
 
 ## 双人好友房间（P2P）
 
@@ -182,8 +191,9 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] 桌面基础与首次体验：本地档案、真实教学战斗、可恢复进度、战后复盘、指挥中心与键盘模态焦点
 - [ ] 好友房间二维码、应用重启后的房间恢复与可选信令服务自动重连
 - [ ] 排位模式（云端权威原型已封存，等待账号、匹配、安全沙盒与运营条件）
-- [ ] 把 v2、配置历史、练习赛和 Replay Studio 接入玩家界面
-- [ ] 按 Ardot 实现指挥中心、车库、Agent 中心、战术实验室、战斗和回放工作室
+- [x] 把 v2 配置历史、新旧/镜像练习赛和关键时刻投影接入玩家界面
+- [ ] Replay Studio 回放库与完整逐回合桌面入口
+- [ ] 完成 Agent 中心、回放工作室等剩余游戏化页面；Ardot 设计同步暂按用户要求延后
 - [x] 外部 Agent MCP 接入 + 内置 OpenAI-compatible BYOK Harness 首个可运行纵切
 - [ ] Agent Center UI、Anthropic 原生适配与多 seed 评测矩阵
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容

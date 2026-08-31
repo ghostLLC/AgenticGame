@@ -158,7 +158,10 @@ src/
   desktop/
     main.ts                   Electron 独立窗口、安全 IPC 与房间比赛运行时托管
     preload.ts                最小化剪贴板/好友房间桥接，不向页面开放 Node 权限
-    renderer.ts               玩家邀请、战前准备、双方状态与战报交互
+    renderer.ts               指挥中心、车库、练习赛、好友房间与战报交互
+    garage-service-v1.ts      玩家车库投影、版本差异/战绩、损坏历史恢复入口
+    practice-match-service-v1.ts  新旧/镜像真实练习赛、Replay v2 落盘和脱敏结果
+    build-revision-note-repository-v1.ts  版本说明与预设战术的不可变原子仓库
     friend-room-runtime-v1.ts 三套预设战术、Build 同步和房主真实比赛接线
     friend-room-replay-controller-v1.ts  回放打开、跳转、播放与结束状态机
   online/
@@ -233,18 +236,21 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **好友房间 P2P 首期纵切**：`FriendRoomHostSessionV1` 由房主设备权威维护状态并执行真实 Gameplay v2；客人 Build 通过 `FriendRoomPeerV1` 自动同步，双方收到脱敏结果投影。`FriendDataChannelPeerV1` 已覆盖 Unicode 大消息分帧/重组、上限校验和通道生命周期；`webrtc-handshake-v1` 已覆盖无服务器手动 offer/answer、ICE 等待、方向与会话校验；`FriendRoomBrowserConnectionV1` 已接入真实浏览器 RTCPeerConnection、直连/STUN/TURN 配置与连接状态机。
 - **好友房间桌面可玩纵切**：Electron `BrowserWindow` 已替代“启动本地服务再打开浏览器”的玩家路径；`AGFR2` 将邀请与加入确认压缩为 gzip + Base64URL，并兼容旧 `AGFR1`。玩家进入战前准备后选择游骑侦察、中线突击或钢铁堡垒战术，双方准备即由房主设备运行真实比赛并同步同一战报；赛后双方确认即可保留连接与战术再来一局。若 DataChannel 中断但应用仍在运行，房主可用同一 `sessionId` 生成新会合邀请，新连接接管原房间并保留双方 Build 和既有战报；未开赛的准备状态会清除。房主还会从已校验 Bundle 生成无源码/哈希的公开回放，向双方同步地图、每 tick 单位/炮弹/据点状态和关键时刻，桌面端以战术地图、时间轴和播放控件呈现。页面不开放 Node 权限，默认文案不暴露底层联机术语。
 - **Public Beta Slice 1 桌面基础**：玩家档案保存到 Electron `userData`，采用临时文件、同步落盘、原子替换和损坏隔离；首次进入完成昵称、作战风格、真实 Gameplay v2 教学战斗、战后复盘后进入指挥中心，重启可从已保存阶段恢复。Renderer 仅使用五个白名单 IPC 能力，背景在引导期间设为 inert，1440×900 与 1100×700 无横向溢出。
+- **Public Beta Slice 2 车库与练习赛**：桌面端已开放“我的车库”和“战术实验室”。每次配置保存形成不可变 revision，玩家可查看字面差异、说明和由已验证 Replay v2 反推的战绩；损坏尾部不会被读取或覆盖，可导出脱敏报告后移动到隔离区。新旧版本与镜像训练均走真实 Gameplay v2 worker 沙盒，可选歼灭/据点模式，比赛包原子保存，默认结果只含胜负、回合数和最多三个关键时刻。IPC 扩展为固定白名单，没有通用调用器或文件路径入口。
+- **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`quarantine/`、`diagnostics/` 分别保存档案、配置、版本说明、比赛、隔离数据和脱敏检查报告。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
-- **兼容性状态**：v1 引擎、Bot API、CLI、网页控制台和回放播放器行为保持不变；CLI/UI 本阶段仍保存和展示 Replay v1，尚未增加 v2 文件入口。
-- **质量基线**：161 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史、练习赛、好友房间 P2P、压缩/旧版兼容信令、浏览器连接控制器、桌面入口/比赛运行时、再来一局、断线恢复、公开逐回合回放、封存排位 HTTP 原型、回放仓库、Studio 投影、占领模式、Agent Harness/MCP/BYOK provider、玩家档案、原子持久化、真实教学战斗、应用服务/IPC 与桌面导航控制器；TypeScript 类型检查与生产依赖审计通过。
+- **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
+- **质量基线**：182 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、玩家版本说明、车库投影、真实练习赛、好友房间 P2P、压缩/旧版兼容信令、浏览器连接控制器、桌面入口/比赛运行时、再来一局、断线恢复、公开逐回合回放、封存排位 HTTP 原型、Replay 仓库/Studio、占领模式、Agent Harness/MCP/BYOK provider、玩家档案、原子持久化、真实教学战斗、应用服务/白名单 IPC、车库/练习赛控制器与桌面导航；TypeScript 类型检查、生产依赖审计和桌面构建通过。
 
-### Public Beta Slice 1 Windows 候选
+### Public Beta Slice 2 Windows 候选
 
 - 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
-- 分发包：`release/AgenticGame-0.1.0-slice1-win-x64.zip`
-- ZIP 字节数：`162038628`
-- SHA-256：`E9E67D851A18218CD0B80A6F830F63D9360EBB9FAB9954C6197375BE6C5F43B9`
+- 分发包：`release/AgenticGame-0.1.0-slice2-win-x64.zip`
+- ZIP 字节数：`162054305`
+- SHA-256：`6A986C8B58D81721D0E1975DE5BF25D46E348E9C3403A8FED59DB6684C88E146`
 - 进程冒烟：2026-09-01 启动后 `Responding=True`，检查结束后候选进程为 0。
-- 边界：这是已验证的 Slice 1 候选，不是完整 Public Beta B；Slice 2–6（车库/练习赛、回放库、局域网发现与重启恢复、Agent Center、最终 Beta 安装与双机验收）仍待连续完成。
+- 浏览器验收：1440×900 与 1100×700 完成版本保存、新旧对战、镜像训练、损坏状态/隔离恢复和好友房间导航；0 个控制台错误/警告，页面宽度未超过视口。
+- 边界：这是已验证的 Slice 2 候选，不是完整 Public Beta B；Slice 3–6（回放库、局域网发现与应用重启恢复、Agent Center、最终 Beta 安装与双机验收）仍待连续完成。Ardot 同步按用户当前要求延后。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -290,7 +296,7 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 161 项自动化测试（含 v1/v2、桌面首次体验、好友房间、配置历史、玩法与 AI-native 接入）
+npm run test          # 182 项自动化测试（含 v1/v2、桌面首次体验、车库/练习赛、好友房间与 AI-native 接入）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口
@@ -328,7 +334,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（进行中）**：桌面基础与可恢复首次体验已完成；配置版本化、新旧版本练习赛、Replay v2 持久化/Studio 投影和据点争夺已有后端。接下来连续完成车库/练习赛 UI、回放库、局域网发现与应用重启恢复。云端权威房间继续封存为未来排位原型。
+**$P2 中层体验（进行中）**：桌面基础、可恢复首次体验、不可变车库、新旧/镜像练习赛、Replay v2 持久化/关键时刻投影和据点争夺均已进入玩家路径。接下来连续完成回放库、局域网发现与应用重启恢复。云端权威房间继续封存为未来排位原型。
 **$P3 AI 原生入口（进行中）**：MCP + OpenAI-compatible BYOK 首期闭环已完成；下一步是 Ardot Agent Center、Anthropic 原生适配与多 seed 评测矩阵。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。

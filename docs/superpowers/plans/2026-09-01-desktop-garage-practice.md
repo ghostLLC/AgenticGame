@@ -402,23 +402,23 @@ git commit -m "feat: add garage and practice lab pages"
 - Consumes: complete Slice 2.
 - Produces: fresh automated, browser, Windows package, GitHub and Feishu evidence.
 
-- [ ] **Step 1: Run the full automated gate**
+- [x] **Step 1: Run the full automated gate**
 
 Run in order: `npm test`, `npm run typecheck`, `npm audit --omit=dev`, `npm run build`, `npm run build:desktop`, and `git diff --check`. Record exact test counts.
 
-- [ ] **Step 2: Run real-browser acceptance**
+- [x] **Step 2: Run real-browser acceptance**
 
 At 1440×900 and 1100×700, complete: garage initial state, changed revision save, timeline comparison, mirror practice, revision-2-vs-revision-1 practice, damaged-history view and recovery. Verify focus, no horizontal overflow, zero console errors/warnings, and friend-room navigation remains intact.
 
-- [ ] **Step 3: Build and smoke the Windows Slice 2 candidate**
+- [x] **Step 3: Build and smoke the Windows Slice 2 candidate**
 
 Run `npm run pack:desktop-folder`, ZIP the exact output directory, start only that `AgenticGame.exe` hidden, verify `Responding=True`, stop its process tree, and record bytes/SHA-256.
 
-- [ ] **Step 4: Update README and HANDOFF honestly**
+- [x] **Step 4: Update README and HANDOFF honestly**
 
 Document shipped UI behavior, data roots, test count, candidate hash and remaining Slice 3–6 scope. Do not call Public Beta B complete.
 
-- [ ] **Step 5: Commit and push GitHub main**
+- [x] **Step 5: Commit and push GitHub main**
 
 Commit documentation and plan state, push `main`, and verify `main...origin/main` is clean.
 
