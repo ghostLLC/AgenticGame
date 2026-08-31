@@ -48,6 +48,8 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).toContain('继续好友房间');
     expect(html).toContain('快速练习');
     expect(html).toContain('完成教学，进入指挥中心');
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
     expect(html).not.toMatch(/开发者控制台|developer console|调试终端/i);
   });
 

@@ -2,11 +2,16 @@ import type { FriendRoomReplayV1 } from '../../friend-room/replay-v1.js';
 import type { OnboardingSnapshotV1 } from './onboarding-controller-v1.js';
 
 const PHASE_IDS = ['commander', 'doctrine', 'battle', 'running', 'replay'] as const;
+let focusedPhase: OnboardingSnapshotV1['phase'] | undefined;
 
 export function renderOnboardingV1(snapshot: OnboardingSnapshotV1, visible: boolean): void {
   const overlay = element<HTMLElement>('onboarding-overlay');
+  document.querySelector<HTMLElement>('.game-shell')?.toggleAttribute('inert', visible);
   overlay.hidden = !visible;
-  if (!visible) return;
+  if (!visible) {
+    focusedPhase = undefined;
+    return;
+  }
   PHASE_IDS.forEach((phase) => {
     element<HTMLElement>(`onboarding-${phase}`).hidden = snapshot.phase !== phase;
   });
@@ -15,6 +20,12 @@ export function renderOnboardingV1(snapshot: OnboardingSnapshotV1, visible: bool
   error.textContent = snapshot.error ?? '';
   element<HTMLElement>('onboarding-progress').textContent = progressCopy(snapshot.phase);
   if (snapshot.phase === 'replay' && snapshot.result) renderTutorialResult(snapshot.result.replay, snapshot.result.lessons);
+  if (snapshot.phase !== 'complete' && focusedPhase !== snapshot.phase) {
+    focusedPhase = snapshot.phase;
+    queueMicrotask(() => {
+      element<HTMLElement>(`onboarding-${snapshot.phase}`).querySelector<HTMLElement>('input, button')?.focus();
+    });
+  }
 }
 
 function renderTutorialResult(replay: FriendRoomReplayV1, lessons: Array<{ title: string; detail: string }>): void {
