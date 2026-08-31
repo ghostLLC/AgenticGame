@@ -1,6 +1,8 @@
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
+import { createDesktopPreloadApiV1 } from './desktop-preload-api-v1.js';
 
 contextBridge.exposeInMainWorld('agenticGameDesktop', {
+  ...createDesktopPreloadApiV1((channel, input) => ipcRenderer.invoke(channel, input)),
   copyText(text: string): void {
     clipboard.writeText(text);
   },

@@ -6,6 +6,9 @@ import {
   type FriendRoomPresetIdV1,
 } from './friend-room-runtime-v1.js';
 import { createDesktopBrowserWindowOptionsV1 } from './window-contract-v1.js';
+import { DesktopApplicationServiceV1 } from './application-service-v1.js';
+import { registerDesktopApplicationIpcV1 } from './application-ipc-v1.js';
+import { PlayerProfileRepositoryV1 } from './player-profile-repository-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
@@ -71,6 +74,12 @@ function createGameWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  const applicationService = new DesktopApplicationServiceV1({
+    profileRepository: new PlayerProfileRepositoryV1(app.getPath('userData')),
+  });
+  registerDesktopApplicationIpcV1({
+    handle: (channel, handler) => ipcMain.handle(channel, handler),
+  }, applicationService);
   installFriendRoomIpc();
   createGameWindow();
   app.on('activate', () => {

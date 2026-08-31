@@ -196,39 +196,39 @@ git commit -m "feat: run real onboarding battles"
 - IPC channels: `app:bootstrap`, `profile:create`, `profile:advance-tutorial`, `navigation:remember`, `tutorial:run`.
 - Consumes: `PlayerProfileRepositoryV1`, `runTutorialMatchV1`.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Assert that bootstrap returns `{ needsOnboarding: true }` when no profile exists; creating a profile validates the name/doctrine and returns the persisted profile; advancing `battle -> replay -> complete` works while skipping backward or inventing a stage fails; remembering a page updates only `recentPage` and `lastOpenedAt`; tutorial run returns a public replay without modifying the stage until the renderer explicitly advances it.
 
-- [ ] **Step 2: Run service test and verify RED**
+- [x] **Step 2: Run service test and verify RED**
 
 Run: `npm test -- tests/desktop-application-service-v1.test.ts`
 
 Expected: FAIL because the application service is missing.
 
-- [ ] **Step 3: Implement the application service**
+- [x] **Step 3: Implement the application service**
 
 Inject the repository, clock, UUID factory and tutorial runner. Keep every mutation explicit; do not expose a generic profile patch. Return structured clones at the service boundary.
 
-- [ ] **Step 4: Add failing IPC registration assertions**
+- [x] **Step 4: Add failing IPC registration assertions**
 
 Use an in-memory registrar recording channel names and handlers. Assert exactly the five allowed channels, input size/type validation, and that thrown internal errors map to player-safe messages.
 
-- [ ] **Step 5: Implement versioned API types and IPC registrar**
+- [x] **Step 5: Implement versioned API types and IPC registrar**
 
 Define `DesktopApiV1` in a renderer-safe module containing only data contracts. Register handlers in `main.ts` with the real `ipcMain`; initialize the service directly with `app.getPath('userData')` after `app.whenReady()` because Electron already returns an application-specific directory.
 
-- [ ] **Step 6: Extend preload and the isolation regression**
+- [x] **Step 6: Extend preload and the isolation regression**
 
 Expose `window.agenticGameDesktop.app.bootstrap`, `.profile.create`, `.profile.advanceTutorial`, `.navigation.remember`, and `.tutorial.run`. Update `desktop-shell-v1.test.ts` to assert those exact operations exist while `nodeIntegration`, sandbox and isolation remain unchanged.
 
-- [ ] **Step 7: Run focused GREEN and typecheck**
+- [x] **Step 7: Run focused GREEN and typecheck**
 
 Run: `npm test -- tests/desktop-application-service-v1.test.ts tests/desktop-shell-v1.test.ts && npm run typecheck`
 
 Expected: tests PASS and TypeScript exits 0.
 
-- [ ] **Step 8: Commit the desktop boundary**
+- [x] **Step 8: Commit the desktop boundary**
 
 ```bash
 git add src/desktop/application-service-v1.ts src/desktop/application-ipc-v1.ts src/desktop/desktop-api-v1.ts src/desktop/main.ts src/desktop/preload.ts tests/desktop-application-service-v1.test.ts tests/desktop-shell-v1.test.ts
