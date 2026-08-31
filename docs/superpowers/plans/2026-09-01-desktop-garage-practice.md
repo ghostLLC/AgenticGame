@@ -422,7 +422,7 @@ Document shipped UI behavior, data roots, test count, candidate hash and remaini
 
 Commit documentation and plan state, push `main`, and verify `main...origin/main` is clean.
 
-- [ ] **Step 6: Sync Feishu and read back**
+- [x] **Step 6: Sync Feishu and read back**
 
 Update the UX implementation-state block in place and append one entry keyed by the final short commit to technical architecture, development log and quality report. Re-read all four pages and verify exactly one matching occurrence per append-only page.
 
