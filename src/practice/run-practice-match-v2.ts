@@ -13,6 +13,7 @@ export interface PracticeMatchInputV2 {
   mapSnapshot: MapSnapshotV2;
   seed: number;
   maxTicks: number;
+  modeId?: 'duel' | 'capture';
   createdAt?: string;
   tickBudgetMs?: number;
   maxViolations?: number;
@@ -35,13 +36,14 @@ export interface PracticeMatchOutputV2 extends GameplayMatchOutputV2 {
 export async function runPracticeMatchV2(input: PracticeMatchInputV2): Promise<PracticeMatchOutputV2> {
   const current = assertSavedBuildV2(input.current);
   const opponent = assertSavedBuildV2(input.opponent);
+  const modeId = assertPracticeMode(input.modeId);
   assertRunnableLanguage(current);
   assertRunnableLanguage(opponent);
   const matchConfig: MatchConfigV2 = {
     schemaVersion: 2,
     matchId: `practice-${current.fingerprint.slice(0, 12)}-${opponent.fingerprint.slice(0, 12)}`,
     ruleset: { id: 'gameplay-v2', version: '2.0.0' },
-    modeId: 'duel',
+    modeId,
     mapId: input.mapSnapshot.id,
     seed: input.seed >>> 0,
     maxTicks: input.maxTicks,
@@ -70,6 +72,12 @@ export async function runPracticeMatchV2(input: PracticeMatchInputV2): Promise<P
     },
     ...result,
   };
+}
+
+function assertPracticeMode(modeId: unknown): 'duel' | 'capture' {
+  if (modeId === undefined) return 'duel';
+  if (modeId === 'duel' || modeId === 'capture') return modeId;
+  throw new Error(`Unsupported practice mode: ${String(modeId)}`);
 }
 
 function teamFromBuild(teamId: string, build: SavedBuildV2): MatchTeamConfigV2 {

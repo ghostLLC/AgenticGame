@@ -210,31 +210,31 @@ git commit -m "feat: add immutable player garage"
 - Consumes: healthy `commander-main` revisions, `runPracticeMatchV2`, `ReplayRepositoryV2`, and `createReplayStudioViewV2`.
 - Produces: selectable duel/capture mode and `PracticeMatchServiceV1.run(input): Promise<PracticeResultViewV1>`.
 
-- [ ] **Step 1: Add a failing capture-mode runner test**
+- [x] **Step 1: Add a failing capture-mode runner test**
 
 Pass `modeId: 'capture'` to `runPracticeMatchV2` and assert the verified output bundle contains `config.modeId === 'capture'`.
 
-- [ ] **Step 2: Run the practice runner test and verify RED**
+- [x] **Step 2: Run the practice runner test and verify RED**
 
 Run: `npm test -- tests/practice-match-v2.test.ts`
 
 Expected: TypeScript/test failure because `PracticeMatchInputV2` has no `modeId` and the runner hardcodes `duel`.
 
-- [ ] **Step 3: Implement strict optional mode selection**
+- [x] **Step 3: Implement strict optional mode selection**
 
 Add `modeId?: 'duel' | 'capture'`, default to `duel`, reject unsupported modes before worker startup, and use the chosen ID in `MatchConfigV2`.
 
-- [ ] **Step 4: Write failing desktop practice-service tests**
+- [x] **Step 4: Write failing desktop practice-service tests**
 
 Use two real saved revisions, real worker execution and a real replay repository. Assert current-vs-old and mirror runs; literal seed normalization; verified bundle persistence; player result containing revision labels, outcome, mode name, ticks, at most three moments and replay hash; invalid/corrupt revisions reject before a replay file appears.
 
-- [ ] **Step 5: Run service tests and verify RED**
+- [x] **Step 5: Run service tests and verify RED**
 
 Run: `npm test -- tests/desktop-practice-match-service-v1.test.ts`
 
 Expected: FAIL because the desktop practice service does not exist.
 
-- [ ] **Step 6: Implement and persist real practice matches**
+- [x] **Step 6: Implement and persist real practice matches**
 
 Export:
 
@@ -259,13 +259,13 @@ export interface PracticeResultViewV1 {
 
 Run verified revisions with the official content/map, `maxTicks: 120`, `tickBudgetMs: 100`, save `output.bundle`, then derive the player view from `createReplayStudioViewV2`. Do not return bundle, source, logs, actions, seed or hashes other than the opaque replay ID.
 
-- [ ] **Step 7: Run focused GREEN and repository regressions**
+- [x] **Step 7: Run focused GREEN and repository regressions**
 
 Run: `npm test -- tests/practice-match-v2.test.ts tests/desktop-practice-match-service-v1.test.ts tests/replay-repository-v2.test.ts && npm run typecheck`
 
 Expected: all tests PASS.
 
-- [ ] **Step 8: Commit practice persistence**
+- [x] **Step 8: Commit practice persistence**
 
 ```bash
 git add src/practice/run-practice-match-v2.ts src/desktop/practice-match-service-v1.ts tests/practice-match-v2.test.ts tests/desktop-practice-match-service-v1.test.ts

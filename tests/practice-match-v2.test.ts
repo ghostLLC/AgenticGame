@@ -124,4 +124,30 @@ describe('runPracticeMatchV2', () => {
     expect(result.bundle.config.teams[0]!.bot).toEqual(result.bundle.config.teams[1]!.bot);
     expect(verifyMatchBundleV2(result.bundle)).toEqual({ ok: true, issues: [] });
   });
+
+  it('runs the selected capture mode and rejects unsupported modes before worker startup', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'agentic-game-practice-'));
+    roots.push(root);
+    const repository = new SavedBuildRepositoryV2(root);
+    const record = (await repository.save(draft(oldSource, '1.0.0'), '2026-08-24T00:00:00.000Z')).record;
+    const baseInput = {
+      current: record,
+      opponent: record,
+      contentSnapshot: GAMEPLAY_CONTENT_V2,
+      mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2,
+      seed: 77,
+      maxTicks: 4,
+      createdAt: '2026-08-24T00:02:00.000Z',
+      tickBudgetMs: 100,
+    };
+
+    const result = await runPracticeMatchV2({ ...baseInput, modeId: 'capture' });
+
+    expect(result.bundle.config.modeId).toBe('capture');
+    expect(verifyMatchBundleV2(result.bundle)).toEqual({ ok: true, issues: [] });
+    await expect(runPracticeMatchV2({
+      ...baseInput,
+      modeId: 'ranked',
+    } as unknown as Parameters<typeof runPracticeMatchV2>[0])).rejects.toThrow('Unsupported practice mode');
+  });
 });
