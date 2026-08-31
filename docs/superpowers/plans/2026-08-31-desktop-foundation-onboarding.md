@@ -102,27 +102,27 @@ git commit -m "feat: define strict player profiles"
 - Consumes: `PlayerProfileV1`, `assertPlayerProfileV1`.
 - Produces: `PlayerProfileRepositoryV1(root)`, `.load()`, `.save(profile)`, `.quarantineEntries()`.
 
-- [ ] **Step 1: Write failing real-filesystem tests**
+- [x] **Step 1: Write failing real-filesystem tests**
 
 Use `mkdtempSync(join(tmpdir(), 'agentic-game-profile-'))`. Assert that a missing profile returns `undefined`, `save` then `load` round-trips, the final JSON has no leftover `.tmp`, and invalid JSON is moved below `<root>/quarantine/` before `load` throws the player-safe error `玩家档案已损坏，已移入隔离区`.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/player-profile-repository-v1.test.ts`
 
 Expected: FAIL because the repository module does not exist.
 
-- [ ] **Step 3: Implement atomic persistence**
+- [x] **Step 3: Implement atomic persistence**
 
 Write to `<root>/profile/player-profile-v1.json.<uuid>.tmp`, open and `sync()` the file, close it, then rename over `player-profile-v1.json`. On parse or validation failure, create `<root>/quarantine`, rename the bad file to `player-profile-v1.<timestamp>.invalid.json`, and throw the player-safe error. Never create a replacement profile inside `load`.
 
-- [ ] **Step 4: Run focused GREEN and the contract suite**
+- [x] **Step 4: Run focused GREEN and the contract suite**
 
 Run: `npm test -- tests/player-profile-v1.test.ts tests/player-profile-repository-v1.test.ts`
 
 Expected: both files PASS.
 
-- [ ] **Step 5: Commit the repository**
+- [x] **Step 5: Commit the repository**
 
 ```bash
 git add src/desktop/player-profile-repository-v1.ts tests/player-profile-repository-v1.test.ts
