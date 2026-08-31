@@ -14,10 +14,16 @@ import type {
   FriendRoomPresetIdV1,
 } from './friend-room-runtime-v1.js';
 import { FriendRoomReplayControllerV1 } from './friend-room-replay-controller-v1.js';
+import type { DesktopApiV1 } from './desktop-api-v1.js';
+import { DesktopAppShellControllerV1 } from './renderer/app-shell-controller-v1.js';
+import { OnboardingControllerV1 } from './renderer/onboarding-controller-v1.js';
+import { desktopApiClientV1 } from './renderer/desktop-api-client-v1.js';
+import { renderAppShellV1 } from './renderer/app-shell-view-v1.js';
+import { renderOnboardingV1 } from './renderer/onboarding-view-v1.js';
 
 declare global {
   interface Window {
-    agenticGameDesktop?: {
+    agenticGameDesktop?: DesktopApiV1 & {
       copyText(text: string): void;
       friendRoom: {
         start(input: DesktopFriendRoomStartV1): Promise<void>;
@@ -103,6 +109,34 @@ const recoveryInvitationResult = element<HTMLTextAreaElement>('recovery-invitati
 const recoveryInvitationInput = element<HTMLTextAreaElement>('recovery-invitation-input');
 const recoveryConfirmationResult = element<HTMLTextAreaElement>('recovery-confirmation-result');
 const recoveryConfirmationInput = element<HTMLTextAreaElement>('recovery-confirmation-input');
+
+const desktopApi = desktopApiClientV1(window);
+const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'friend-room']);
+const onboardingController = new OnboardingControllerV1(desktopApi);
+
+element<HTMLButtonElement>('nav-command-center').addEventListener('click', () => void navigateApp('command-center'));
+element<HTMLButtonElement>('nav-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
+element<HTMLButtonElement>('command-open-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
+element<HTMLButtonElement>('onboarding-name-next').addEventListener('click', () => {
+  try {
+    onboardingController.enterCommanderName(element<HTMLInputElement>('onboarding-name').value);
+    renderOnboardingV1(onboardingController.getSnapshot(), true);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '请输入指挥官昵称', true);
+  }
+});
+document.querySelectorAll<HTMLButtonElement>('[data-doctrine]').forEach((button) => {
+  button.addEventListener('click', () => void runOnboardingAction(async () => {
+    await onboardingController.chooseDoctrine(button.dataset.doctrine as 'scout' | 'medium' | 'heavy');
+  }));
+});
+element<HTMLButtonElement>('onboarding-run-battle').addEventListener('click', () => void runOnboardingBattle());
+element<HTMLButtonElement>('onboarding-finish').addEventListener('click', () => void runOnboardingAction(async () => {
+  await onboardingController.finishReplay();
+  await appShellController.bootstrap();
+}));
+
+void initializeApplicationShell();
 
 let currentSnapshot: FriendRoomEntrySnapshotV1 = controller.getSnapshot();
 
@@ -556,4 +590,51 @@ async function resetRoom(): Promise<void> {
   recoveryPanel.hidden = true;
   roomColumns.hidden = false;
   controller.reset();
+}
+
+async function initializeApplicationShell(): Promise<void> {
+  try {
+    const bootstrap = await desktopApi.app.bootstrap();
+    const onboarding = onboardingController.initialize(bootstrap);
+    renderOnboardingV1(onboardingController.getSnapshot(), bootstrap.needsOnboarding);
+    await onboarding;
+    await appShellController.bootstrap();
+    renderAppShellV1(appShellController.getSnapshot());
+    renderOnboardingV1(onboardingController.getSnapshot(), bootstrap.needsOnboarding);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '游戏启动失败，请重新打开。', true);
+  }
+}
+
+async function navigateApp(page: 'command-center' | 'friend-room'): Promise<void> {
+  try {
+    await appShellController.navigate(page);
+    renderAppShellV1(appShellController.getSnapshot());
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '暂时无法打开该区域', true);
+  }
+}
+
+async function runOnboardingAction(action: () => Promise<void>): Promise<void> {
+  try {
+    await action();
+    const onboarding = onboardingController.getSnapshot();
+    renderOnboardingV1(onboarding, onboarding.phase !== 'complete');
+    renderAppShellV1(appShellController.getSnapshot());
+  } catch (error) {
+    renderOnboardingV1(onboardingController.getSnapshot(), true);
+    showToast(error instanceof Error ? error.message : '首次体验未能继续，请重试。', true);
+  }
+}
+
+async function runOnboardingBattle(): Promise<void> {
+  try {
+    const running = onboardingController.runBattle();
+    renderOnboardingV1(onboardingController.getSnapshot(), true);
+    await running;
+    renderOnboardingV1(onboardingController.getSnapshot(), true);
+  } catch (error) {
+    renderOnboardingV1(onboardingController.getSnapshot(), true);
+    showToast(error instanceof Error ? error.message : '教学战斗未能完成，请重试。', true);
+  }
 }

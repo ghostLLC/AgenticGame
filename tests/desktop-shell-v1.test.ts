@@ -34,6 +34,23 @@ describe('桌面游戏外壳 v1', () => {
     expect(css).toContain('[hidden] { display: none !important; }');
   });
 
+  it('提供正常游戏风格的指挥中心与可恢复首次体验', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+
+    expect(html).toContain('id="page-command-center"');
+    expect(html).toContain('id="page-friend-room"');
+    expect(html).toContain('指挥中心');
+    expect(html).toContain('开始教学战斗');
+    expect(html).toContain('选择你的作战风格');
+    expect(html).toContain('继续好友房间');
+    expect(html).toContain('快速练习');
+    expect(html).toContain('完成教学，进入指挥中心');
+    expect(html).not.toMatch(/开发者控制台|developer console|调试终端/i);
+  });
+
   it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {
     const buildScript = readFileSync(
       fileURLToPath(new URL('../scripts/build-desktop.mjs', import.meta.url)),

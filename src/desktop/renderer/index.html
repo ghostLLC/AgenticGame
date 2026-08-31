@@ -12,17 +12,17 @@
   <main class="game-shell">
     <header class="topbar">
       <div class="brand"><span>AGENTICGAME</span><i></i><strong>坦克竞技场</strong></div>
-      <div class="breadcrumb">好友房间 <b>/</b> 连接大厅</div>
+      <div id="app-breadcrumb" class="breadcrumb">指挥中心 <b>/</b> 作战总览</div>
       <div id="connection-pill" class="connection-pill"><span></span><b id="connection-label">好友直连</b></div>
     </header>
 
     <div class="workspace">
       <nav class="sidebar" aria-label="作战中心">
         <p class="nav-label">作战中心</p>
-        <button disabled>指挥中心</button>
+        <button id="nav-command-center" class="active" aria-current="page">指挥中心</button>
         <button disabled>我的车库</button>
         <button disabled>AI 教练</button>
-        <button class="active" aria-current="page">好友房间</button>
+        <button id="nav-friend-room">好友房间</button>
         <button disabled>回放工作室</button>
         <div class="sidebar-spacer"></div>
         <section class="sync-note">
@@ -32,6 +32,42 @@
       </nav>
 
       <section class="content">
+        <section id="page-command-center" class="app-page command-center-page">
+          <div class="hero-row command-hero">
+            <div>
+              <p class="eyebrow">COMMAND CENTER <span>·</span> 指挥中心</p>
+              <h1 id="commander-welcome">欢迎回来，指挥官</h1>
+              <p class="subtitle">从一次快速练习开始，或带上你的战术进入好友房间。</p>
+            </div>
+            <div class="trust-pill">本地档案 <span>·</span> 自动保存</div>
+          </div>
+          <div class="command-grid">
+            <article class="command-card primary-command">
+              <p>今日行动</p>
+              <h2>快速练习</h2>
+              <span>让当前战术与训练对手交锋，战斗结束后立即复盘。</span>
+              <button id="command-quick-practice" class="primary-button" type="button" disabled>车库开放后可用</button>
+            </article>
+            <article class="command-card">
+              <p>好友对战</p>
+              <h2>继续好友房间</h2>
+              <span>创建邀请或接受好友邀请，双方准备后立即开战。</span>
+              <button id="command-open-friend-room" class="secondary-button" type="button">进入好友房间</button>
+            </article>
+            <article class="command-card muted-command">
+              <p>战车整备</p>
+              <h2>我的车库</h2>
+              <span>保存配置、比较版本和查看战绩将在下一阶段开放。</span>
+              <b>开发中</b>
+            </article>
+          </div>
+          <section class="recent-operation">
+            <div><p>最近活动</p><h2>完成教学后，从这里继续你的战术成长</h2></div>
+            <span>比赛、回放和好友房间会保存在本机。</span>
+          </section>
+        </section>
+
+        <section id="page-friend-room" class="app-page" hidden>
         <div class="hero-row">
           <div>
             <p class="eyebrow">FRIEND MATCH <span>·</span> 好友对战</p>
@@ -223,9 +259,57 @@
             </div>
           </section>
         </section>
+        </section>
       </section>
     </div>
   </main>
+  <section id="onboarding-overlay" class="onboarding-overlay" aria-label="首次作战引导" hidden>
+    <div class="onboarding-card">
+      <header>
+        <div class="brand"><span>AGENTICGAME</span><i></i><strong>新指挥官报到</strong></div>
+        <p id="onboarding-progress">第 1 步，共 3 步</p>
+      </header>
+      <div id="onboarding-commander" class="onboarding-step">
+        <p class="eyebrow">WELCOME, COMMANDER <span>·</span> 欢迎加入</p>
+        <h1>先告诉我们该如何称呼你</h1>
+        <p>昵称只保存在本机，用于战报、回放和好友房间。</p>
+        <label for="onboarding-name">指挥官昵称</label>
+        <input id="onboarding-name" maxlength="24" placeholder="例如：乐淳" autocomplete="nickname">
+        <button id="onboarding-name-next" class="primary-button" type="button">选择作战风格</button>
+      </div>
+      <div id="onboarding-doctrine" class="onboarding-step" hidden>
+        <p class="eyebrow">CHOOSE YOUR STYLE <span>·</span> 作战风格</p>
+        <h1>选择你的作战风格</h1>
+        <p>这只是第一套战术，之后可以在车库中保存更多版本。</p>
+        <div class="doctrine-grid">
+          <button data-doctrine="scout" type="button"><b>游骑侦察</b><span>快速机动，寻找侧翼</span></button>
+          <button data-doctrine="medium" type="button"><b>中线突击</b><span>攻守均衡，持续施压</span></button>
+          <button data-doctrine="heavy" type="button"><b>钢铁堡垒</b><span>正面推进，稳住阵线</span></button>
+        </div>
+      </div>
+      <div id="onboarding-battle" class="onboarding-step" hidden>
+        <p class="eyebrow">FIRST BATTLE <span>·</span> 教学战斗</p>
+        <h1>你的第一场战斗已经准备好</h1>
+        <p>比赛使用真实规则运行。战斗结束后，我们会带你查看关键时刻。</p>
+        <button id="onboarding-run-battle" class="primary-button" type="button">开始教学战斗</button>
+      </div>
+      <div id="onboarding-running" class="onboarding-step" hidden>
+        <div class="battle-loader"><span></span></div>
+        <p class="eyebrow">BATTLE IN PROGRESS <span>·</span> 正在交战</p>
+        <h1>战术正在战场上接受检验</h1>
+        <p>双方战车正在根据视野、地形和装甲方向自主行动。</p>
+      </div>
+      <div id="onboarding-replay" class="onboarding-step tutorial-review" hidden>
+        <p class="eyebrow">AFTER ACTION <span>·</span> 战后复盘</p>
+        <h1>看看这场战斗教会了我们什么</h1>
+        <div id="tutorial-replay-summary" class="tutorial-replay-summary"></div>
+        <div id="tutorial-battlefield" class="replay-battlefield tutorial-battlefield" aria-label="教学战斗最终态势"></div>
+        <div id="tutorial-lessons" class="tutorial-lessons"></div>
+        <button id="onboarding-finish" class="primary-button" type="button">完成教学，进入指挥中心</button>
+      </div>
+      <p id="onboarding-error" class="onboarding-error" role="alert" hidden></p>
+    </div>
+  </section>
   <div id="toast" class="toast" role="status"></div>
   <script src="app.js"></script>
 </body>

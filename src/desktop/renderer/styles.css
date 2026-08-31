@@ -164,10 +164,61 @@ button:disabled { opacity: .45; cursor: default; }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
 .toast[data-danger="true"] { color: #ffe3da; background: #6a3024; }
 
+.app-page { min-height: 100%; }
+.command-center-page { display: flex; flex-direction: column; gap: 22px; }
+.command-hero { padding: 5px 0 8px; }
+.command-grid { display: grid; grid-template-columns: 1.25fr 1fr .8fr; gap: 14px; }
+.command-card { min-height: 210px; padding: 24px; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(145deg, #2b2521, #221d1a); }
+.command-card.primary-command { background: radial-gradient(circle at 90% 0, rgba(239, 140, 54, .22), transparent 45%), linear-gradient(145deg, #38291f, #251e1a); }
+.command-card p { margin: 0; color: var(--orange); font-size: 11px; font-weight: 800; }
+.command-card h2 { margin: 8px 0; font-size: 22px; }
+.command-card span { color: var(--muted); font-size: 12px; line-height: 1.65; }
+.command-card button { margin-top: auto; }
+.command-card b { margin-top: auto; color: #71675f; font-size: 11px; }
+.muted-command { opacity: .72; }
+.recent-operation { padding: 20px 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-radius: 15px; background: #2a2420; }
+.recent-operation p { margin: 0; color: var(--blue); font-size: 10px; font-weight: 800; }
+.recent-operation h2 { margin: 5px 0 0; font-size: 16px; }
+.recent-operation > span { color: var(--muted); font-size: 11px; }
+
+.onboarding-overlay { position: fixed; inset: 0; z-index: 50; padding: 34px; display: grid; place-items: center; overflow: auto; background: radial-gradient(circle at 70% 10%, rgba(103, 64, 39, .42), transparent 35%), rgba(16, 13, 12, .96); }
+.onboarding-card { width: min(980px, 100%); min-height: 620px; padding: 30px 38px; display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, .08); border-radius: 22px; background: linear-gradient(150deg, #2b2420, #1f1a18); box-shadow: 0 30px 100px rgba(0, 0, 0, .5); }
+.onboarding-card > header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.onboarding-card > header p { color: var(--muted); font-size: 11px; font-weight: 700; }
+.onboarding-step { width: min(760px, 100%); margin: auto; padding: 34px 0; }
+.onboarding-step > p:not(.eyebrow) { color: var(--muted); line-height: 1.65; }
+.onboarding-step label { display: block; margin: 28px 0 8px; color: #c9bdb3; font-size: 11px; font-weight: 750; }
+.onboarding-step input { width: 100%; min-height: 54px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; outline: 0; color: #f6eee7; background: #181412; }
+.onboarding-step > .primary-button { width: min(320px, 100%); margin-top: 20px; }
+.doctrine-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.doctrine-grid button { min-height: 150px; padding: 22px; text-align: left; border: 1px solid rgba(255, 255, 255, .07); border-radius: 15px; color: #f2e9e1; background: #302824; cursor: pointer; transition: .18s ease; }
+.doctrine-grid button:hover, .doctrine-grid button:focus-visible { border-color: rgba(239, 140, 54, .7); background: #483326; transform: translateY(-2px); }
+.doctrine-grid b, .doctrine-grid span { display: block; }
+.doctrine-grid b { margin-bottom: 9px; font-size: 17px; }
+.doctrine-grid span { color: var(--muted); font-size: 11px; line-height: 1.55; }
+.battle-loader { width: 90px; aspect-ratio: 1; margin-bottom: 24px; display: grid; place-items: center; border: 1px solid rgba(239, 140, 54, .22); border-radius: 50%; }
+.battle-loader span { width: 58px; aspect-ratio: 1; border: 4px solid #4c3628; border-top-color: var(--orange); border-radius: 50%; animation: battle-spin 1s linear infinite; }
+.tutorial-review { width: min(850px, 100%); }
+.tutorial-replay-summary { margin: 16px 0 12px; color: #f2c18f; font-size: 15px; font-weight: 800; }
+.tutorial-battlefield { width: min(640px, 100%); margin: 12px 0; }
+.tutorial-lessons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tutorial-lessons article { padding: 13px; border-radius: 11px; background: #332a25; }
+.tutorial-lessons b, .tutorial-lessons span { display: block; }
+.tutorial-lessons b { margin-bottom: 5px; color: #f2e7de; font-size: 12px; }
+.tutorial-lessons span { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.onboarding-error { margin: 0; padding: 11px 14px; border-radius: 9px; color: #ffd7cb; background: #5b2d24; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #ffb36e; outline-offset: 2px; }
+@keyframes battle-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
 @media (max-width: 1180px) {
   .game-shell { padding: 18px; }
   .workspace { grid-template-columns: 190px 1fr; }
   .content { padding: 22px; }
+  .command-grid { grid-template-columns: 1fr 1fr; }
+  .command-card:last-child { grid-column: 1 / -1; min-height: 150px; }
+  .onboarding-card { padding: 24px; }
+  .doctrine-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px) {

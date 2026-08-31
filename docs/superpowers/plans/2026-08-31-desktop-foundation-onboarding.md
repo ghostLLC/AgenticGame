@@ -299,29 +299,29 @@ git commit -m "feat: control onboarding and game navigation"
 - Consumes: shell/onboarding controllers, existing friend-room renderer behavior, existing tactical replay controller.
 - Produces: a visible app shell with `command-center` and `friend-room` pages plus first-run overlay and tutorial replay.
 
-- [ ] **Step 1: Add failing player-copy and structure assertions**
+- [x] **Step 1: Add failing player-copy and structure assertions**
 
 Assert HTML contains `指挥中心`, `开始教学战斗`, `选择你的作战风格`, `继续好友房间`, `快速练习`, and a navigation entry for `好友房间`. Assert the default shell copy does not contain the banned networking and persistence jargon from Global Constraints.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/desktop-shell-v1.test.ts`
 
 Expected: FAIL because the shell/onboarding markup does not exist.
 
-- [ ] **Step 3: Add the semantic shell and onboarding markup**
+- [x] **Step 3: Add the semantic shell and onboarding markup**
 
 Wrap the current friend-room experience as the `friend-room` page without changing its existing element IDs. Add a command-center page, side navigation, player header, onboarding dialog, doctrine cards, tutorial battle progress, tutorial replay container, lesson cards and retry/continue controls. Future pages appear as disabled navigation entries labeled `开发中`, not dead clickable controls.
 
-- [ ] **Step 4: Implement modular DOM views**
+- [x] **Step 4: Implement modular DOM views**
 
 `app-shell-view-v1.ts` owns navigation visibility and player header. `onboarding-view-v1.ts` maps controller state to commander, doctrine, running, replay and completion panels. `renderer.ts` composes the new modules before initializing the preserved friend-room handlers.
 
-- [ ] **Step 5: Style for 1440×900 and 1100×700**
+- [x] **Step 5: Style for 1440×900 and 1100×700**
 
 Use the existing warm-black tactical visual language. Provide visible keyboard focus, reduced-motion handling, no horizontal overflow, responsive one-column onboarding below 1180px, and `[hidden]` behavior. Do not introduce a console/table dashboard appearance.
 
-- [ ] **Step 6: Run focused tests, full typecheck and desktop build**
+- [x] **Step 6: Run focused tests, full typecheck and desktop build**
 
 Run: `npm test -- tests/desktop-shell-v1.test.ts tests/desktop-app-shell-v1.test.ts && npm run typecheck && npm run build:desktop`
 
