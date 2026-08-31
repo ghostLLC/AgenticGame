@@ -33,7 +33,7 @@
 - Consumes: existing `SavedBuildRepositoryV2(root)` and strict `assertSavedBuildV2`.
 - Produces: constructor option `{ quarantineRoot?: string; now?: () => string }`, `inspect(buildId): Promise<SavedBuildInspectionV2>`, and `quarantineFrom(buildId, revision): Promise<SavedBuildQuarantineResultV2>`.
 
-- [ ] **Step 1: Write failing real-filesystem inspection tests**
+- [x] **Step 1: Write failing real-filesystem inspection tests**
 
 Add literal assertions that a tampered revision is reported as `corrupt`, all later files are `untrusted`, and the latest healthy record remains revision 1:
 
@@ -49,13 +49,13 @@ expect(inspection.latestHealthy?.revision).toBe(1);
 
 Add a second test that `quarantineFrom('history-scout', 2)` moves revisions 2 and 3 beneath the configured quarantine root, leaves revision 1 loadable, and permits a replacement revision 2 save. Existing `list` must still fail closed before quarantine.
 
-- [ ] **Step 2: Run the focused repository test and verify RED**
+- [x] **Step 2: Run the focused repository test and verify RED**
 
 Run: `npm test -- tests/saved-build-repository-v2.test.ts`
 
 Expected: FAIL because `inspect`, the constructor options and `quarantineFrom` do not exist.
 
-- [ ] **Step 3: Implement inspection without weakening existing reads**
+- [x] **Step 3: Implement inspection without weakening existing reads**
 
 Add these public types:
 
@@ -73,7 +73,7 @@ export interface SavedBuildInspectionV2 {
 
 `inspect` parses every numeric revision in order. It verifies exact path/revision and parent linkage until the first failure; that item is `corrupt` and all subsequent items are `untrusted`. It returns player-safe messages and never returns unverified records. Keep `list` and `load` behavior unchanged.
 
-- [ ] **Step 4: Implement recoverable quarantine**
+- [x] **Step 4: Implement recoverable quarantine**
 
 Under the existing save lock, move every numeric revision file at or after the requested revision into `<quarantineRoot>/builds/<buildId>/<UTC-id>/`. Reject missing configuration, healthy-only revision requests, traversal and concurrent saves. Preserve every byte; do not delete files. Return:
 
@@ -86,7 +86,7 @@ export interface SavedBuildQuarantineResultV2 {
 }
 ```
 
-- [ ] **Step 5: Run focused GREEN and existing repository regressions**
+- [x] **Step 5: Run focused GREEN and existing repository regressions**
 
 Run: `npm test -- tests/saved-build-repository-v2.test.ts tests/saved-build-v2.test.ts`
 
