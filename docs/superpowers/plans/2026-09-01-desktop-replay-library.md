@@ -34,27 +34,27 @@
 - `ReplayRepositoryV2.inspect()` returns healthy and corrupt files independently instead of letting one corrupt file hide the rest.
 - Trash records preserve the original bytes, metadata, deletion time and source kind under an application-owned root.
 
-- [ ] **Step 1: Write failing strict metadata and inspection tests**
+- [x] **Step 1: Write failing strict metadata and inspection tests**
 
 Cover exact fields, canonical time, 0–240 trimmed note, atomic overwrite, two valid replays plus one tampered replay, and no full bundle in inspection output.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `npm test -- tests/replay-metadata-trash-v1.test.ts tests/replay-repository-v2.test.ts`
 
-- [ ] **Step 3: Implement metadata and independent replay inspection**
+- [x] **Step 3: Implement metadata and independent replay inspection**
 
 Keep existing `list()` fail-closed behavior unchanged. Add a new inspection path used by the library.
 
-- [ ] **Step 4: Add failing move/restore/purge tests**
+- [x] **Step 4: Add failing move/restore/purge tests**
 
 Assert exact-byte moves, rollback on partial failure, restore collision rejection, six-day retention, seven-day purge and explicit empty-trash.
 
-- [ ] **Step 5: Implement recoverable trash**
+- [x] **Step 5: Implement recoverable trash**
 
 Use explicit replay IDs and validated roots. Never recursively delete an unresolved path.
 
-- [ ] **Step 6: Run GREEN, typecheck and commit**
+- [x] **Step 6: Run GREEN, typecheck and commit**
 
 Commit: `feat: add recoverable replay storage`
 

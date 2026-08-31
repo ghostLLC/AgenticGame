@@ -102,4 +102,31 @@ describe('ReplayRepositoryV2', () => {
     const { repository: repo } = repository();
     await expect(repo.load('../outside')).rejects.toThrow('Invalid bundle hash');
   });
+
+  it('inspects healthy and corrupt replay files independently without exposing bundles', async () => {
+    const { root, repository: repo } = repository();
+    const first = await runMatchV2({
+      matchConfig: matchConfig(), contentSnapshot: GAMEPLAY_CONTENT_V2,
+      mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2, bots: [{ code: idleBot }, { code: idleBot }],
+      createdAt: '2026-08-24T04:00:00.000Z', tickBudgetMs: 100,
+    });
+    const second = await runMatchV2({
+      matchConfig: { ...matchConfig(), matchId: 'second-replay-v2' }, contentSnapshot: GAMEPLAY_CONTENT_V2,
+      mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2, bots: [{ code: idleBot }, { code: idleBot }],
+      createdAt: '2026-08-24T04:01:00.000Z', tickBudgetMs: 100,
+    });
+    await repo.save(first.bundle);
+    await repo.save(second.bundle);
+    const corruptPath = join(root, `${second.bundle.integrity.bundleHash}.json`);
+    writeFileSync(corruptPath, readFileSync(corruptPath, 'utf8').replace('second-replay-v2', 'tampered-replay'), 'utf8');
+
+    const inspection = await repo.inspect();
+
+    expect(inspection).toEqual([
+      expect.objectContaining({ bundleHash: second.bundle.integrity.bundleHash, state: 'corrupt' }),
+      expect.objectContaining({ bundleHash: first.bundle.integrity.bundleHash, state: 'healthy', entry: expect.objectContaining({ matchId: 'persisted-replay-v2' }) }),
+    ]);
+    expect(JSON.stringify(inspection)).not.toContain('module.exports');
+    expect(JSON.stringify(inspection)).not.toContain('botArtifacts');
+  });
 });

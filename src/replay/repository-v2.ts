@@ -24,6 +24,10 @@ export interface ReplayIndexEntryV2 {
   ticks: number;
 }
 
+export type ReplayInspectionV2 =
+  | { bundleHash: string; state: 'healthy'; entry: ReplayIndexEntryV2 }
+  | { bundleHash: string; state: 'corrupt'; message: string };
+
 export class ReplayRepositoryV2 {
   readonly root: string;
 
@@ -115,6 +119,34 @@ export class ReplayRepositoryV2 {
     return bundles
       .map(toIndexEntry)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.bundleHash.localeCompare(b.bundleHash));
+  }
+
+  async inspect(): Promise<ReplayInspectionV2[]> {
+    let entries: string[];
+    try {
+      entries = await readdir(this.root);
+    } catch (error) {
+      if (isCode(error, 'ENOENT')) return [];
+      throw error;
+    }
+    const hashes = entries.flatMap((entry) => {
+      const match = /^([0-9a-f]{64})\.json$/.exec(entry);
+      return match ? [match[1]!] : [];
+    });
+    const inspected = await Promise.all(hashes.map(async (bundleHash): Promise<ReplayInspectionV2> => {
+      try {
+        return { bundleHash, state: 'healthy', entry: toIndexEntry(await this.load(bundleHash)) };
+      } catch {
+        return { bundleHash, state: 'corrupt', message: '回放未通过完整性校验' };
+      }
+    }));
+    return inspected.sort((a, b) => {
+      if (a.state !== b.state) return a.state === 'corrupt' ? -1 : 1;
+      if (a.state === 'healthy' && b.state === 'healthy') {
+        return b.entry.createdAt.localeCompare(a.entry.createdAt) || a.bundleHash.localeCompare(b.bundleHash);
+      }
+      return a.bundleHash.localeCompare(b.bundleHash);
+    });
   }
 
   private fileFor(bundleHash: string): string {
