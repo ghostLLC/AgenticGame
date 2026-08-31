@@ -32,7 +32,7 @@
 - Produces: `PlayerDoctrineV1`, `TutorialStageV1`, `DesktopPageIdV1`, `PlayerProfileV1`, `createPlayerProfileV1(input)`, `assertPlayerProfileV1(input)`.
 - Consumes: Node `crypto.randomUUID` only through the caller-provided `playerId`; the contract itself has no filesystem dependency.
 
-- [ ] **Step 1: Write the failing contract tests**
+- [x] **Step 1: Write the failing contract tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -54,13 +54,13 @@ describe('PlayerProfileV1', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `npm test -- tests/player-profile-v1.test.ts`
 
 Expected: FAIL because `src/desktop/player-profile-v1.ts` does not exist.
 
-- [ ] **Step 3: Implement the strict contract**
+- [x] **Step 3: Implement the strict contract**
 
 Implement exact persisted fields:
 
@@ -79,13 +79,13 @@ export interface PlayerProfileV1 {
 
 Validate a UUID, trimmed 1–24 character display name, exact enums, valid ISO instants, exact keys, and `lastOpenedAt >= createdAt`. `createPlayerProfileV1` starts at `tutorialStage: 'battle'` and `recentPage: 'command-center'`.
 
-- [ ] **Step 4: Run focused GREEN and typecheck**
+- [x] **Step 4: Run focused GREEN and typecheck**
 
 Run: `npm test -- tests/player-profile-v1.test.ts && npm run typecheck`
 
 Expected: focused tests PASS and TypeScript exits 0.
 
-- [ ] **Step 5: Commit the contract**
+- [x] **Step 5: Commit the contract**
 
 ```bash
 git add src/desktop/player-profile-v1.ts tests/player-profile-v1.test.ts
