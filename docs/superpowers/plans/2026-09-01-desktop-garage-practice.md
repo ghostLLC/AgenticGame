@@ -347,29 +347,29 @@ git commit -m "feat: expose garage and practice APIs"
 - Consumes: Task 4 controllers and `DesktopApiV1`.
 - Produces: keyboard-operable `page-garage` and `page-practice`, enabled navigation and command-center entry points.
 
-- [ ] **Step 1: Add failing player-flow assertions**
+- [x] **Step 1: Add failing player-flow assertions**
 
 Assert the real HTML exposes “我的车库”, “版本历史”, “保存为新版本”, “战术实验室”, “新版本对战旧版本”, “镜像训练”, loading/empty/damaged/running/success regions, and no source/hash/JSON/seed copy in default cards. Extend shell controller tests so garage and practice are enabled and remembered.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/desktop-shell-v1.test.ts tests/desktop-app-shell-v1.test.ts`
 
 Expected: FAIL because pages are disabled or missing.
 
-- [ ] **Step 3: Add semantic page markup and navigation**
+- [x] **Step 3: Add semantic page markup and navigation**
 
 Add real forms with labels, compatible weapon selection, three tactic cards, revision label and change note. Add a revision timeline with health badge, configuration diff and record. Add practice selectors, mode cards, mirror shortcut, run progress, cancellability copy and result summary. Keep advanced data absent.
 
-- [ ] **Step 4: Implement focused DOM views and renderer wiring**
+- [x] **Step 4: Implement focused DOM views and renderer wiring**
 
 `garage-view-v1.ts` renders content via `textContent`, never `innerHTML` for repository data. `practice-lab-view-v1.ts` renders only `PracticeResultViewV1`. Renderer navigation lazy-loads garage, refreshes practice revisions after saves/quarantine, and disables duplicate submissions while running.
 
-- [ ] **Step 5: Style both pages at 1440×900 and 1100×700**
+- [x] **Step 5: Style both pages at 1440×900 and 1100×700**
 
 Use the existing warm military palette, large vehicle cards, horizontal revision timeline and clear primary action hierarchy. At 1100×700, collapse cards without horizontal page overflow. Preserve focus-visible and reduced-motion behavior.
 
-- [ ] **Step 6: Run focused GREEN, typecheck and desktop build**
+- [x] **Step 6: Run focused GREEN, typecheck and desktop build**
 
 Run:
 
@@ -382,7 +382,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 7: Commit the player pages**
+- [x] **Step 7: Commit the player pages**
 
 ```bash
 git add src/desktop/renderer/index.html src/desktop/renderer/styles.css src/desktop/renderer.ts src/desktop/renderer/app-shell-view-v1.ts src/desktop/renderer/garage-view-v1.ts src/desktop/renderer/practice-lab-view-v1.ts tests/desktop-shell-v1.test.ts tests/desktop-app-shell-v1.test.ts

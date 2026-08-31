@@ -20,8 +20,8 @@
       <nav class="sidebar" aria-label="作战中心">
         <p class="nav-label">作战中心</p>
         <button id="nav-command-center" class="active" aria-current="page">指挥中心</button>
-        <button disabled>我的车库</button>
-        <button disabled>AI 教练</button>
+        <button id="nav-garage">我的车库</button>
+        <button id="nav-practice">战术实验室</button>
         <button id="nav-friend-room">好友房间</button>
         <button disabled>回放工作室</button>
         <div class="sidebar-spacer"></div>
@@ -46,7 +46,7 @@
               <p>今日行动</p>
               <h2>快速练习</h2>
               <span>让当前战术与训练对手交锋，战斗结束后立即复盘。</span>
-              <button id="command-quick-practice" class="primary-button" type="button" disabled>车库开放后可用</button>
+              <button id="command-quick-practice" class="primary-button" type="button">进入战术实验室</button>
             </article>
             <article class="command-card">
               <p>好友对战</p>
@@ -54,17 +54,132 @@
               <span>创建邀请或接受好友邀请，双方准备后立即开战。</span>
               <button id="command-open-friend-room" class="secondary-button" type="button">进入好友房间</button>
             </article>
-            <article class="command-card muted-command">
+            <article class="command-card">
               <p>战车整备</p>
               <h2>我的车库</h2>
-              <span>保存配置、比较版本和查看战绩将在下一阶段开放。</span>
-              <b>开发中</b>
+              <span>调整战车、主炮与作战风格，把每次变化保存为独立版本。</span>
+              <button id="command-open-garage" class="secondary-button" type="button">整备我的战车</button>
             </article>
           </div>
           <section class="recent-operation">
             <div><p>最近活动</p><h2>完成教学后，从这里继续你的战术成长</h2></div>
             <span>比赛、回放和好友房间会保存在本机。</span>
           </section>
+        </section>
+
+        <section id="page-garage" class="app-page garage-page" hidden>
+          <div class="hero-row garage-hero">
+            <div>
+              <p class="eyebrow">MY GARAGE <span>·</span> 我的车库</p>
+              <h1>把每一次调整，变成可重返的战术版本</h1>
+              <p class="subtitle">选择战车、主炮与作战风格。旧版本不会被覆盖，可以随时拿来对战。</p>
+            </div>
+            <div id="garage-current-badge" class="trust-pill">正在读取战车档案</div>
+          </div>
+
+          <section id="garage-loading" class="player-state-card" aria-live="polite">
+            <div class="battle-loader small-loader"><span></span></div>
+            <div><p>车库正在开启</p><h2>正在取回你的战车与版本历史</h2></div>
+          </section>
+          <section id="garage-empty" class="player-state-card" hidden>
+            <div><p>还没有可用配置</p><h2>完成新手教学后，我们会准备第一辆战车</h2></div>
+          </section>
+          <section id="garage-damaged" class="damage-banner" role="alert" hidden>
+            <div><p>部分版本需要整理</p><h2>健康版本仍然安全可用</h2><span id="garage-damaged-copy"></span></div>
+            <div class="banner-actions">
+              <button id="garage-export-diagnostic" class="secondary-button" type="button">保存检查报告</button>
+              <button id="garage-quarantine" class="primary-button" type="button">隔离损坏版本</button>
+            </div>
+          </section>
+
+          <div id="garage-content" class="garage-layout" hidden>
+            <section class="garage-workbench">
+              <div class="section-heading">
+                <div><p>战车整备</p><h2>本次战术调整</h2></div>
+                <span>保存后生成新版本，旧版本保持不变</span>
+              </div>
+              <label for="garage-label">版本名称</label>
+              <input id="garage-label" maxlength="80" placeholder="例如：侧翼突击">
+              <div class="garage-choice-grid">
+                <div><label for="garage-vehicle">战车</label><select id="garage-vehicle"></select></div>
+                <div><label for="garage-weapon">主炮</label><select id="garage-weapon"></select></div>
+              </div>
+              <label for="garage-tactic">作战风格</label>
+              <select id="garage-tactic"></select>
+              <div id="garage-loadout-preview" class="loadout-preview" aria-live="polite"></div>
+              <label for="garage-note">本次调整说明</label>
+              <textarea id="garage-note" maxlength="240" placeholder="用一句话记下为什么这样调整"></textarea>
+              <button id="garage-save" class="primary-button" type="button">保存为新版本</button>
+              <p id="garage-error" class="inline-error" role="alert" hidden></p>
+            </section>
+
+            <section class="garage-history">
+              <div class="section-heading">
+                <div><p>成长轨迹</p><h2>版本历史</h2></div>
+                <span>战绩来自已完成的真实比赛</span>
+              </div>
+              <div id="garage-revision-list" class="revision-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="page-practice" class="app-page practice-page" hidden>
+          <div class="hero-row">
+            <div>
+              <p class="eyebrow">TACTICS LAB <span>·</span> 战术实验室</p>
+              <h1>让新想法先在训练场上证明自己</h1>
+              <p class="subtitle">用新版本挑战旧版本，或让同一版本进行镜像训练；赛后只呈现关键时刻。</p>
+            </div>
+            <div class="trust-pill">本机训练 <span>·</span> 自动保存战报</div>
+          </div>
+
+          <section id="practice-empty" class="player-state-card" hidden>
+            <div><p>还不能开始训练</p><h2>先在车库中保存第二个版本</h2><span>两个可用版本准备好后，就能比较调整前后的表现。</span></div>
+            <button id="practice-open-garage" class="secondary-button compact-action" type="button">前往我的车库</button>
+          </section>
+
+          <div id="practice-arena" class="practice-arena" hidden>
+            <section class="practice-setup">
+              <div class="section-heading">
+                <div><p>训练编组</p><h2>新版本对战旧版本</h2></div>
+                <span>选择两套可用战术</span>
+              </div>
+              <div class="practice-versus-grid">
+                <label>我的新版本<select id="practice-current"></select></label>
+                <div class="versus lab-versus">VS</div>
+                <label>训练对手<select id="practice-opponent"></select></label>
+              </div>
+              <fieldset class="mode-picker">
+                <legend>比赛模式</legend>
+                <label><input type="radio" name="practice-mode" value="duel" checked><span><b>歼灭决斗</b><small>击毁对手或以耐久优势取胜</small></span></label>
+                <label><input type="radio" name="practice-mode" value="capture"><span><b>据点争夺</b><small>争夺中央目标，也可以直接歼灭对手</small></span></label>
+              </fieldset>
+              <div class="practice-actions">
+                <button id="practice-run-versus" class="primary-button" type="button">新版本对战旧版本</button>
+                <button id="practice-run-mirror" class="secondary-button" type="button">镜像训练</button>
+              </div>
+            </section>
+
+            <section class="practice-report-stage" aria-live="polite">
+              <div id="practice-ready" class="practice-ready">
+                <p>训练场已就绪</p><h2>选择方案，开始一次真实战斗</h2>
+                <span>视野、地形、装甲方向、弹药与占领规则都会生效。</span>
+              </div>
+              <div id="practice-running" class="practice-running" hidden>
+                <div class="battle-loader"><span></span></div>
+                <p>战斗正在进行</p><h2>两套战术正在训练场交锋</h2>
+                <span>比赛完成后会自动保存，并提取最多三个关键时刻。</span>
+              </div>
+              <div id="practice-success" class="practice-success" hidden>
+                <p id="practice-result-eyebrow">训练完成</p>
+                <h2 id="practice-result-title">比赛结束</h2>
+                <span id="practice-result-summary"></span>
+                <div id="practice-moments" class="practice-moments"></div>
+                <button id="practice-run-again" class="secondary-button compact-action" type="button">再训练一次</button>
+              </div>
+              <p id="practice-error" class="inline-error" role="alert" hidden></p>
+            </section>
+          </div>
         </section>
 
         <section id="page-friend-room" class="app-page" hidden>

@@ -181,6 +181,74 @@ button:disabled { opacity: .45; cursor: default; }
 .recent-operation h2 { margin: 5px 0 0; font-size: 16px; }
 .recent-operation > span { color: var(--muted); font-size: 11px; }
 
+.garage-page, .practice-page { padding-bottom: 6px; }
+.garage-hero { margin-bottom: 18px; }
+.player-state-card { min-height: 118px; margin-top: 18px; padding: 24px; display: flex; align-items: center; gap: 18px; border: 1px solid var(--line); border-radius: 16px; background: #29231f; }
+.player-state-card p, .section-heading p, .practice-ready p, .practice-running p, .practice-success > p { margin: 0 0 5px; color: var(--orange); font-size: 11px; font-weight: 800; }
+.player-state-card h2, .section-heading h2, .practice-ready h2, .practice-running h2, .practice-success h2 { margin: 0; font-size: 20px; }
+.player-state-card span { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
+.small-loader { width: 60px; margin: 0; flex: 0 0 auto; }
+.small-loader span { width: 38px; }
+.damage-banner { margin: 0 0 16px; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid rgba(255, 121, 88, .22); border-radius: 15px; background: linear-gradient(110deg, #38231f, #29231f); }
+.damage-banner p { margin: 0 0 4px; color: #ff9d83; font-size: 11px; font-weight: 800; }
+.damage-banner h2 { margin: 0 0 5px; font-size: 18px; }
+.damage-banner span { color: #cbb5ac; font-size: 11px; }
+.banner-actions { display: flex; gap: 9px; flex: 0 0 auto; }
+.banner-actions button { width: 150px; min-height: 42px; margin: 0; }
+.garage-layout { display: grid; grid-template-columns: minmax(390px, .9fr) minmax(420px, 1.1fr); gap: 16px; }
+.garage-workbench, .garage-history, .practice-setup, .practice-report-stage { padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: #2a2420; }
+.section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+.section-heading > span { max-width: 190px; color: var(--muted); font-size: 10px; line-height: 1.5; text-align: right; }
+.garage-workbench label, .practice-setup label { display: block; margin: 14px 0 7px; color: #d9cec4; font-size: 11px; font-weight: 750; }
+.garage-workbench input, .garage-workbench select, .garage-workbench textarea, .practice-setup select { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid #43382f; border-radius: 10px; outline: 0; color: #efe8e1; background: var(--field); }
+.garage-workbench textarea { min-height: 74px; padding: 12px 13px; resize: vertical; }
+.garage-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.loadout-preview { margin-top: 13px; padding: 13px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-radius: 11px; background: #211c19; }
+.loadout-preview div { min-width: 0; }
+.loadout-preview b, .loadout-preview span { display: block; }
+.loadout-preview b { margin-bottom: 4px; color: #f0e5dc; font-size: 11px; }
+.loadout-preview span { color: var(--muted); font-size: 9px; }
+.garage-workbench > .primary-button { margin-top: 14px; }
+.inline-error { margin: 10px 0 0; padding: 10px 12px; border-radius: 9px; color: #ffd7cb; background: #5b2d24; font-size: 11px; }
+.revision-list { display: grid; gap: 10px; }
+.revision-card { padding: 15px 16px; border: 1px solid transparent; border-radius: 12px; background: #211c19; }
+.revision-card.current { border-color: rgba(239, 140, 54, .36); background: #33271f; }
+.revision-card.damaged { opacity: .74; background: #35241f; }
+.revision-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.revision-card header span { color: var(--orange); font-size: 10px; font-weight: 800; }
+.revision-card h3 { margin: 4px 0 3px; font-size: 15px; }
+.revision-card header b { padding: 6px 9px; border-radius: 99px; color: #9ce8bd; background: #173528; font-size: 9px; }
+.revision-card.damaged header b { color: #ffb29d; background: #4a2821; }
+.revision-loadout, .revision-note, .revision-changes { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.revision-record { margin-top: 10px; display: flex; gap: 14px; color: #cfc2b8; font-size: 10px; }
+
+.practice-arena { margin-top: 18px; display: grid; grid-template-columns: minmax(440px, .95fr) minmax(360px, 1.05fr); gap: 16px; }
+.practice-versus-grid { display: grid; grid-template-columns: 1fr 44px 1fr; align-items: end; gap: 9px; }
+.lab-versus { width: 40px; height: 40px; margin-bottom: 2px; font-size: 11px; }
+.mode-picker { margin: 18px 0 0; padding: 0; border: 0; }
+.mode-picker legend { margin-bottom: 8px; color: #d9cec4; font-size: 11px; font-weight: 750; }
+.mode-picker label { position: relative; margin: 0 0 8px; cursor: pointer; }
+.mode-picker input { position: absolute; opacity: 0; }
+.mode-picker span { padding: 12px 14px; display: block; border: 1px solid #43382f; border-radius: 11px; background: #211c19; }
+.mode-picker input:checked + span { border-color: rgba(239, 140, 54, .65); background: #3a2a20; }
+.mode-picker b, .mode-picker small { display: block; }
+.mode-picker b { margin-bottom: 4px; font-size: 12px; }
+.mode-picker small { color: var(--muted); font-size: 9px; }
+.practice-actions { display: grid; grid-template-columns: 1.2fr .8fr; gap: 9px; }
+.practice-actions button { margin-top: 10px; }
+.practice-report-stage { min-height: 410px; display: grid; place-items: center; text-align: center; background: radial-gradient(circle at 50% 22%, rgba(239, 140, 54, .12), transparent 38%), #25201d; }
+.practice-ready, .practice-running, .practice-success { width: min(440px, 100%); }
+.practice-ready > span, .practice-running > span, .practice-success > span { display: block; margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.practice-running .battle-loader { margin: 0 auto 20px; }
+.practice-success > p { color: var(--green); }
+.practice-moments { margin-top: 18px; display: grid; gap: 8px; text-align: left; }
+.practice-moments article { padding: 10px 12px; border-radius: 10px; background: #1e1a18; }
+.practice-moments b, .practice-moments span { display: block; }
+.practice-moments b { color: #eee3da; font-size: 11px; }
+.practice-moments span { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.compact-action { width: auto; min-width: 150px; min-height: 42px; padding: 0 16px; }
+.practice-success .compact-action { margin: 16px auto 0; }
+
 .onboarding-overlay { position: fixed; inset: 0; z-index: 50; padding: 34px; display: grid; place-items: center; overflow: auto; background: radial-gradient(circle at 70% 10%, rgba(103, 64, 39, .42), transparent 35%), rgba(16, 13, 12, .96); }
 .onboarding-card { width: min(980px, 100%); min-height: 620px; padding: 30px 38px; display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, .08); border-radius: 22px; background: linear-gradient(150deg, #2b2420, #1f1a18); box-shadow: 0 30px 100px rgba(0, 0, 0, .5); }
 .onboarding-card > header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
@@ -219,6 +287,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .command-card:last-child { grid-column: 1 / -1; min-height: 150px; }
   .onboarding-card { padding: 24px; }
   .doctrine-grid { grid-template-columns: 1fr; }
+  .garage-layout, .practice-arena { grid-template-columns: 1fr; }
+  .practice-report-stage { min-height: 320px; }
 }
 
 @media (max-width: 900px) {
@@ -238,4 +308,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .replay-controls { grid-template-columns: 40px 1fr 40px; }
   .replay-controls input, .replay-controls b { grid-column: 1 / -1; }
   .trust-pill { display: none; }
+  .garage-choice-grid, .practice-versus-grid, .practice-actions { grid-template-columns: 1fr; }
+  .lab-versus { display: none; }
+  .damage-banner { align-items: stretch; flex-direction: column; }
+  .banner-actions { flex-direction: column; }
+  .banner-actions button { width: 100%; }
 }

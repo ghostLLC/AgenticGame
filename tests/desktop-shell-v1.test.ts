@@ -53,6 +53,35 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).not.toMatch(/开发者控制台|developer console|调试终端/i);
   });
 
+  it('提供完整的车库与战术实验室玩家流程，而不是技术控制台', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+    const css = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/styles.css', import.meta.url)),
+      'utf8',
+    );
+
+    expect(html).toContain('id="nav-garage"');
+    expect(html).toContain('id="nav-practice"');
+    expect(html).toContain('id="page-garage"');
+    expect(html).toContain('id="page-practice"');
+    expect(html).toContain('我的车库');
+    expect(html).toContain('版本历史');
+    expect(html).toContain('保存为新版本');
+    expect(html).toContain('战术实验室');
+    expect(html).toContain('新版本对战旧版本');
+    expect(html).toContain('镜像训练');
+    for (const id of [
+      'garage-loading', 'garage-empty', 'garage-damaged', 'garage-content',
+      'practice-empty', 'practice-running', 'practice-success',
+    ]) expect(html).toContain(`id="${id}"`);
+    expect(html).not.toMatch(/module\.exports|codeHash|bundleHash|随机种子|JSON/i);
+    expect(css).toContain('.garage-layout');
+    expect(css).toContain('.practice-arena');
+  });
+
   it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {
     const buildScript = readFileSync(
       fileURLToPath(new URL('../scripts/build-desktop.mjs', import.meta.url)),

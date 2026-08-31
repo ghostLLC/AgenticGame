@@ -1,21 +1,27 @@
 import type { DesktopAppShellSnapshotV1 } from './app-shell-controller-v1.js';
 
 export function renderAppShellV1(snapshot: DesktopAppShellSnapshotV1): void {
-  const command = element<HTMLElement>('page-command-center');
-  const friend = element<HTMLElement>('page-friend-room');
-  const commandNav = element<HTMLButtonElement>('nav-command-center');
-  const friendNav = element<HTMLButtonElement>('nav-friend-room');
-  const onCommand = snapshot.page === 'command-center';
-  command.hidden = !onCommand;
-  friend.hidden = onCommand;
-  commandNav.classList.toggle('active', onCommand);
-  friendNav.classList.toggle('active', !onCommand);
-  commandNav.toggleAttribute('aria-current', onCommand);
-  friendNav.toggleAttribute('aria-current', !onCommand);
-  element<HTMLElement>('connection-pill').hidden = onCommand;
-  element<HTMLElement>('app-breadcrumb').innerHTML = onCommand
-    ? '指挥中心 <b>/</b> 作战总览'
-    : '好友房间 <b>/</b> 连接大厅';
+  const pages = ['command-center', 'garage', 'practice', 'friend-room'] as const;
+  for (const page of pages) {
+    const active = snapshot.page === page;
+    element<HTMLElement>(`page-${page}`).hidden = !active;
+    const navigation = element<HTMLButtonElement>(`nav-${page}`);
+    navigation.classList.toggle('active', active);
+    navigation.toggleAttribute('aria-current', active);
+  }
+  element<HTMLElement>('connection-pill').hidden = snapshot.page !== 'friend-room';
+  const breadcrumbs = {
+    'command-center': ['指挥中心', '作战总览'],
+    garage: ['我的车库', '战车整备'],
+    practice: ['战术实验室', '训练编组'],
+    'friend-room': ['好友房间', '连接大厅'],
+  } as const;
+  const [area, detail] = breadcrumbs[snapshot.page as keyof typeof breadcrumbs] ?? breadcrumbs['command-center'];
+  const breadcrumb = element<HTMLElement>('app-breadcrumb');
+  breadcrumb.replaceChildren(document.createTextNode(`${area} `));
+  const divider = document.createElement('b');
+  divider.textContent = '/';
+  breadcrumb.append(divider, document.createTextNode(` ${detail}`));
   if (snapshot.profile) {
     element<HTMLElement>('commander-welcome').textContent = `欢迎回来，${snapshot.profile.displayName}`;
     const host = element<HTMLInputElement>('host-name');

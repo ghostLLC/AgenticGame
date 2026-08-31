@@ -20,6 +20,12 @@ import { OnboardingControllerV1 } from './renderer/onboarding-controller-v1.js';
 import { desktopApiClientV1 } from './renderer/desktop-api-client-v1.js';
 import { renderAppShellV1 } from './renderer/app-shell-view-v1.js';
 import { renderOnboardingV1 } from './renderer/onboarding-view-v1.js';
+import { GarageControllerV1 } from './renderer/garage-controller-v1.js';
+import { PracticeLabControllerV1 } from './renderer/practice-lab-controller-v1.js';
+import { renderGarageLoadoutPreviewV1, renderGarageViewV1 } from './renderer/garage-view-v1.js';
+import { renderPracticeLabV1 } from './renderer/practice-lab-view-v1.js';
+import type { GarageSaveInputV1 } from './garage-service-v1.js';
+import type { PracticeRunInputV1 } from './practice-match-service-v1.js';
 
 declare global {
   interface Window {
@@ -111,12 +117,53 @@ const recoveryConfirmationResult = element<HTMLTextAreaElement>('recovery-confir
 const recoveryConfirmationInput = element<HTMLTextAreaElement>('recovery-confirmation-input');
 
 const desktopApi = desktopApiClientV1(window);
-const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'friend-room']);
+const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room']);
 const onboardingController = new OnboardingControllerV1(desktopApi);
+const garageController = new GarageControllerV1(desktopApi);
+const practiceLabController = new PracticeLabControllerV1(desktopApi);
+
+garageController.subscribe((snapshot) => {
+  renderGarageViewV1(snapshot);
+  if (snapshot.garage) practiceLabController.setGarage(snapshot.garage);
+  renderPracticeLabV1(practiceLabController.getSnapshot(), snapshot.garage);
+});
+practiceLabController.subscribe((snapshot) => {
+  renderPracticeLabV1(snapshot, garageController.getSnapshot().garage);
+});
 
 element<HTMLButtonElement>('nav-command-center').addEventListener('click', () => void navigateApp('command-center'));
+element<HTMLButtonElement>('nav-garage').addEventListener('click', () => void navigateApp('garage'));
+element<HTMLButtonElement>('nav-practice').addEventListener('click', () => void navigateApp('practice'));
 element<HTMLButtonElement>('nav-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
+element<HTMLButtonElement>('command-quick-practice').addEventListener('click', () => void navigateApp('practice'));
+element<HTMLButtonElement>('command-open-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLButtonElement>('command-open-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
+element<HTMLButtonElement>('practice-open-garage').addEventListener('click', () => void navigateApp('garage'));
+element<HTMLSelectElement>('garage-vehicle').addEventListener('change', () => {
+  const garage = garageController.getSnapshot().garage;
+  if (garage) renderGarageLoadoutPreviewV1(garage);
+});
+element<HTMLButtonElement>('garage-save').addEventListener('click', () => {
+  void runGarageAction(async () => {
+    await garageController.save(readGarageInput());
+    if (!garageController.getSnapshot().error) showToast('新版本已保存', false);
+  });
+});
+element<HTMLButtonElement>('garage-quarantine').addEventListener('click', () => {
+  void runGarageAction(async () => {
+    await garageController.quarantine();
+    if (!garageController.getSnapshot().error) showToast('损坏版本已安全隔离', false);
+  });
+});
+element<HTMLButtonElement>('garage-export-diagnostic').addEventListener('click', () => {
+  void runGarageAction(async () => {
+    const fileName = await garageController.exportDiagnostic();
+    if (fileName) showToast(`检查报告已保存：${fileName}`, false);
+  });
+});
+element<HTMLButtonElement>('practice-run-versus').addEventListener('click', () => void runPracticeLab(false));
+element<HTMLButtonElement>('practice-run-mirror').addEventListener('click', () => void runPracticeLab(true));
+element<HTMLButtonElement>('practice-run-again').addEventListener('click', () => void runPracticeLab(false));
 element<HTMLButtonElement>('onboarding-name-next').addEventListener('click', () => {
   try {
     onboardingController.enterCommanderName(element<HTMLInputElement>('onboarding-name').value);
@@ -600,18 +647,64 @@ async function initializeApplicationShell(): Promise<void> {
     await onboarding;
     await appShellController.bootstrap();
     renderAppShellV1(appShellController.getSnapshot());
+    await ensurePageData(appShellController.getSnapshot().page);
     renderOnboardingV1(onboardingController.getSnapshot(), bootstrap.needsOnboarding);
   } catch (error) {
     showToast(error instanceof Error ? error.message : '游戏启动失败，请重新打开。', true);
   }
 }
 
-async function navigateApp(page: 'command-center' | 'friend-room'): Promise<void> {
+async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room'): Promise<void> {
   try {
     await appShellController.navigate(page);
     renderAppShellV1(appShellController.getSnapshot());
+    await ensurePageData(page);
   } catch (error) {
     showToast(error instanceof Error ? error.message : '暂时无法打开该区域', true);
+  }
+}
+
+async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | string): Promise<void> {
+  if (page !== 'garage' && page !== 'practice') return;
+  if (!garageController.getSnapshot().garage && garageController.getSnapshot().status !== 'loading') {
+    await garageController.load();
+  }
+}
+
+function readGarageInput(): GarageSaveInputV1 {
+  return {
+    label: element<HTMLInputElement>('garage-label').value.trim(),
+    vehicleId: element<HTMLSelectElement>('garage-vehicle').value as GarageSaveInputV1['vehicleId'],
+    weaponId: element<HTMLSelectElement>('garage-weapon').value as GarageSaveInputV1['weaponId'],
+    tacticId: element<HTMLSelectElement>('garage-tactic').value as GarageSaveInputV1['tacticId'],
+    note: element<HTMLTextAreaElement>('garage-note').value.trim(),
+  };
+}
+
+async function runGarageAction(action: () => Promise<void>): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '车库操作没有完成', true);
+  }
+}
+
+async function runPracticeLab(mirror: boolean): Promise<void> {
+  try {
+    const currentRevision = Number(element<HTMLSelectElement>('practice-current').value);
+    const opponentRevision = mirror
+      ? currentRevision
+      : Number(element<HTMLSelectElement>('practice-opponent').value);
+    const selectedMode = document.querySelector<HTMLInputElement>('input[name="practice-mode"]:checked')?.value;
+    const input: PracticeRunInputV1 = {
+      currentRevision,
+      opponentRevision,
+      modeId: selectedMode === 'capture' ? 'capture' : 'duel',
+    };
+    await practiceLabController.run(input);
+    if (!practiceLabController.getSnapshot().error) await garageController.load();
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '训练赛没有完成', true);
   }
 }
 

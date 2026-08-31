@@ -91,16 +91,22 @@ describe('桌面 App Shell 与首次体验 v1', () => {
     await api.profile.advanceTutorial('complete');
     await api.navigation.remember('friend-room');
 
-    const shell = new DesktopAppShellControllerV1(api, ['command-center', 'friend-room']);
+    const shell = new DesktopAppShellControllerV1(api, ['command-center', 'garage', 'practice', 'friend-room']);
     await shell.bootstrap();
     expect(shell.getSnapshot()).toMatchObject({ status: 'ready', page: 'friend-room' });
     await shell.navigate('command-center');
     expect(shell.getSnapshot()).toMatchObject({ status: 'ready', page: 'command-center' });
     expect((await api.app.bootstrap()).profile?.recentPage).toBe('command-center');
 
-    await api.navigation.remember('garage');
-    const restarted = new DesktopAppShellControllerV1(api, ['command-center', 'friend-room']);
+    await shell.navigate('garage');
+    expect(shell.getSnapshot()).toMatchObject({ status: 'ready', page: 'garage' });
+    await shell.navigate('practice');
+    expect(shell.getSnapshot()).toMatchObject({ status: 'ready', page: 'practice' });
+    expect((await api.app.bootstrap()).profile?.recentPage).toBe('practice');
+
+    await api.navigation.remember('practice');
+    const restarted = new DesktopAppShellControllerV1(api, ['command-center', 'garage', 'practice', 'friend-room']);
     await restarted.bootstrap();
-    expect(restarted.getSnapshot()).toMatchObject({ status: 'ready', page: 'command-center' });
+    expect(restarted.getSnapshot()).toMatchObject({ status: 'ready', page: 'practice' });
   });
 });
