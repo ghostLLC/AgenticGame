@@ -10,6 +10,7 @@ export function desktopApiClientV1(host: unknown): DesktopApiV1 {
   const garage = record(api?.garage);
   const practice = record(api?.practice);
   const replays = record(api?.replays);
+  const agentCenter = record(api?.agentCenter);
   if (!api
     || typeof app?.bootstrap !== 'function'
     || typeof profile?.create !== 'function'
@@ -29,7 +30,11 @@ export function desktopApiClientV1(host: unknown): DesktopApiV1 {
     || typeof replays?.listTrash !== 'function'
     || typeof replays?.restore !== 'function'
     || typeof replays?.emptyTrash !== 'function'
-    || typeof replays?.exportDiagnostic !== 'function') {
+    || typeof replays?.exportDiagnostic !== 'function'
+    || typeof agentCenter?.get !== 'function'
+    || typeof agentCenter?.run !== 'function'
+    || typeof agentCenter?.cancel !== 'function'
+    || typeof agentCenter?.save !== 'function') {
     throw new Error('桌面游戏桥接未加载，请重新启动游戏。');
   }
   return api as unknown as DesktopApiV1;

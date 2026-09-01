@@ -24,6 +24,7 @@
         <button id="nav-practice">战术实验室</button>
         <button id="nav-friend-room">好友房间</button>
         <button id="nav-replays">回放工作室</button>
+        <button id="nav-agent-center">AI 战术教练</button>
         <div class="sidebar-spacer"></div>
         <section class="sync-note">
           <strong>战术自动同步</strong>
@@ -65,6 +66,12 @@
               <h2>回放工作室</h2>
               <span>重看练习赛与好友对战，记录下一次要改进的关键。</span>
               <button id="command-open-replays" class="secondary-button" type="button">打开回放工作室</button>
+            </article>
+            <article class="command-card agent-command-card">
+              <p>AI 协同</p>
+              <h2>AI 战术教练</h2>
+              <span>说出想改进的战术，让 AI 先在训练场证明，再决定是否保存。</span>
+              <button id="command-open-agent-center" class="secondary-button" type="button">邀请 AI 队友</button>
             </article>
           </div>
           <section class="recent-operation">
@@ -264,6 +271,79 @@
           <section id="replay-empty-trash-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="清空回收站" hidden>
             <div><p>清空回收站</p><h2>这些回放将无法恢复</h2><span>只会清理本游戏回收站中的回放。</span><div class="sheet-actions"><button id="replay-cancel-empty-trash" class="secondary-button" type="button">保留回放</button><button id="replay-confirm-empty-trash" class="primary-button" type="button">确认清空</button></div></div>
           </section>
+        </section>
+
+        <section id="page-agent-center" class="app-page agent-center-page" hidden>
+          <div class="hero-row agent-hero">
+            <div>
+              <p class="eyebrow">AI COACH <span>·</span> AI 战术教练</p>
+              <h1>把你的想法，交给 AI 队友上场验证</h1>
+              <p class="subtitle">选择一个现有版本，描述想改进什么。候选方案会先完成多场真实训练，由你决定是否保存。</p>
+            </div>
+            <div class="trust-pill">本次使用 <span>·</span> 由你确认保存</div>
+          </div>
+
+          <section id="agent-loading" class="player-state-card" aria-live="polite">
+            <div class="battle-loader small-loader"><span></span></div>
+            <div><p>正在邀请 AI 队友</p><h2>读取你的战术版本与可用训练方案</h2></div>
+          </section>
+
+          <div id="agent-workspace" class="agent-center-layout" hidden>
+            <form class="agent-briefing-card">
+              <div class="section-heading"><div><p>战术委托</p><h2>这次想让 AI 改进什么</h2></div><span>候选不会自动覆盖当前版本</span></div>
+              <label for="agent-build">选择起点</label>
+              <select id="agent-build"></select>
+              <label for="agent-provider">选择 AI 队友</label>
+              <select id="agent-provider"></select>
+              <div class="agent-model-row">
+                <label>模型名称<input id="agent-model" maxlength="120" placeholder="例如：你账号中可用的模型"></label>
+                <label>本次密钥<input id="agent-api-key" type="password" maxlength="4096" autocomplete="off" placeholder="只在本次运行中使用"></label>
+              </div>
+              <p class="privacy-note">密钥仅用于本次运行，不会保存到档案、战报或诊断中；关闭游戏后立即失效。</p>
+              <details class="agent-advanced">
+                <summary>其他厂商或本地模型</summary>
+                <label for="agent-base-url">服务地址</label>
+                <input id="agent-base-url" maxlength="500" placeholder="选择常用厂商后会自动填写">
+              </details>
+              <label for="agent-goal">作战目标</label>
+              <textarea id="agent-goal" maxlength="500" placeholder="例如：更积极抢点，但不要把侧面暴露给对手"></textarea>
+              <fieldset class="agent-depth-picker">
+                <legend>训练强度</legend>
+                <label><input type="radio" name="agent-depth" value="quick" checked><span><b>快速试跑</b><small>3 场 · 先看方向</small></span></label>
+                <label><input type="radio" name="agent-depth" value="standard"><span><b>标准评测</b><small>5 场 · 更稳妥</small></span></label>
+                <label><input type="radio" name="agent-depth" value="deep"><span><b>深入评测</b><small>10 场 · 更全面</small></span></label>
+              </fieldset>
+              <button id="agent-run" class="primary-button" type="button">开始调整并评测</button>
+            </form>
+
+            <section class="agent-stage" aria-live="polite">
+              <div id="agent-ready" class="agent-ready">
+                <p>AI 队友待命</p><h2>先说清目标，再让结果说话</h2>
+                <span>它会阅读游戏规则、提出候选，并在真实训练场完成你选择的比赛数量。</span>
+              </div>
+              <div id="agent-running" class="agent-running" hidden>
+                <div class="battle-loader"><span></span></div>
+                <p>AI 队友正在工作</p><h2>候选战术正在连续训练</h2>
+                <span>可以随时取消；已完成的比赛结果仍会保留。</span>
+                <button id="agent-cancel" class="secondary-button compact-action" type="button">停止剩余评测</button>
+              </div>
+              <p id="agent-error" class="inline-error" role="alert" hidden></p>
+              <article id="agent-result" class="agent-result-card" hidden>
+                <p>训练结论</p><h2 id="agent-result-title">候选战术已完成评测</h2>
+                <span id="agent-result-summary"></span>
+                <div class="agent-metrics">
+                  <div><small>对局表现</small><b id="agent-result-wins">0 胜</b></div>
+                  <div><small>平均剩余耐久</small><b id="agent-result-hp">0</b></div>
+                  <div><small>运行情况</small><b id="agent-result-violations">无异常</b></div>
+                </div>
+                <div class="agent-save-form">
+                  <label>新版本名称<input id="agent-save-label" maxlength="80" placeholder="例如：主动抢点 v2"></label>
+                  <label>调整说明<textarea id="agent-save-note" maxlength="240" placeholder="记下这次为什么保存"></textarea></label>
+                  <button id="agent-save" class="primary-button" type="button">保存为新版本</button>
+                </div>
+              </article>
+            </section>
+          </div>
         </section>
 
         <section id="page-friend-room" class="app-page" hidden>

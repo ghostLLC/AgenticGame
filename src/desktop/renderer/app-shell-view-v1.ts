@@ -1,7 +1,7 @@
 import type { DesktopAppShellSnapshotV1 } from './app-shell-controller-v1.js';
 
 export function renderAppShellV1(snapshot: DesktopAppShellSnapshotV1): void {
-  const pages = ['command-center', 'garage', 'practice', 'friend-room', 'replays'] as const;
+  const pages = ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center'] as const;
   for (const page of pages) {
     const active = snapshot.page === page;
     element<HTMLElement>(`page-${page}`).hidden = !active;
@@ -16,6 +16,7 @@ export function renderAppShellV1(snapshot: DesktopAppShellSnapshotV1): void {
     practice: ['战术实验室', '训练编组'],
     'friend-room': ['好友房间', '连接大厅'],
     replays: ['回放工作室', '战报收藏'],
+    'agent-center': ['AI 战术教练', '协同改进'],
   } as const;
   const [area, detail] = breadcrumbs[snapshot.page as keyof typeof breadcrumbs] ?? breadcrumbs['command-center'];
   const breadcrumb = element<HTMLElement>('app-breadcrumb');

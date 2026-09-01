@@ -144,6 +144,31 @@ describe('桌面游戏外壳 v1', () => {
     expect(css).toContain('.diagnostic-result-grid');
   });
 
+  it('提供玩家化 AI 战术教练，不在默认界面保留密钥或暴露技术载荷', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+    const renderer = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer.ts', import.meta.url)),
+      'utf8',
+    );
+    for (const id of [
+      'nav-agent-center', 'page-agent-center', 'agent-build', 'agent-provider', 'agent-base-url',
+      'agent-model', 'agent-api-key', 'agent-goal', 'agent-run', 'agent-cancel', 'agent-result',
+      'agent-result-wins', 'agent-result-hp', 'agent-result-violations', 'agent-save-label',
+      'agent-save-note', 'agent-save',
+    ]) expect(html).toContain(`id="${id}"`);
+    expect(html).toContain('AI 战术教练');
+    expect(html).toContain('密钥仅用于本次运行');
+    expect(html).toContain('保存为新版本');
+    expect(html).toContain('3 场');
+    expect(html).toContain('5 场');
+    expect(html).toContain('10 场');
+    expect(renderer).toContain("navigateApp('agent-center')");
+    expect(html).not.toMatch(/module\.exports|codeHash|bundleHash|seed|transcript|toolCall|MCP|JSON/i);
+  });
+
   it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {
     const buildScript = readFileSync(
       fileURLToPath(new URL('../scripts/build-desktop.mjs', import.meta.url)),

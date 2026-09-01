@@ -332,6 +332,33 @@ button:disabled { opacity: .45; cursor: default; }
 .sheet-actions { margin-top: 20px; }
 .sheet-actions button { margin: 0; }
 
+.agent-center-layout { display: grid; grid-template-columns: minmax(400px, .92fr) minmax(400px, 1.08fr); gap: 22px; align-items: start; }
+.agent-briefing-card, .agent-stage { padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(145deg, #2c2521, #1f1b19); box-shadow: 0 18px 42px rgba(0, 0, 0, .22); }
+.agent-briefing-card > label, .agent-model-row label, .agent-save-form label, .agent-advanced label { display: grid; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.agent-model-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.privacy-note { margin: 10px 0 0; color: #aebf9b; font-size: 10px; line-height: 1.6; }
+.agent-advanced { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; }
+.agent-advanced summary { cursor: pointer; color: var(--muted); font-size: 11px; }
+.agent-depth-picker { margin: 18px 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border: 0; }
+.agent-depth-picker legend { width: 100%; margin-bottom: 9px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.agent-depth-picker label { cursor: pointer; }
+.agent-depth-picker input { position: absolute; opacity: 0; }
+.agent-depth-picker span { min-height: 62px; padding: 11px; display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255, 255, 255, .025); }
+.agent-depth-picker input:checked + span { border-color: var(--orange); background: rgba(218, 119, 65, .1); }
+.agent-depth-picker small, .agent-ready span, .agent-running span, .agent-result-card > span { color: var(--muted); line-height: 1.6; }
+.agent-stage { min-height: 460px; display: grid; align-content: center; }
+.agent-ready, .agent-running { max-width: 500px; margin: auto; text-align: center; }
+.agent-ready p, .agent-running p, .agent-result-card > p { color: var(--orange); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.agent-running .battle-loader { margin: 0 auto 18px; }
+.agent-running button { margin-top: 20px; }
+.agent-result-card h2 { margin-bottom: 8px; }
+.agent-metrics { margin: 22px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.agent-metrics > div { padding: 14px; display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255, 255, 255, .025); }
+.agent-metrics small { color: var(--muted); }
+.agent-metrics b { color: var(--sand); font-size: 15px; }
+.agent-save-form { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--line); }
+.agent-save-form button { margin-top: 16px; }
+
 .onboarding-overlay { position: fixed; inset: 0; z-index: 50; padding: 34px; display: grid; place-items: center; overflow: auto; background: radial-gradient(circle at 70% 10%, rgba(103, 64, 39, .42), transparent 35%), rgba(16, 13, 12, .96); }
 .onboarding-card { width: min(980px, 100%); min-height: 620px; padding: 30px 38px; display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, .08); border-radius: 22px; background: linear-gradient(150deg, #2b2420, #1f1a18); box-shadow: 0 30px 100px rgba(0, 0, 0, .5); }
 .onboarding-card > header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
@@ -376,6 +403,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .replay-filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .practice-report-stage { min-height: 320px; }
   .nearby-panel { grid-template-columns: 1fr; }
+  .agent-center-layout { grid-template-columns: 1fr; }
+  .agent-stage { min-height: 340px; }
 }
 
 @media (max-width: 900px) {
@@ -403,4 +432,5 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .banner-actions button { width: 100%; }
   .pairing-mode-switch, .diagnostic-result-grid { grid-template-columns: 1fr; }
   .friend-diagnostics { grid-template-columns: 1fr; }
+  .agent-model-row, .agent-depth-picker, .agent-metrics { grid-template-columns: 1fr; }
 }

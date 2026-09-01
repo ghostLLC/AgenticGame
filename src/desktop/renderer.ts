@@ -37,6 +37,9 @@ import type {
 } from './friend-room-platform-ipc-v1.js';
 import type { NearbyFriendCardV1 } from './lan-discovery-v1.js';
 import type { ReleaseDiagnosticItemV1 } from './release-diagnostics-service-v1.js';
+import { AgentCenterControllerV1 } from './renderer/agent-center-controller-v1.js';
+import { renderAgentCenterV1 } from './renderer/agent-center-view-v1.js';
+import type { AgentCenterRunInputV1 } from './agent-center-service-v1.js';
 
 declare global {
   interface Window {
@@ -143,11 +146,12 @@ const leaveRoomSheet = element<HTMLElement>('leave-room-sheet');
 const cancelLeaveButton = element<HTMLButtonElement>('cancel-leave-room');
 
 const desktopApi = desktopApiClientV1(window);
-const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room', 'replays']);
+const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center']);
 const onboardingController = new OnboardingControllerV1(desktopApi);
 const garageController = new GarageControllerV1(desktopApi);
 const practiceLabController = new PracticeLabControllerV1(desktopApi);
 const replayLibraryController = new ReplayLibraryControllerV1(desktopApi.replays);
+const agentCenterController = new AgentCenterControllerV1(desktopApi.agentCenter);
 
 garageController.subscribe((snapshot) => {
   renderGarageViewV1(snapshot);
@@ -157,17 +161,27 @@ garageController.subscribe((snapshot) => {
 practiceLabController.subscribe((snapshot) => {
   renderPracticeLabV1(snapshot, garageController.getSnapshot().garage);
 });
+agentCenterController.subscribe((snapshot) => {
+  renderAgentCenterV1(snapshot);
+  if (snapshot.center) syncAgentProvider(false);
+});
 
 element<HTMLButtonElement>('nav-command-center').addEventListener('click', () => void navigateApp('command-center'));
 element<HTMLButtonElement>('nav-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLButtonElement>('nav-practice').addEventListener('click', () => void navigateApp('practice'));
 element<HTMLButtonElement>('nav-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
 element<HTMLButtonElement>('nav-replays').addEventListener('click', () => void navigateApp('replays'));
+element<HTMLButtonElement>('nav-agent-center').addEventListener('click', () => void navigateApp('agent-center'));
 element<HTMLButtonElement>('command-quick-practice').addEventListener('click', () => void navigateApp('practice'));
 element<HTMLButtonElement>('command-open-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLButtonElement>('command-open-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
 element<HTMLButtonElement>('command-open-replays').addEventListener('click', () => void navigateApp('replays'));
+element<HTMLButtonElement>('command-open-agent-center').addEventListener('click', () => void navigateApp('agent-center'));
 element<HTMLButtonElement>('practice-open-garage').addEventListener('click', () => void navigateApp('garage'));
+element<HTMLSelectElement>('agent-provider').addEventListener('change', () => syncAgentProvider(true));
+element<HTMLButtonElement>('agent-run').addEventListener('click', () => void runAgentCenter());
+element<HTMLButtonElement>('agent-cancel').addEventListener('click', () => void agentCenterController.cancel());
+element<HTMLButtonElement>('agent-save').addEventListener('click', () => void saveAgentCandidate());
 element<HTMLSelectElement>('garage-vehicle').addEventListener('change', () => {
   const garage = garageController.getSnapshot().garage;
   if (garage) renderGarageLoadoutPreviewV1(garage);
@@ -831,7 +845,7 @@ async function initializeApplicationShell(): Promise<void> {
   }
 }
 
-async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | 'replays'): Promise<void> {
+async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | 'replays' | 'agent-center'): Promise<void> {
   try {
     if (page !== 'friend-room') await stopNearbyDiscovery();
     await appShellController.navigate(page);
@@ -856,9 +870,61 @@ async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | '
     }
     return;
   }
+  if (page === 'agent-center') {
+    const snapshot = agentCenterController.getSnapshot();
+    if (snapshot.status === 'idle' || snapshot.status === 'error') await agentCenterController.load();
+    return;
+  }
   if (page !== 'garage' && page !== 'practice') return;
   if (!garageController.getSnapshot().garage && garageController.getSnapshot().status !== 'loading') {
     await garageController.load();
+  }
+}
+
+function syncAgentProvider(force: boolean): void {
+  const snapshot = agentCenterController.getSnapshot();
+  if (!snapshot.center) return;
+  const preset = snapshot.center.providerPresets.find((item) => item.id === element<HTMLSelectElement>('agent-provider').value)
+    ?? snapshot.center.providerPresets[0];
+  if (!preset) return;
+  const baseUrl = element<HTMLInputElement>('agent-base-url');
+  if (force || !baseUrl.value) baseUrl.value = preset.baseUrl;
+  element<HTMLInputElement>('agent-model').placeholder = preset.modelHint;
+  if (preset.id === 'custom') baseUrl.closest('details')?.setAttribute('open', '');
+}
+
+async function runAgentCenter(): Promise<void> {
+  const snapshot = agentCenterController.getSnapshot();
+  const preset = snapshot.center?.providerPresets.find((item) => item.id === element<HTMLSelectElement>('agent-provider').value);
+  if (!preset) {
+    showToast('请选择 AI 队友', true);
+    return;
+  }
+  const keyInput = element<HTMLInputElement>('agent-api-key');
+  const input: AgentCenterRunInputV1 = {
+    revision: Number(element<HTMLSelectElement>('agent-build').value),
+    provider: {
+      kind: preset.kind,
+      baseUrl: element<HTMLInputElement>('agent-base-url').value.trim(),
+      model: element<HTMLInputElement>('agent-model').value.trim(),
+      apiKey: keyInput.value.trim(),
+    },
+    goal: element<HTMLTextAreaElement>('agent-goal').value.trim(),
+    depth: document.querySelector<HTMLInputElement>('input[name="agent-depth"]:checked')?.value as AgentCenterRunInputV1['depth'] ?? 'quick',
+  };
+  keyInput.value = '';
+  await agentCenterController.run(input);
+}
+
+async function saveAgentCandidate(): Promise<void> {
+  await agentCenterController.save({
+    label: element<HTMLInputElement>('agent-save-label').value.trim(),
+    note: element<HTMLTextAreaElement>('agent-save-note').value.trim(),
+  });
+  const snapshot = agentCenterController.getSnapshot();
+  if (snapshot.status === 'saved') {
+    await garageController.load();
+    showToast(`已保存为第 ${snapshot.saved?.revision ?? ''} 版`, false);
   }
 }
 

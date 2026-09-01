@@ -91,7 +91,7 @@ describe('桌面 App Shell 与首次体验 v1', () => {
     await api.profile.advanceTutorial('complete');
     await api.navigation.remember('friend-room');
 
-    const shell = new DesktopAppShellControllerV1(api, ['command-center', 'garage', 'practice', 'friend-room', 'replays']);
+    const shell = new DesktopAppShellControllerV1(api, ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center']);
     await shell.bootstrap();
     expect(shell.getSnapshot()).toMatchObject({ status: 'ready', page: 'friend-room' });
     await shell.navigate('command-center');
@@ -107,7 +107,7 @@ describe('桌面 App Shell 与首次体验 v1', () => {
     expect(shell.getSnapshot()).toMatchObject({ status: 'ready', page: 'replays' });
 
     await api.navigation.remember('practice');
-    const restarted = new DesktopAppShellControllerV1(api, ['command-center', 'garage', 'practice', 'friend-room', 'replays']);
+    const restarted = new DesktopAppShellControllerV1(api, ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center']);
     await restarted.bootstrap();
     expect(restarted.getSnapshot()).toMatchObject({ status: 'ready', page: 'practice' });
   });
