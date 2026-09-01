@@ -7,6 +7,8 @@
 桌面端已具备本地玩家档案、可恢复首次体验、真实教学战斗、战后复盘、指挥中心、不可变版本车库、
 新旧版本/镜像练习赛，以及压缩好友邀请、直连、战前准备、三套预设战术、双方准备、房主自动开赛、
 战报同步、再来一局、房间内断线恢复和双方可看的逐回合战术回放。
+独立“回放工作室”现已统一收录练习赛与好友赛，支持玩家筛选、完整播放、复盘笔记、应用内导出、
+损坏回放隔离，以及保留七天的可恢复回收站。
 
 ## 玩法闭环
 
@@ -16,7 +18,7 @@
      ──> arena validate / self / play 挑战基准 bot
      ──> 观看回放，告诉 AI 哪里打得蠢
      ──> AI 迭代代码 …… 直到你认为它够强
-     ──> 和朋友交换 bot 文件，本地对战，分享回放定胜负
+     ──> 进入好友房间，配置由游戏自动同步，双方查看同一战报
 ```
 
 “开局后 AI 不能碰代码”由引擎天然保证：比赛时只在开局加载一次 bot 文件，之后每 tick 只是调用，
@@ -24,8 +26,8 @@
 
 ## 快速开始
 
-当前 Slice 2 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
-`release/AgenticGame-0.1.0-slice2-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
+当前 Slice 3 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
+`release/AgenticGame-0.1.0-slice3-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
 该候选用于内部持续开发，不代表 Public Beta B 已完成。开发环境需要 Node.js ≥ 20：
 
 ```bash
@@ -120,8 +122,10 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 [Build 历史与练习赛规格](docs/product/build-history-practice-spec.md)。
 
 这些桌面数据全部位于 Electron `userData`：`profile/` 保存玩家档案，`builds/` 保存不可变配置，
-`build-metadata/` 保存玩家说明，`replays/` 保存已验证比赛，`quarantine/` 保存可恢复隔离数据，
-`diagnostics/` 保存脱敏检查报告。默认页面不显示源码、代码指纹、原始动作、日志或比赛种子。
+`build-metadata/` 保存玩家说明，`replays/` 保存完整且已验证的练习赛，`public-replays/` 单独保存
+不含源码/哈希/动作/日志的好友赛公开回放，`replay-metadata/` 保存复盘笔记，`replay-trash/` 保存
+七天可恢复删除，`quarantine/` 保存配置隔离数据，`diagnostics/` 与 `exports/` 保存玩家主动生成的
+脱敏报告和回放文件。默认页面不显示源码、代码指纹、原始动作、日志、比赛种子或文件路径。
 
 ## 双人好友房间（P2P）
 
@@ -139,12 +143,17 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 规格见 [好友房间 P2P 规格](docs/product/friend-room-p2p-v1-spec.md)。原服务器权威实现已
 [封存为未来排位原型](docs/product/async-room-v1-spec.md)。
 
-## Replay Studio v2 后端
+## 回放工作室
 
 - `runMatchV2` 可在比赛包生成后通过 `onBundle` 直接接入持久化；每局包含 tick 0 初始检查点。
 - `ReplayRepositoryV2` 使用完整 bundle hash 作为不可变文件名，原子写入、重复保存去重，加载和列表时重新校验完整性。
 - `createReplayStudioViewV2` 输出面向玩家的双方配置、胜负和关键时刻，不把源码与哈希暴露到默认界面。
 - `seekReplayCheckpointV2` 支持定位到目标回合或之前最近的已验证状态。
+- 桌面端把练习赛与好友赛投影成同一种玩家回放；来源、模式、结果、版本和文字搜索均可筛选。
+- 损坏文件只影响自己的卡片，不会隐藏其他健康战报；完整比赛包始终留在主进程，Renderer 只收到
+  公开战场帧、参战者、结果与关键时刻。
+- 玩家可保存复盘笔记、导出应用自有目录中的回放文件，把回放移到七天回收站并恢复；清空操作
+  需要再次确认，所有删除目标均由回放编号解析而不是由页面传入路径。
 
 接口与验收口径见 [Replay Studio v2 规格](docs/product/replay-studio-v2-spec.md)。
 
@@ -192,8 +201,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [ ] 好友房间二维码、应用重启后的房间恢复与可选信令服务自动重连
 - [ ] 排位模式（云端权威原型已封存，等待账号、匹配、安全沙盒与运营条件）
 - [x] 把 v2 配置历史、新旧/镜像练习赛和关键时刻投影接入玩家界面
-- [ ] Replay Studio 回放库与完整逐回合桌面入口
-- [ ] 完成 Agent 中心、回放工作室等剩余游戏化页面；Ardot 设计同步暂按用户要求延后
+- [x] Replay Studio 回放库、好友赛公开回放持久化与完整逐回合桌面入口
+- [ ] 完成 Agent 中心等剩余游戏化页面；Ardot 设计同步暂按用户要求延后
 - [x] 外部 Agent MCP 接入 + 内置 OpenAI-compatible BYOK Harness 首个可运行纵切
 - [ ] Agent Center UI、Anthropic 原生适配与多 seed 评测矩阵
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容

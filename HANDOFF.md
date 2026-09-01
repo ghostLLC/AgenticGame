@@ -237,20 +237,21 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **好友房间桌面可玩纵切**：Electron `BrowserWindow` 已替代“启动本地服务再打开浏览器”的玩家路径；`AGFR2` 将邀请与加入确认压缩为 gzip + Base64URL，并兼容旧 `AGFR1`。玩家进入战前准备后选择游骑侦察、中线突击或钢铁堡垒战术，双方准备即由房主设备运行真实比赛并同步同一战报；赛后双方确认即可保留连接与战术再来一局。若 DataChannel 中断但应用仍在运行，房主可用同一 `sessionId` 生成新会合邀请，新连接接管原房间并保留双方 Build 和既有战报；未开赛的准备状态会清除。房主还会从已校验 Bundle 生成无源码/哈希的公开回放，向双方同步地图、每 tick 单位/炮弹/据点状态和关键时刻，桌面端以战术地图、时间轴和播放控件呈现。页面不开放 Node 权限，默认文案不暴露底层联机术语。
 - **Public Beta Slice 1 桌面基础**：玩家档案保存到 Electron `userData`，采用临时文件、同步落盘、原子替换和损坏隔离；首次进入完成昵称、作战风格、真实 Gameplay v2 教学战斗、战后复盘后进入指挥中心，重启可从已保存阶段恢复。Renderer 仅使用五个白名单 IPC 能力，背景在引导期间设为 inert，1440×900 与 1100×700 无横向溢出。
 - **Public Beta Slice 2 车库与练习赛**：桌面端已开放“我的车库”和“战术实验室”。每次配置保存形成不可变 revision，玩家可查看字面差异、说明和由已验证 Replay v2 反推的战绩；损坏尾部不会被读取或覆盖，可导出脱敏报告后移动到隔离区。新旧版本与镜像训练均走真实 Gameplay v2 worker 沙盒，可选歼灭/据点模式，比赛包原子保存，默认结果只含胜负、回合数和最多三个关键时刻。IPC 扩展为固定白名单，没有通用调用器或文件路径入口。
-- **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`quarantine/`、`diagnostics/` 分别保存档案、配置、版本说明、比赛、隔离数据和脱敏检查报告。
+- **Public Beta Slice 3 回放工作室**：练习赛完整 Bundle 与好友房公开回放分根保存；好友房双方在完整比赛状态首次到达时各自幂等落盘，重赛形成新记录，保存失败不污染比赛结果。桌面回放库支持来源/模式/结果/版本/文字筛选、完整逐回合统一播放器、复盘笔记、应用内导出、损坏项独立呈现、七天可恢复删除与明确确认清空。Renderer 不接收完整比赛包，也没有路径型删除或导出入口。
+- **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`public-replays/`、`replay-metadata/`、`replay-trash/`、`quarantine/`、`diagnostics/`、`exports/` 分别保存档案、配置、版本说明、完整练习赛、好友公开回放、复盘笔记、七天回收站、隔离数据、脱敏检查报告和玩家主动导出文件。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
-- **质量基线**：182 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、玩家版本说明、车库投影、真实练习赛、好友房间 P2P、压缩/旧版兼容信令、浏览器连接控制器、桌面入口/比赛运行时、再来一局、断线恢复、公开逐回合回放、封存排位 HTTP 原型、Replay 仓库/Studio、占领模式、Agent Harness/MCP/BYOK provider、玩家档案、原子持久化、真实教学战斗、应用服务/白名单 IPC、车库/练习赛控制器与桌面导航；TypeScript 类型检查、生产依赖审计和桌面构建通过。
+- **质量基线**：195 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放严格契约与幂等持久化、回放检查/筛选/隐私投影/笔记/导出/七天回收站、统一播放器、固定 IPC 和桌面导航；TypeScript 类型检查、生产依赖审计、通用构建与桌面构建通过。
 
-### Public Beta Slice 2 Windows 候选
+### Public Beta Slice 3 Windows 候选
 
 - 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
-- 分发包：`release/AgenticGame-0.1.0-slice2-win-x64.zip`
-- ZIP 字节数：`162054305`
-- SHA-256：`6A986C8B58D81721D0E1975DE5BF25D46E348E9C3403A8FED59DB6684C88E146`
+- 分发包：`release/AgenticGame-0.1.0-slice3-win-x64.zip`
+- ZIP 字节数：`162064302`
+- SHA-256：`A6B11D74860A76D0095CB165C48972A22C208CB02DC9F8BE30E2A935573DD9F4`
 - 进程冒烟：2026-09-01 启动后 `Responding=True`，检查结束后候选进程为 0。
-- 浏览器验收：1440×900 与 1100×700 完成版本保存、新旧对战、镜像训练、损坏状态/隔离恢复和好友房间导航；0 个控制台错误/警告，页面宽度未超过视口。
-- 边界：这是已验证的 Slice 2 候选，不是完整 Public Beta B；Slice 3–6（回放库、局域网发现与应用重启恢复、Agent Center、最终 Beta 安装与双机验收）仍待连续完成。Ardot 同步按用户当前要求延后。
+- 浏览器验收：1440×900 与 1100×700 完成来源筛选、复盘笔记、导出、统一播放器跳转/播放、可恢复删除、恢复、确认清空、损坏项隔离和好友房间导航；0 个控制台错误/警告，页面无横向溢出，玩家可见文案未出现源码、哈希、路径或调试格式。
+- 边界：这是已验证的 Slice 3 候选，不是完整 Public Beta B；Slice 4–6（局域网发现与应用重启恢复、Agent Center、最终 Beta 安装与双机验收）仍待连续完成。Ardot 同步按用户当前要求延后。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -296,7 +297,7 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 182 项自动化测试（含 v1/v2、桌面首次体验、车库/练习赛、好友房间与 AI-native 接入）
+npm run test          # 195 项自动化测试（含 v1/v2、桌面首次体验、车库/练习赛、好友房、回放工作室与 AI-native 接入）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口

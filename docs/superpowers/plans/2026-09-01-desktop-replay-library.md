@@ -229,19 +229,19 @@ Commit: `feat: add desktop replay studio`
 - Create: ignored browser evidence under `output/playwright/`
 - Create: ignored `release/AgenticGame-0.1.0-slice3-win-x64.zip`
 
-- [ ] **Step 1: Run full automated gate**
+- [x] **Step 1: Run full automated gate**
 
 Run: `npm test`, `npm run typecheck`, `npm audit --omit=dev`, `npm run build`, `npm run build:desktop`, `git diff --check`.
 
-- [ ] **Step 2: Run real-browser acceptance**
+- [x] **Step 2: Run real-browser acceptance**
 
 At both supported viewports: filter local/public cards, open/seek/play, edit note, export, move to trash, restore, empty with confirmation, damaged replay isolation, friend-room navigation and privacy copy. Record console and overflow results.
 
-- [ ] **Step 3: Build and smoke Slice 3 Windows candidate**
+- [x] **Step 3: Build and smoke Slice 3 Windows candidate**
 
 Package exact folder, ZIP it, start only its `AgenticGame.exe` hidden, verify `Responding=True`, stop its process tree, record bytes/hash and zero remaining candidate processes.
 
-- [ ] **Step 4: Update README/HANDOFF honestly**
+- [x] **Step 4: Update README/HANDOFF honestly**
 
 Document roots, retention, public/local boundary, counts, candidate and remaining Slice 4–6 scope. Do not call B complete.
 
