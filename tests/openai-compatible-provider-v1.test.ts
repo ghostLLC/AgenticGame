@@ -62,4 +62,21 @@ describe('OpenAI-compatible BYOK provider v1', () => {
       baseUrl: 'http://127.0.0.1:11434/v1', apiKey: 'key', model: 'model',
     })).not.toThrow();
   });
+
+  it('bounds response size and request duration', async () => {
+    const oversized = createOpenAICompatibleProviderV1({
+      baseUrl: 'https://provider.example/v1', apiKey: 'key', model: 'model',
+      maxResponseBytes: 32,
+      fetch: async () => new Response(JSON.stringify({ choices: [{ message: { content: 'x'.repeat(100) } }] })),
+    });
+    await expect(oversized.complete({ messages: [], tools: [] })).rejects.toThrow('response was too large');
+
+    const timedOut = createOpenAICompatibleProviderV1({
+      baseUrl: 'https://provider.example/v1', apiKey: 'key', model: 'model', timeoutMs: 10,
+      fetch: async (_url, init) => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+      }),
+    });
+    await expect(timedOut.complete({ messages: [], tools: [] })).rejects.toThrow('request timed out');
+  });
 });

@@ -4,8 +4,15 @@ import type {
   AgentModelReplyV1,
   AgentModelRequestV1,
 } from '../harness-v1.js';
+import {
+  redactProviderTextV1,
+  requestProviderJsonV1,
+  validateProviderBaseUrlV1,
+  validateProviderLimitsV1,
+  type ProviderHttpLimitsV1,
+} from './provider-http-v1.js';
 
-export interface OpenAICompatibleProviderConfigV1 {
+export interface OpenAICompatibleProviderConfigV1 extends ProviderHttpLimitsV1 {
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -16,11 +23,12 @@ export interface OpenAICompatibleProviderConfigV1 {
 export function createOpenAICompatibleProviderV1(
   config: OpenAICompatibleProviderConfigV1,
 ): AgentModelProviderV1 {
-  const baseUrl = validateBaseUrl(config.baseUrl);
+  const baseUrl = validateProviderBaseUrlV1(config.baseUrl, 'OpenAI-compatible');
   const apiKey = config.apiKey;
   const fetchImpl = config.fetch ?? globalThis.fetch;
   if (!apiKey) throw new Error('OpenAI-compatible apiKey is required');
   if (!config.model.trim()) throw new Error('OpenAI-compatible model is required');
+  const limits = validateProviderLimitsV1(config);
   const maxTokens = config.maxTokens ?? 4096;
   if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 65_536) {
     throw new Error('OpenAI-compatible maxTokens must be an integer between 1 and 65536');
@@ -28,31 +36,26 @@ export function createOpenAICompatibleProviderV1(
 
   return {
     id: 'openai-compatible',
-    redactSensitiveText: (value) => redact(value, apiKey),
+    redactSensitiveText: (value) => redactProviderTextV1(value, apiKey),
     async complete(input): Promise<AgentModelReplyV1> {
-      const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          'content-type': 'application/json',
+      const body = await requestProviderJsonV1({
+        label: 'OpenAI-compatible', url: `${baseUrl}/chat/completions`, secret: apiKey,
+        fetch: fetchImpl, signal: input.signal, ...limits,
+        init: {
+          method: 'POST',
+          headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            model: config.model,
+            max_tokens: maxTokens,
+            messages: input.messages.map(toOpenAIMessage),
+            tools: input.tools.map((tool) => ({
+              type: 'function',
+              function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
+            })),
+            tool_choice: input.tools.length > 0 ? 'auto' : undefined,
+          }),
         },
-        body: JSON.stringify({
-          model: config.model,
-          max_tokens: maxTokens,
-          messages: input.messages.map(toOpenAIMessage),
-          tools: input.tools.map((tool) => ({
-            type: 'function',
-            function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
-          })),
-          tool_choice: input.tools.length > 0 ? 'auto' : undefined,
-        }),
-        signal: input.signal,
-      });
-      if (!response.ok) {
-        const detail = redact((await response.text()).slice(0, 500), apiKey);
-        throw new Error(`OpenAI-compatible request failed (${response.status}): ${detail}`);
-      }
-      const body = await response.json() as OpenAIChatCompletionResponse;
+      }) as OpenAIChatCompletionResponse;
       const message = body.choices?.[0]?.message;
       if (!message) throw new Error('OpenAI-compatible response did not contain a message');
       return {
@@ -67,22 +70,6 @@ export function createOpenAICompatibleProviderV1(
       };
     },
   };
-}
-
-function validateBaseUrl(value: string): string {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error('OpenAI-compatible baseUrl must be a valid URL');
-  }
-  const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
-  const allowed = url.protocol === 'https:' || (url.protocol === 'http:' && loopbackHosts.has(url.hostname));
-  if (!allowed) throw new Error('OpenAI-compatible baseUrl must use HTTPS or an explicit loopback host');
-  if (url.username || url.password || url.search || url.hash) {
-    throw new Error('OpenAI-compatible baseUrl cannot include credentials, query parameters, or fragments');
-  }
-  return url.toString().replace(/\/+$/, '');
 }
 
 function toOpenAIMessage(message: AgentMessageV1): Record<string, unknown> {
@@ -111,10 +98,6 @@ function parseArguments(value: string): Record<string, unknown> {
   } catch (error) {
     throw new Error(`OpenAI-compatible tool arguments were invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
-}
-
-function redact(value: string, secret: string): string {
-  return secret ? value.split(secret).join('[REDACTED]') : value;
 }
 
 interface OpenAIChatCompletionResponse {
