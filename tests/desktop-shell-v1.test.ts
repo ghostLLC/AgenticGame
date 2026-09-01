@@ -82,6 +82,32 @@ describe('桌面游戏外壳 v1', () => {
     expect(css).toContain('.practice-arena');
   });
 
+  it('提供正常游戏风格的回放工作室、统一播放器与可恢复回收站', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+    const css = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/styles.css', import.meta.url)),
+      'utf8',
+    );
+    for (const id of [
+      'nav-replays', 'page-replays', 'replay-library-loading', 'replay-library-empty',
+      'replay-library-damaged', 'replay-library-content', 'replay-library-cards',
+      'replay-library-player', 'replay-library-battlefield', 'replay-library-timeline',
+      'replay-trash-panel', 'replay-delete-sheet', 'replay-empty-trash-sheet',
+    ]) expect(html).toContain(`id="${id}"`);
+    expect(html).toContain('回放工作室');
+    expect(html).toContain('完整战术回放');
+    expect(html).toContain('移到回收站');
+    expect(html).toContain('恢复回放');
+    expect(html).toContain('保存回放文件');
+    expect(html).toContain('保存复盘笔记');
+    expect(html).not.toMatch(/复制路径|复制哈希|源代码|随机种子|JSON|module\.exports|codeHash|bundleHash/i);
+    expect(css).toContain('.replay-library-layout');
+    expect(css).toContain('.replay-card-grid');
+  });
+
   it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {
     const buildScript = readFileSync(
       fileURLToPath(new URL('../scripts/build-desktop.mjs', import.meta.url)),

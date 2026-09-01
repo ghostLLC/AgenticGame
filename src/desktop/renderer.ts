@@ -13,7 +13,6 @@ import type {
   DesktopFriendRoomStartV1,
   FriendRoomPresetIdV1,
 } from './friend-room-runtime-v1.js';
-import { FriendRoomReplayControllerV1 } from './friend-room-replay-controller-v1.js';
 import type { DesktopApiV1 } from './desktop-api-v1.js';
 import { DesktopAppShellControllerV1 } from './renderer/app-shell-controller-v1.js';
 import { OnboardingControllerV1 } from './renderer/onboarding-controller-v1.js';
@@ -26,6 +25,11 @@ import { renderGarageLoadoutPreviewV1, renderGarageViewV1 } from './renderer/gar
 import { renderPracticeLabV1 } from './renderer/practice-lab-view-v1.js';
 import type { GarageSaveInputV1 } from './garage-service-v1.js';
 import type { PracticeRunInputV1 } from './practice-match-service-v1.js';
+import { ReplayLibraryControllerV1 } from './renderer/replay-library-controller-v1.js';
+import { UnifiedReplayControllerV1 } from './renderer/unified-replay-controller-v1.js';
+import { renderReplayLibraryV1 } from './renderer/replay-library-view-v1.js';
+import { buildUnifiedReplayViewV1, renderUnifiedReplayFrameV1 } from './renderer/unified-replay-view-v1.js';
+import type { ReplayLibraryFilterV1, ReplaySourceV1 } from './replay-library-service-v1.js';
 
 declare global {
   interface Window {
@@ -54,7 +58,10 @@ let unsubscribePeerMessages: (() => void) | undefined;
 let lastRoomSnapshot: FriendRoomSnapshotV1 | undefined;
 let recoveryActive = false;
 let replayTimer: number | undefined;
-const replayController = new FriendRoomReplayControllerV1();
+const replayController = new UnifiedReplayControllerV1();
+const libraryReplayController = new UnifiedReplayControllerV1();
+let libraryReplayTimer: number | undefined;
+let pendingReplayDelete: { replayId: string; source: ReplaySourceV1 } | undefined;
 
 const controller = new FriendRoomEntryControllerV1({
   createConnection: (role: FriendRoomRoleV1) => {
@@ -117,10 +124,11 @@ const recoveryConfirmationResult = element<HTMLTextAreaElement>('recovery-confir
 const recoveryConfirmationInput = element<HTMLTextAreaElement>('recovery-confirmation-input');
 
 const desktopApi = desktopApiClientV1(window);
-const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room']);
+const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room', 'replays']);
 const onboardingController = new OnboardingControllerV1(desktopApi);
 const garageController = new GarageControllerV1(desktopApi);
 const practiceLabController = new PracticeLabControllerV1(desktopApi);
+const replayLibraryController = new ReplayLibraryControllerV1(desktopApi.replays);
 
 garageController.subscribe((snapshot) => {
   renderGarageViewV1(snapshot);
@@ -135,9 +143,11 @@ element<HTMLButtonElement>('nav-command-center').addEventListener('click', () =>
 element<HTMLButtonElement>('nav-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLButtonElement>('nav-practice').addEventListener('click', () => void navigateApp('practice'));
 element<HTMLButtonElement>('nav-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
+element<HTMLButtonElement>('nav-replays').addEventListener('click', () => void navigateApp('replays'));
 element<HTMLButtonElement>('command-quick-practice').addEventListener('click', () => void navigateApp('practice'));
 element<HTMLButtonElement>('command-open-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLButtonElement>('command-open-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
+element<HTMLButtonElement>('command-open-replays').addEventListener('click', () => void navigateApp('replays'));
 element<HTMLButtonElement>('practice-open-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLSelectElement>('garage-vehicle').addEventListener('change', () => {
   const garage = garageController.getSnapshot().garage;
@@ -164,6 +174,41 @@ element<HTMLButtonElement>('garage-export-diagnostic').addEventListener('click',
 element<HTMLButtonElement>('practice-run-versus').addEventListener('click', () => void runPracticeLab(false));
 element<HTMLButtonElement>('practice-run-mirror').addEventListener('click', () => void runPracticeLab(true));
 element<HTMLButtonElement>('practice-run-again').addEventListener('click', () => void runPracticeLab(false));
+for (const id of ['replay-filter-source', 'replay-filter-mode', 'replay-filter-outcome']) {
+  element<HTMLSelectElement>(id).addEventListener('change', () => void refreshReplayFilters());
+}
+element<HTMLInputElement>('replay-filter-query').addEventListener('change', () => void refreshReplayFilters());
+element<HTMLButtonElement>('replay-empty-practice').addEventListener('click', () => void navigateApp('practice'));
+element<HTMLButtonElement>('replay-export-diagnostic').addEventListener('click', () => void runReplayLibraryAction(async () => {
+  const filename = await desktopApi.replays.exportDiagnostic();
+  showToast(`检查报告已保存：${filename}`, false);
+}));
+element<HTMLElement>('replay-library-cards').addEventListener('click', (event) => void handleReplayCardAction(event));
+element<HTMLElement>('replay-trash-list').addEventListener('click', (event) => void handleReplayTrashAction(event));
+element<HTMLButtonElement>('replay-open-trash').addEventListener('click', () => showReplayTrash(true));
+element<HTMLButtonElement>('replay-close-trash').addEventListener('click', () => showReplayTrash(false));
+element<HTMLButtonElement>('replay-request-empty-trash').addEventListener('click', () => {
+  element('replay-empty-trash-sheet').hidden = false;
+});
+element<HTMLButtonElement>('replay-cancel-empty-trash').addEventListener('click', () => {
+  element('replay-empty-trash-sheet').hidden = true;
+});
+element<HTMLButtonElement>('replay-confirm-empty-trash').addEventListener('click', () => void runReplayLibraryAction(async () => {
+  await replayLibraryController.emptyTrash();
+  element('replay-empty-trash-sheet').hidden = true;
+  showToast('回收站已清空', false);
+}));
+element<HTMLButtonElement>('replay-cancel-delete').addEventListener('click', () => closeReplayDeleteSheet());
+element<HTMLButtonElement>('replay-confirm-delete').addEventListener('click', () => void confirmReplayDelete());
+element<HTMLButtonElement>('replay-library-close-player').addEventListener('click', () => closeLibraryReplay());
+element<HTMLButtonElement>('replay-library-previous').addEventListener('click', () => stepLibraryReplay(-1));
+element<HTMLButtonElement>('replay-library-next').addEventListener('click', () => stepLibraryReplay(1));
+element<HTMLButtonElement>('replay-library-play').addEventListener('click', () => toggleLibraryReplay());
+element<HTMLInputElement>('replay-library-timeline').addEventListener('input', () => {
+  stopLibraryReplayTimer();
+  libraryReplayController.seek(Number(element<HTMLInputElement>('replay-library-timeline').value));
+  renderUnifiedReplayFrameV1(libraryReplayController, 'replay-library');
+});
 element<HTMLButtonElement>('onboarding-name-next').addEventListener('click', () => {
   try {
     onboardingController.enterCommanderName(element<HTMLInputElement>('onboarding-name').value);
@@ -654,7 +699,7 @@ async function initializeApplicationShell(): Promise<void> {
   }
 }
 
-async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room'): Promise<void> {
+async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | 'replays'): Promise<void> {
   try {
     await appShellController.navigate(page);
     renderAppShellV1(appShellController.getSnapshot());
@@ -665,10 +710,152 @@ async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'fri
 }
 
 async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | string): Promise<void> {
+  if (page === 'replays') {
+    await replayLibraryController.initialize();
+    renderReplayLibraryV1(replayLibraryController.getSnapshot());
+    return;
+  }
   if (page !== 'garage' && page !== 'practice') return;
   if (!garageController.getSnapshot().garage && garageController.getSnapshot().status !== 'loading') {
     await garageController.load();
   }
+}
+
+function readReplayFilter(): ReplayLibraryFilterV1 {
+  const source = element<HTMLSelectElement>('replay-filter-source').value;
+  const modeId = element<HTMLSelectElement>('replay-filter-mode').value;
+  const outcome = element<HTMLSelectElement>('replay-filter-outcome').value;
+  const query = element<HTMLInputElement>('replay-filter-query').value.trim();
+  return {
+    ...(source ? { source: source as ReplaySourceV1 } : {}),
+    ...(modeId ? { modeId: modeId as 'duel' | 'capture' } : {}),
+    ...(outcome ? { outcome: outcome as 'victory' | 'defeat' | 'draw' } : {}),
+    ...(query ? { query } : {}),
+  };
+}
+
+async function refreshReplayFilters(): Promise<void> {
+  await replayLibraryController.setFilter(readReplayFilter());
+  renderReplayLibraryV1(replayLibraryController.getSnapshot());
+}
+
+async function handleReplayCardAction(event: Event): Promise<void> {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-replay-action]');
+  const card = button?.closest<HTMLElement>('.replay-library-card');
+  if (!button || !card?.dataset.replayId || !card.dataset.source) return;
+  const replayId = card.dataset.replayId;
+  const source = card.dataset.source as ReplaySourceV1;
+  const action = button.dataset.replayAction;
+  if (action === 'open') {
+    await runReplayLibraryAction(async () => {
+      const opened = await replayLibraryController.open(replayId, source);
+      libraryReplayController.open(opened.replay);
+      element('replay-library-player-title').textContent = opened.replay.participants.map((participant) => participant.displayName).join(' vs ');
+      element('replay-library-content').hidden = true;
+      element('replay-library-damaged').hidden = true;
+      element('replay-library-player').hidden = false;
+      buildUnifiedReplayViewV1(libraryReplayController, 'replay-library');
+    });
+    return;
+  }
+  if (action === 'note') {
+    const note = card.querySelector<HTMLTextAreaElement>('.replay-note-input')?.value.trim() ?? '';
+    await runReplayLibraryAction(async () => {
+      await replayLibraryController.updateNote(replayId, source, note);
+      showToast('复盘笔记已保存', false);
+    });
+    return;
+  }
+  if (action === 'export') {
+    await runReplayLibraryAction(async () => {
+      const filename = await replayLibraryController.export(replayId, source);
+      showToast(`回放文件已保存：${filename}`, false);
+    });
+    return;
+  }
+  if (action === 'trash') {
+    pendingReplayDelete = { replayId, source };
+    element('replay-delete-sheet').hidden = false;
+  }
+}
+
+async function handleReplayTrashAction(event: Event): Promise<void> {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-replay-action="restore"]');
+  const row = button?.closest<HTMLElement>('.replay-trash-item');
+  if (!button || !row?.dataset.entryId) return;
+  await runReplayLibraryAction(async () => {
+    await replayLibraryController.restore(row.dataset.entryId!);
+    showToast('回放已恢复', false);
+  });
+}
+
+async function confirmReplayDelete(): Promise<void> {
+  if (!pendingReplayDelete) return;
+  const target = pendingReplayDelete;
+  await runReplayLibraryAction(async () => {
+    await replayLibraryController.moveToTrash(target.replayId, target.source);
+    closeReplayDeleteSheet();
+    showToast('回放已移到回收站', false);
+  });
+}
+
+function closeReplayDeleteSheet(): void {
+  pendingReplayDelete = undefined;
+  element('replay-delete-sheet').hidden = true;
+}
+
+function showReplayTrash(open: boolean): void {
+  element('replay-library-content').hidden = open;
+  element('replay-library-damaged').hidden = open || replayLibraryController.getSnapshot().counts.damaged === 0;
+  element('replay-trash-panel').hidden = !open;
+}
+
+async function runReplayLibraryAction(action: () => Promise<void>): Promise<void> {
+  try {
+    await action();
+    renderReplayLibraryV1(replayLibraryController.getSnapshot());
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : '回放操作没有完成', true);
+  }
+}
+
+function closeLibraryReplay(): void {
+  stopLibraryReplayTimer();
+  libraryReplayController.close();
+  element('replay-library-player').hidden = true;
+  element('replay-library-content').hidden = replayLibraryController.getSnapshot().counts.all === 0;
+  element('replay-library-damaged').hidden = replayLibraryController.getSnapshot().counts.damaged === 0;
+}
+
+function stepLibraryReplay(delta: -1 | 1): void {
+  stopLibraryReplayTimer();
+  const snapshot = libraryReplayController.getSnapshot();
+  if (!snapshot.replay) return;
+  libraryReplayController.seek(Math.max(0, Math.min(snapshot.replay.frames.length - 1, snapshot.frameIndex + delta)));
+  renderUnifiedReplayFrameV1(libraryReplayController, 'replay-library');
+}
+
+function toggleLibraryReplay(): void {
+  const snapshot = libraryReplayController.getSnapshot();
+  if (!snapshot.open) return;
+  if (snapshot.playing) {
+    libraryReplayController.pause();
+    stopLibraryReplayTimer();
+  } else {
+    libraryReplayController.play();
+    stopLibraryReplayTimer();
+    libraryReplayTimer = window.setInterval(() => {
+      const playing = libraryReplayController.advance();
+      renderUnifiedReplayFrameV1(libraryReplayController, 'replay-library');
+      if (!playing) stopLibraryReplayTimer();
+    }, 260);
+  }
+  renderUnifiedReplayFrameV1(libraryReplayController, 'replay-library');
+}
+
+function stopLibraryReplayTimer(): void {
+  if (libraryReplayTimer !== undefined) window.clearInterval(libraryReplayTimer);
+  libraryReplayTimer = undefined;
 }
 
 function readGarageInput(): GarageSaveInputV1 {

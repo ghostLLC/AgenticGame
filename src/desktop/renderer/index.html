@@ -23,7 +23,7 @@
         <button id="nav-garage">我的车库</button>
         <button id="nav-practice">战术实验室</button>
         <button id="nav-friend-room">好友房间</button>
-        <button disabled>回放工作室</button>
+        <button id="nav-replays">回放工作室</button>
         <div class="sidebar-spacer"></div>
         <section class="sync-note">
           <strong>战术自动同步</strong>
@@ -59,6 +59,12 @@
               <h2>我的车库</h2>
               <span>调整战车、主炮与作战风格，把每次变化保存为独立版本。</span>
               <button id="command-open-garage" class="secondary-button" type="button">整备我的战车</button>
+            </article>
+            <article class="command-card replay-command-card">
+              <p>战后复盘</p>
+              <h2>回放工作室</h2>
+              <span>重看练习赛与好友对战，记录下一次要改进的关键。</span>
+              <button id="command-open-replays" class="secondary-button" type="button">打开回放工作室</button>
             </article>
           </div>
           <section class="recent-operation">
@@ -180,6 +186,84 @@
               <p id="practice-error" class="inline-error" role="alert" hidden></p>
             </section>
           </div>
+        </section>
+
+        <section id="page-replays" class="app-page replay-library-page" hidden>
+          <div class="hero-row">
+            <div>
+              <p class="eyebrow">REPLAY STUDIO <span>·</span> 回放工作室</p>
+              <h1>从每场战斗里，找到下一次胜利</h1>
+              <p class="subtitle">练习赛与好友对战统一收录。筛选、播放、保存复盘笔记，或保存回放文件。</p>
+            </div>
+            <button id="replay-open-trash" class="secondary-button compact-action" type="button">回收站</button>
+          </div>
+
+          <section id="replay-library-loading" class="player-state-card" aria-live="polite">
+            <div class="battle-loader small-loader"><span></span></div>
+            <div><p>正在整理战报</p><h2>回放工作室马上就绪</h2></div>
+          </section>
+          <section id="replay-library-empty" class="player-state-card" hidden>
+            <div><p>还没有战斗回放</p><h2>完成一场练习赛或好友对战后，这里会自动出现记录</h2></div>
+            <button id="replay-empty-practice" class="primary-button compact-action" type="button">开始一场练习</button>
+          </section>
+          <section id="replay-library-damaged" class="damage-banner" role="alert" hidden>
+            <div><p>部分回放无法读取</p><h2>其他战报仍然可以正常查看</h2><span id="replay-damaged-copy"></span></div>
+            <button id="replay-export-diagnostic" class="secondary-button compact-action" type="button">保存检查报告</button>
+          </section>
+
+          <div id="replay-library-content" class="replay-library-layout" hidden>
+            <section class="replay-library-main">
+              <div class="replay-filter-bar" aria-label="回放筛选">
+                <label>来源<select id="replay-filter-source"><option value="">全部战斗</option><option value="practice">练习赛</option><option value="friend-public">好友对战</option></select></label>
+                <label>模式<select id="replay-filter-mode"><option value="">全部模式</option><option value="duel">歼灭决斗</option><option value="capture">据点争夺</option></select></label>
+                <label>结果<select id="replay-filter-outcome"><option value="">全部结果</option><option value="victory">胜利</option><option value="defeat">失利</option><option value="draw">平局</option></select></label>
+                <label class="replay-search">搜索<input id="replay-filter-query" maxlength="80" placeholder="搜索队伍、模式或笔记"></label>
+              </div>
+              <div id="replay-library-cards" class="replay-card-grid" aria-live="polite"></div>
+            </section>
+
+            <aside class="replay-library-summary">
+              <p>战报收藏</p><h2 id="replay-library-total">0 场战斗</h2>
+              <div class="replay-count-list">
+                <span>练习赛<b id="replay-count-practice">0</b></span>
+                <span>好友对战<b id="replay-count-friend">0</b></span>
+                <span>需要整理<b id="replay-count-damaged">0</b></span>
+              </div>
+            </aside>
+          </div>
+
+          <section id="replay-library-player" class="library-player" hidden>
+            <header class="replay-header">
+              <div><p class="eyebrow">AFTER ACTION <span>·</span> 完整战术回放</p><h2 id="replay-library-player-title">战术回放</h2><span>拖动时间轴，逐回合查看战场变化与关键时刻。</span></div>
+              <button id="replay-library-close-player" class="text-button" type="button">返回回放列表</button>
+            </header>
+            <div class="replay-layout">
+              <div class="replay-stage-card">
+                <div id="replay-library-battlefield" class="replay-battlefield" aria-label="完整战术回放地图"></div>
+                <div class="replay-controls">
+                  <button id="replay-library-previous" class="replay-step" type="button" aria-label="上一回合">◀</button>
+                  <button id="replay-library-play" class="primary-button" type="button">播放</button>
+                  <button id="replay-library-next" class="replay-step" type="button" aria-label="下一回合">▶</button>
+                  <input id="replay-library-timeline" type="range" min="0" value="0" aria-label="回放时间轴">
+                  <b id="replay-library-tick">第 0 回合</b>
+                </div>
+              </div>
+              <aside class="replay-sidebar"><section><p>双方状态</p><div id="replay-library-roster" class="replay-roster"></div></section><section><p>战场目标</p><strong id="replay-library-objective">歼灭对方战车</strong></section><section class="moment-section"><p>关键时刻</p><div id="replay-library-moments" class="replay-moments"></div></section></aside>
+            </div>
+          </section>
+
+          <section id="replay-trash-panel" class="replay-trash-panel" hidden>
+            <div class="section-heading"><div><p>可恢复删除</p><h2>回放回收站</h2></div><span>移入后保留七天，可选择恢复回放</span></div>
+            <div id="replay-trash-list" class="replay-trash-list"></div>
+            <div class="trash-actions"><button id="replay-close-trash" class="secondary-button" type="button">返回回放列表</button><button id="replay-request-empty-trash" class="text-button danger-text" type="button">清空回收站</button></div>
+          </section>
+
+          <section id="replay-delete-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="移到回收站" hidden>
+            <div><p>移到回收站</p><h2>稍后仍可恢复这场回放</h2><span>七天后会自动清理。</span><div class="sheet-actions"><button id="replay-cancel-delete" class="secondary-button" type="button">取消</button><button id="replay-confirm-delete" class="primary-button" type="button">移到回收站</button></div></div>
+          </section>
+          <section id="replay-empty-trash-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="清空回收站" hidden>
+            <div><p>清空回收站</p><h2>这些回放将无法恢复</h2><span>只会清理本游戏回收站中的回放。</span><div class="sheet-actions"><button id="replay-cancel-empty-trash" class="secondary-button" type="button">保留回放</button><button id="replay-confirm-empty-trash" class="primary-button" type="button">确认清空</button></div></div>
+          </section>
         </section>
 
         <section id="page-friend-room" class="app-page" hidden>

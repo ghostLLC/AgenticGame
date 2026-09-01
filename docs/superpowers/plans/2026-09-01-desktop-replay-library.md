@@ -202,21 +202,21 @@ Commit: `feat: expose replay studio APIs`
 - Opening either replay source uses the same tactical map, timeline, roster and moments.
 - Delete uses a confirmation sheet and moves to trash. Trash has restore and explicit empty actions.
 
-- [ ] **Step 1: Add failing static player-flow and navigation assertions**
+- [x] **Step 1: Add failing static player-flow and navigation assertions**
 
 Assert loading/empty/damaged/library/player/trash states, filters, notes, export, recoverable delete, keyboard labels and absence of source/hash/JSON/seed/path copy.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
-- [ ] **Step 3: Add semantic page markup and shared player**
+- [x] **Step 3: Add semantic page markup and shared player**
 
-- [ ] **Step 4: Implement DOM views and renderer wiring**
+- [x] **Step 4: Implement DOM views and renderer wiring**
 
-- [ ] **Step 5: Style 1440×900 and 1100×700**
+- [x] **Step 5: Style 1440×900 and 1100×700**
 
-- [ ] **Step 6: Run focused GREEN, typecheck and desktop build**
+- [x] **Step 6: Run focused GREEN, typecheck and desktop build**
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Commit: `feat: add desktop replay studio`
 
