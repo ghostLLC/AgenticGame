@@ -245,9 +245,9 @@ Package exact folder, ZIP it, start only its `AgenticGame.exe` hidden, verify `R
 
 Document roots, retention, public/local boundary, counts, candidate and remaining Slice 4–6 scope. Do not call B complete.
 
-- [ ] **Step 5: Commit, push GitHub main and verify zero divergence**
+- [x] **Step 5: Commit, push GitHub main and verify zero divergence**
 
-- [ ] **Step 6: Sync Feishu and read back**
+- [x] **Step 6: Sync Feishu and read back**
 
 Update UX implementation state in place; append exactly one final-commit-keyed entry to technical architecture, development log and quality report; verify one occurrence per append-only page.
 
