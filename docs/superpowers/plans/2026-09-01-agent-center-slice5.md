@@ -42,3 +42,13 @@
 2. Launch the Windows folder candidate and create the Slice 5 ZIP with size/SHA-256 evidence.
 3. Commit and push main; update and read back Feishu UX, technical, development-log, and quality documents against one stable implementation key.
 4. Continue directly to Slice 6 without requesting intermediate user acceptance.
+
+## Completion evidence
+
+- OpenAI-compatible and Anthropic Messages share strict endpoint, timeout, cancellation, response-size and redaction boundaries.
+- Agent Center candidates remain session-only until explicit save; quick/standard/deep matrices run 3/5/10 deterministic battles against the selected verified Build through the real Gameplay v2 worker path.
+- `npm test`: 47 test files, 227 tests passed. Typecheck, production audit (0 vulnerabilities), full build, desktop build and diff checks passed.
+- Playwright at 1100x700 and 1440x900 completed standard evaluation, cancellation with partial results, and explicit save; no horizontal overflow and 0 console errors/warnings after the final form fix.
+- Windows folder candidate launched with all observed Electron processes responding.
+- ZIP: `release/AgenticGame-0.1.0-slice5-win-x64.zip`, 162093279 bytes, SHA-256 `C94BA5355DA12AD5BE2CA9388CD442F548EB63C5518D21D0A347F3FA7018B800`.
+- Honest boundary: no real paid-provider API call and no two-real-Windows-device acceptance yet; both remain external acceptance items, not inferred from mocks.

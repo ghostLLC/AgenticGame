@@ -26,8 +26,8 @@
 
 ## 快速开始
 
-当前 Slice 4 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
-`release/AgenticGame-0.1.0-slice4-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
+当前 Slice 5 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
+`release/AgenticGame-0.1.0-slice5-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
 该候选用于内部持续开发，不代表 Public Beta B 已完成。开发环境需要 Node.js ≥ 20：
 
 ```bash
@@ -168,6 +168,9 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - 内置 BYOK：设置 `AGENTIC_GAME_API_KEY` 后运行
   `npm run arena -- agent <bot.js> --model <id> --base-url <兼容端点>`；密钥不写入参数、配置、日志或回放。
 - Harness 采用工具白名单、模型轮次/工具调用预算、AbortSignal 和结果脱敏；外部与内置路径共享完全相同的游戏工具。
+- 桌面“AI 战术教练”支持 OpenAI-compatible 与 Anthropic Messages：选择现有版本、填写本次密钥和玩家目标，
+  先完成固定 3/5/10 场真实沙盒评测，再由玩家明确保存为新的不可变 revision。密钥只驻留当前运行内存，
+  Renderer 状态、档案、战报、诊断和候选结果均不保存密钥、源码、原始 transcript 或 provider 响应。
 
 接入配置、安全边界与当前 provider 范围见
 [AI-native Harness v1 规格](docs/product/ai-native-harness-v1-spec.md)。
@@ -207,9 +210,9 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [ ] 排位模式（云端权威原型已封存，等待账号、匹配、安全沙盒与运营条件）
 - [x] 把 v2 配置历史、新旧/镜像练习赛和关键时刻投影接入玩家界面
 - [x] Replay Studio 回放库、好友赛公开回放持久化与完整逐回合桌面入口
-- [ ] 完成 Agent 中心等剩余游戏化页面；Ardot 设计同步暂按用户要求延后
+- [x] Agent Center：OpenAI-compatible / Anthropic BYOK、取消、脱敏、3/5/10 场评测与确认保存
 - [x] 外部 Agent MCP 接入 + 内置 OpenAI-compatible BYOK Harness 首个可运行纵切
-- [ ] Agent Center UI、Anthropic 原生适配与多 seed 评测矩阵
+- [ ] 外部 Agent 接入向导与更多评测对手/模式
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容
 
 ## 常见问题
