@@ -43,5 +43,14 @@ export function createDesktopPreloadApiV1(invoke: DesktopInvokeV1): DesktopApiV1
       cancel: () => invoke('agent-center:cancel') as ReturnType<DesktopApiV1['agentCenter']['cancel']>,
       save: (input) => invoke('agent-center:save', input) as ReturnType<DesktopApiV1['agentCenter']['save']>,
     },
+    settings: {
+      get: () => invoke('settings:get') as ReturnType<DesktopApiV1['settings']['get']>,
+      save: (input) => invoke('settings:save', input) as ReturnType<DesktopApiV1['settings']['save']>,
+      diagnosticPreview: () => invoke('settings:diagnostic-preview') as ReturnType<DesktopApiV1['settings']['diagnosticPreview']>,
+      runDiagnostics: () => invoke('settings:run-diagnostics') as ReturnType<DesktopApiV1['settings']['runDiagnostics']>,
+      exportDiagnostics: () => invoke('settings:export-diagnostics') as ReturnType<DesktopApiV1['settings']['exportDiagnostics']>,
+      importLegacy: () => invoke('settings:import-legacy') as ReturnType<DesktopApiV1['settings']['importLegacy']>,
+      openReleases: () => invoke('settings:open-releases') as ReturnType<DesktopApiV1['settings']['openReleases']>,
+    },
   };
 }

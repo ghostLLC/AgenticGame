@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, safeStorage, shell, webContents, type WebContents } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, safeStorage, shell, webContents, type WebContents } from 'electron';
 import { join } from 'node:path';
 import {
   DesktopFriendRoomRuntimeV1,
@@ -32,6 +32,9 @@ import {
 } from './release-diagnostics-service-v1.js';
 import { runTutorialMatchV1 } from './tutorial-match-service-v1.js';
 import { AgentCenterServiceV1 } from './agent-center-service-v1.js';
+import { AppSettingsRepositoryV1 } from './app-settings-repository-v1.js';
+import { LegacyDataImportServiceV1 } from './legacy-data-import-service-v1.js';
+import { SettingsServiceV1 } from './settings-service-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
@@ -189,6 +192,33 @@ app.whenReady().then(() => {
   const replayMetadataRepository = new ReplayMetadataRepositoryV1(join(userDataRoot, 'replay-metadata'));
   const replayTrashRepository = new ReplayTrashRepositoryV1(join(userDataRoot, 'replay-trash'));
   const noteRepository = new BuildRevisionNoteRepositoryV1(join(userDataRoot, 'build-metadata'), { quarantineRoot });
+  const diagnosticsService = new ReleaseDiagnosticsServiceV1({
+    dataProbe: () => probeWritableDirectoryV1(userDataRoot),
+    sandboxProbe: async () => {
+      const result = await runTutorialMatchV1({ doctrine: 'scout', displayName: '诊断战车' });
+      return result.replay.frames.length > 0;
+    },
+    encryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+    clipboardAvailable: () => typeof clipboard.readText === 'function' && typeof clipboard.writeText === 'function',
+    lanProbe: () => probeUdpLoopbackV1(),
+    stunProbe: () => probeStunBindingV1(),
+    version: app.getVersion(),
+  });
+  const settingsService = new SettingsServiceV1({
+    settingsRepository: new AppSettingsRepositoryV1(userDataRoot),
+    diagnostics: diagnosticsService,
+    legacyImporter: new LegacyDataImportServiceV1({ buildRepository, publicReplayRepository }),
+    chooseLegacyRoot: async () => {
+      const selection = await dialog.showOpenDialog({
+        title: '选择旧版 AgenticGame 数据目录',
+        properties: ['openDirectory', 'dontAddToRecent'],
+      });
+      return selection.canceled ? null : selection.filePaths[0] ?? null;
+    },
+    exportsRoot: join(userDataRoot, 'exports'),
+    openReleases: async () => { await shell.openExternal('https://github.com/ghostLLC/AgenticGame/releases'); },
+    appVersion: app.getVersion(),
+  });
   const applicationService = new DesktopApplicationServiceV1({
     profileRepository: new PlayerProfileRepositoryV1(userDataRoot),
     garageService: new GarageServiceV1({
@@ -206,6 +236,7 @@ app.whenReady().then(() => {
       exportsRoot: join(userDataRoot, 'exports'),
     }),
     agentCenterService: new AgentCenterServiceV1({ buildRepository, noteRepository }),
+    settingsService,
   });
   registerDesktopApplicationIpcV1({
     handle: (channel, handler) => ipcMain.handle(channel, handler),
@@ -216,18 +247,6 @@ app.whenReady().then(() => {
     decrypt: (value) => safeStorage.decryptString(value),
   };
   const recoveryStore = new FriendRoomRecoveryStoreV1(userDataRoot, recoveryCipher);
-  const diagnosticsService = new ReleaseDiagnosticsServiceV1({
-    dataProbe: () => probeWritableDirectoryV1(userDataRoot),
-    sandboxProbe: async () => {
-      const result = await runTutorialMatchV1({ doctrine: 'scout', displayName: '诊断战车' });
-      return result.replay.frames.length > 0;
-    },
-    encryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-    clipboardAvailable: () => typeof clipboard.readText === 'function' && typeof clipboard.writeText === 'function',
-    lanProbe: () => probeUdpLoopbackV1(),
-    stunProbe: () => probeStunBindingV1(),
-    version: app.getVersion(),
-  });
   installFriendRoomIpc(publicReplayRepository, recoveryStore, diagnosticsService);
   createGameWindow();
   app.on('activate', () => {

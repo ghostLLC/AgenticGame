@@ -21,6 +21,9 @@ import type {
   AgentCenterSaveInputV1,
   AgentCenterSnapshotV1,
 } from './agent-center-service-v1.js';
+import type { AppSettingsV1 } from './app-settings-v1.js';
+import type { DiagnosticPrivacyPreviewV1, LegacyImportProjectionV1 } from './settings-service-v1.js';
+import type { ReleaseDiagnosticReportV1 } from './release-diagnostics-service-v1.js';
 
 export interface DesktopApiV1 {
   app: {
@@ -61,5 +64,14 @@ export interface DesktopApiV1 {
     run(input: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1>;
     cancel(): Promise<boolean>;
     save(input: AgentCenterSaveInputV1): Promise<{ revision: number; label: string }>;
+  };
+  settings: {
+    get(): Promise<AppSettingsV1>;
+    save(input: AppSettingsV1): Promise<AppSettingsV1>;
+    diagnosticPreview(): Promise<DiagnosticPrivacyPreviewV1>;
+    runDiagnostics(): Promise<ReleaseDiagnosticReportV1>;
+    exportDiagnostics(): Promise<{ fileName: string }>;
+    importLegacy(): Promise<LegacyImportProjectionV1>;
+    openReleases(): Promise<void>;
   };
 }

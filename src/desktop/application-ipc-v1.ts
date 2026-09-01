@@ -7,6 +7,7 @@ import type {
   AgentCenterRunInputV1,
   AgentCenterSaveInputV1,
 } from './agent-center-service-v1.js';
+import { assertAppSettingsV1 } from './app-settings-v1.js';
 
 export type DesktopIpcHandlerV1 = (event: unknown, input?: unknown) => Promise<unknown>;
 
@@ -94,6 +95,16 @@ export function registerDesktopApplicationIpcV1(
   registrar.handle('agent-center:run', async (_event, input) => service.runAgentCenter(assertAgentRunInput(input)));
   registrar.handle('agent-center:cancel', async () => service.cancelAgentCenter());
   registrar.handle('agent-center:save', async (_event, input) => service.saveAgentCandidate(assertAgentSaveInput(input)));
+  registrar.handle('settings:get', async () => service.getSettings());
+  registrar.handle('settings:save', async (_event, input) => {
+    try { return service.saveSettings(assertAppSettingsV1(input)); }
+    catch { throw new Error('设置无效'); }
+  });
+  registrar.handle('settings:diagnostic-preview', async () => service.getDiagnosticPreview());
+  registrar.handle('settings:run-diagnostics', async () => service.runReleaseDiagnostics());
+  registrar.handle('settings:export-diagnostics', async () => service.exportReleaseDiagnostics());
+  registrar.handle('settings:import-legacy', async () => service.importLegacyData());
+  registrar.handle('settings:open-releases', async () => service.openReleases());
 }
 
 function assertAgentRunInput(input: unknown): AgentCenterRunInputV1 {

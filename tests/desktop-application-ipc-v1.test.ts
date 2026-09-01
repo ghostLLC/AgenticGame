@@ -19,6 +19,7 @@ import { PublicReplayRepositoryV1 } from '../src/desktop/public-replay-repositor
 import { ReplayMetadataRepositoryV1 } from '../src/desktop/replay-metadata-repository-v1.js';
 import { ReplayTrashRepositoryV1 } from '../src/desktop/replay-trash-repository-v1.js';
 import { ReplayLibraryServiceV1 } from '../src/desktop/replay-library-service-v1.js';
+import { defaultAppSettingsV1 } from '../src/desktop/app-settings-v1.js';
 
 const roots: string[] = [];
 
@@ -84,6 +85,13 @@ describe('桌面应用 IPC v1', () => {
       'agent-center:run',
       'agent-center:cancel',
       'agent-center:save',
+      'settings:get',
+      'settings:save',
+      'settings:diagnostic-preview',
+      'settings:run-diagnostics',
+      'settings:export-diagnostics',
+      'settings:import-legacy',
+      'settings:open-releases',
     ]);
     await expect(handlers.get('profile:create')?.({}, { displayName: 3, doctrine: 'scout' }))
       .rejects.toThrow('指挥官信息无效');
@@ -111,6 +119,8 @@ describe('桌面应用 IPC v1', () => {
     await expect(handlers.get('agent-center:save')?.({}, {
       candidateId: 'candidate-1', label: '候选', note: '', confirmed: false,
     })).rejects.toThrow('需要明确确认');
+    await expect(handlers.get('settings:save')?.({}, { ...defaultAppSettingsV1(), apiKey: 'forbidden' }))
+      .rejects.toThrow('设置无效');
     await expect(handlers.get('practice:run')?.({}, {
       currentRevision: 1, opponentRevision: 1, modeId: 'ranked', seed: 1,
     })).rejects.toThrow('练习赛配置无效');
@@ -156,6 +166,13 @@ describe('桌面应用 IPC v1', () => {
     });
     await api.agentCenter.cancel();
     await api.agentCenter.save({ candidateId: 'candidate-1', label: 'AI 抢点版', note: '提高抢点', confirmed: true });
+    await api.settings.get();
+    await api.settings.save({ ...defaultAppSettingsV1(), masterVolume: 60 });
+    await api.settings.diagnosticPreview();
+    await api.settings.runDiagnostics();
+    await api.settings.exportDiagnostics();
+    await api.settings.importLegacy();
+    await api.settings.openReleases();
 
     expect(calls).toEqual([
       ['app:bootstrap', undefined],
@@ -187,6 +204,13 @@ describe('桌面应用 IPC v1', () => {
       }],
       ['agent-center:cancel', undefined],
       ['agent-center:save', { candidateId: 'candidate-1', label: 'AI 抢点版', note: '提高抢点', confirmed: true }],
+      ['settings:get', undefined],
+      ['settings:save', { ...defaultAppSettingsV1(), masterVolume: 60 }],
+      ['settings:diagnostic-preview', undefined],
+      ['settings:run-diagnostics', undefined],
+      ['settings:export-diagnostics', undefined],
+      ['settings:import-legacy', undefined],
+      ['settings:open-releases', undefined],
     ]);
     expect(api).not.toHaveProperty('invoke');
   });

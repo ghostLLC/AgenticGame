@@ -23,6 +23,8 @@ import type {
   AgentCenterServiceV1,
   AgentCenterSnapshotV1,
 } from './agent-center-service-v1.js';
+import type { AppSettingsV1 } from './app-settings-v1.js';
+import type { SettingsServiceV1 } from './settings-service-v1.js';
 
 export interface DesktopBootstrapV1 {
   needsOnboarding: boolean;
@@ -38,6 +40,7 @@ export interface DesktopApplicationServiceOptionsV1 {
   practiceService?: PracticeMatchServiceV1;
   replayService?: ReplayLibraryServiceV1;
   agentCenterService?: AgentCenterServiceV1;
+  settingsService?: SettingsServiceV1;
 }
 
 export class DesktopApplicationServiceV1 {
@@ -49,6 +52,7 @@ export class DesktopApplicationServiceV1 {
   private readonly practiceService?: PracticeMatchServiceV1;
   private readonly replayService?: ReplayLibraryServiceV1;
   private readonly agentCenterService?: AgentCenterServiceV1;
+  private readonly settingsService?: SettingsServiceV1;
 
   constructor(options: DesktopApplicationServiceOptionsV1) {
     this.repository = options.profileRepository;
@@ -59,6 +63,7 @@ export class DesktopApplicationServiceV1 {
     this.practiceService = options.practiceService;
     this.replayService = options.replayService;
     this.agentCenterService = options.agentCenterService;
+    this.settingsService = options.settingsService;
   }
 
   async bootstrap(): Promise<DesktopBootstrapV1> {
@@ -194,6 +199,14 @@ export class DesktopApplicationServiceV1 {
     return this.requireAgentCenterService().saveCandidate(input);
   }
 
+  async getSettings() { await this.requireCompletedProfile(); return this.requireSettingsService().get(); }
+  async saveSettings(input: AppSettingsV1) { await this.requireCompletedProfile(); return this.requireSettingsService().save(input); }
+  async getDiagnosticPreview() { await this.requireCompletedProfile(); return this.requireSettingsService().diagnosticPreview(); }
+  async runReleaseDiagnostics() { await this.requireCompletedProfile(); return this.requireSettingsService().runDiagnostics(); }
+  async exportReleaseDiagnostics() { await this.requireCompletedProfile(); return this.requireSettingsService().exportDiagnostics(); }
+  async importLegacyData() { await this.requireCompletedProfile(); return this.requireSettingsService().importLegacy(); }
+  async openReleases() { await this.requireCompletedProfile(); return this.requireSettingsService().openReleases(); }
+
   private async requireProfile(): Promise<PlayerProfileV1> {
     const profile = await this.repository.load();
     if (!profile) throw new Error('请先建立指挥官档案');
@@ -224,6 +237,11 @@ export class DesktopApplicationServiceV1 {
   private requireAgentCenterService(): AgentCenterServiceV1 {
     if (!this.agentCenterService) throw new Error('AI 队友中心暂不可用');
     return this.agentCenterService;
+  }
+
+  private requireSettingsService(): SettingsServiceV1 {
+    if (!this.settingsService) throw new Error('游戏设置暂不可用');
+    return this.settingsService;
   }
 
   private async saveUpdated(profile: PlayerProfileV1): Promise<PlayerProfileV1> {
