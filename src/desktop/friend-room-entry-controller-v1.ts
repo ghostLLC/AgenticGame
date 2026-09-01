@@ -99,6 +99,21 @@ export class FriendRoomEntryControllerV1 {
     }
   }
 
+  restoreIdentity(role: FriendRoomRoleV1, nickname: string): void {
+    this.reset();
+    this.snapshot = {
+      role,
+      nickname: validateNickname(nickname),
+      playerStatus: {
+        eyebrow: '房间仍在保留',
+        title: '尚未建立好友连接',
+        detail: '双方需要重新在线，并建立一条新的好友连接。',
+        tone: 'waiting',
+      },
+    };
+    this.notify();
+  }
+
   reset(): void {
     this.unsubscribeState?.();
     this.unsubscribeState = undefined;

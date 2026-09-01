@@ -10,7 +10,7 @@ export interface FriendRoomPeerV1 {
 }
 
 export type FriendRoomSeatV1 = 'host' | 'guest';
-export type FriendRoomStatusV1 = 'waiting-for-peer' | 'configuring' | 'running' | 'complete' | 'failed';
+export type FriendRoomStatusV1 = 'waiting-for-peer' | 'configuring' | 'running' | 'complete' | 'failed' | 'closed';
 
 export interface FriendRoomPublicBuildV1 {
   buildId: string;
@@ -73,6 +73,11 @@ export interface FriendRoomHostOptionsV1 {
   tickBudgetMs?: number;
   runMatch?: (input: FriendRoomMatchInputV1) => Promise<PracticeMatchOutputV2>;
   onBundle?: (bundle: MatchBundleV2) => void | Promise<void>;
+  recovery?: {
+    revision: number;
+    createdAt: string;
+    ownBuild?: SavedBuildV2;
+  };
 }
 
 export interface FriendRoomGuestOptionsV1 {
@@ -98,6 +103,7 @@ type GuestMessageV1 =
 
 type HostMessageV1 =
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'snapshot'; snapshot: FriendRoomSnapshotV1 }
+  | { protocol: 'agentic-game-friend-room'; version: 1; type: 'room-closed'; snapshot: FriendRoomSnapshotV1 }
   | { protocol: 'agentic-game-friend-room'; version: 1; type: 'error'; error: FriendRoomProtocolErrorV1 };
 
 const PROTOCOL = 'agentic-game-friend-room';
@@ -116,8 +122,15 @@ export class FriendRoomHostSessionV1 {
 
   constructor(options: FriendRoomHostOptionsV1) {
     this.options = options;
-    this.createdAt = options.createdAt?.() ?? new Date().toISOString();
+    this.createdAt = options.recovery?.createdAt ?? options.createdAt?.() ?? new Date().toISOString();
     this.host = participant('host', options.displayName);
+    if (options.recovery) {
+      if (!Number.isSafeInteger(options.recovery.revision) || options.recovery.revision < 1) {
+        throw new Error('Recovery revision must be a positive integer');
+      }
+      this.revision = options.recovery.revision;
+      if (options.recovery.ownBuild) this.host.build = cloneRunnableBuild(options.recovery.ownBuild);
+    }
     validateSessionId(options.sessionId);
     if (!Number.isSafeInteger(options.maxTicks) || options.maxTicks < 1) throw new Error('maxTicks must be a positive integer');
     options.peer.subscribe((payload) => this.receive(payload));
@@ -146,6 +159,21 @@ export class FriendRoomHostSessionV1 {
     this.changed();
     this.restartIfBothWant();
     return this.getSnapshot();
+  }
+
+  close(): FriendRoomSnapshotV1 {
+    if (this.status === 'closed') return this.getSnapshot();
+    this.status = 'closed';
+    this.error = '房主已关闭好友房间。';
+    this.host.ready = false;
+    if (this.guest) {
+      this.guest.connected = false;
+      this.guest.ready = false;
+    }
+    this.revision += 1;
+    const snapshot = this.getSnapshot();
+    if (this.guest) this.send({ protocol: PROTOCOL, version: 1, type: 'room-closed', snapshot });
+    return snapshot;
   }
 
   markPeerDisconnected(): FriendRoomSnapshotV1 {
@@ -189,6 +217,7 @@ export class FriendRoomHostSessionV1 {
   private receive(payload: string): void {
     try {
       const message = parseGuestMessage(payload);
+      if (this.status === 'closed') throw new ProtocolInputError('invalid-state', 'The host closed this friend room');
       if (message.type === 'hello') {
         if (this.guest) throw new ProtocolInputError('invalid-state', 'A guest is already connected');
         this.guest = participant('guest', message.displayName);
@@ -377,7 +406,7 @@ export class FriendRoomGuestSessionV1 {
 
   private receive(payload: string): void {
     const message = parseHostMessage(payload);
-    if (message.type === 'snapshot') this.snapshot = structuredClone(message.snapshot);
+    if (message.type === 'snapshot' || message.type === 'room-closed') this.snapshot = structuredClone(message.snapshot);
     else this.lastError = { ...message.error };
   }
 
@@ -428,6 +457,9 @@ function parseHostMessage(payload: string): HostMessageV1 {
   const value = parseEnvelope(payload);
   if (value.type === 'snapshot' && isRecord(value.snapshot)) {
     return { protocol: PROTOCOL, version: 1, type: 'snapshot', snapshot: value.snapshot as unknown as FriendRoomSnapshotV1 };
+  }
+  if (value.type === 'room-closed' && isRecord(value.snapshot)) {
+    return { protocol: PROTOCOL, version: 1, type: 'room-closed', snapshot: value.snapshot as unknown as FriendRoomSnapshotV1 };
   }
   if (value.type === 'error' && isRecord(value.error) && typeof value.error.code === 'string' && typeof value.error.message === 'string') {
     return { protocol: PROTOCOL, version: 1, type: 'error', error: value.error as unknown as FriendRoomProtocolErrorV1 };

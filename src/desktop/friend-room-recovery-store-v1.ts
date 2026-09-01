@@ -152,7 +152,7 @@ function assertPublicSnapshot(input: unknown): FriendRoomRecoveryPublicSnapshotV
   if (!isRecord(input) || !hasExactKeys(input, ['status', 'mapId', 'participants'])) {
     throw new Error('恢复胶囊结构无效');
   }
-  if (!['waiting-for-peer', 'configuring', 'running', 'complete', 'failed'].includes(String(input.status))) {
+  if (!['waiting-for-peer', 'configuring', 'running', 'complete', 'failed', 'closed'].includes(String(input.status))) {
     throw new Error('恢复胶囊结构无效');
   }
   if (typeof input.mapId !== 'string' || input.mapId.length < 1 || input.mapId.length > 64) {

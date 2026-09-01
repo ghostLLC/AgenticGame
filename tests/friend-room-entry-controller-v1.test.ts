@@ -128,4 +128,27 @@ describe('好友房间玩家入口控制器 v1', () => {
       .rejects.toThrow('这不是当前好友房间的会合邀请');
     expect(connections.at(-1)!.disposed).toBe(true);
   });
+
+  it('应用重启后只恢复玩家身份，仍要求建立一条新的好友连接', async () => {
+    const connections: FakeEntryConnection[] = [];
+    const controller = new FriendRoomEntryControllerV1({
+      createConnection: (role) => {
+        const connection = new FakeEntryConnection(role);
+        connections.push(connection);
+        return connection;
+      },
+      createSessionId: () => 'unused',
+    });
+
+    controller.restoreIdentity('host', '乐淳');
+    expect(controller.getSnapshot()).toMatchObject({
+      role: 'host', nickname: '乐淳', playerStatus: { title: '尚未建立好友连接' },
+    });
+    expect(connections).toHaveLength(0);
+
+    await controller.createRecoveryInvite('friend-room-20260826');
+    expect(connections).toHaveLength(1);
+    expect(connections[0]!.role).toBe('host');
+    expect(controller.getSnapshot().invitationCard).toBe('INVITE-CARD');
+  });
 });

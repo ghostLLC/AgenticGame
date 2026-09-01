@@ -12,6 +12,8 @@ import {
   type FriendRoomPresetIdV1,
 } from './preset-builds-v1.js';
 import type { FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
+import type { SavedBuildV2 } from '../config/saved-build-v2.js';
+import type { FriendRoomRecoveryCapsuleV1 } from './friend-room-recovery-store-v1.js';
 
 export {
   friendRoomPresetOptionsV1,
@@ -36,6 +38,7 @@ export interface DesktopFriendRoomRuntimeOptionsV1 {
     localTeamId: string;
     completionKey: string;
   }): void | Promise<void>;
+  onRecovery?(capsule: FriendRoomRecoveryCapsuleV1 | undefined): void | Promise<void>;
 }
 
 export interface DesktopFriendRoomStartV1 {
@@ -55,6 +58,11 @@ export class DesktopFriendRoomRuntimeV1 {
   private persistence?: Promise<void>;
   private readonly persistedCompletions = new Set<string>();
   private previousStatus?: FriendRoomSnapshotV1['status'];
+  private displayName?: string;
+  private sessionId?: string;
+  private ownBuild?: SavedBuildV2;
+  private recoverySessionId?: string;
+  private recoveryRevision?: number;
 
   constructor(options: DesktopFriendRoomRuntimeOptionsV1) {
     this.options = options;
@@ -70,6 +78,8 @@ export class DesktopFriendRoomRuntimeV1 {
   start(input: DesktopFriendRoomStartV1): void {
     if (this.role) throw new Error('好友房间已经开始');
     this.role = input.role;
+    this.displayName = input.displayName;
+    this.sessionId = input.sessionId;
     if (input.role === 'host') {
       if (!input.sessionId) throw new Error('房主缺少房间编号');
       this.host = new FriendRoomHostSessionV1({
@@ -86,6 +96,35 @@ export class DesktopFriendRoomRuntimeV1 {
     this.guest = new FriendRoomGuestSessionV1({ peer: this.peer, displayName: input.displayName });
   }
 
+  restore(capsule: FriendRoomRecoveryCapsuleV1): void {
+    if (this.role) throw new Error('好友房间已经开始');
+    this.role = capsule.role;
+    this.displayName = capsule.displayName;
+    this.sessionId = capsule.sessionId;
+    this.recoverySessionId = capsule.sessionId;
+    this.recoveryRevision = capsule.revision;
+    this.ownBuild = capsule.ownBuild ? structuredClone(capsule.ownBuild) : undefined;
+    if (capsule.role === 'host') {
+      this.host = new FriendRoomHostSessionV1({
+        peer: this.peer,
+        sessionId: capsule.sessionId,
+        displayName: capsule.displayName,
+        createdAt: this.options.createdAt,
+        maxTicks: this.options.maxTicks ?? 120,
+        tickBudgetMs: 100,
+        recovery: {
+          revision: capsule.revision,
+          createdAt: capsule.createdAt,
+          ...(capsule.ownBuild ? { ownBuild: capsule.ownBuild } : {}),
+        },
+      });
+      this.emitSnapshot(this.host.getSnapshot());
+      return;
+    }
+    this.guest = new FriendRoomGuestSessionV1({ peer: this.peer, displayName: capsule.displayName });
+    if (this.ownBuild) this.guest.selectBuild(this.ownBuild);
+  }
+
   receivePeer(payload: string): void {
     try {
       this.peerListeners.forEach((listener) => listener(payload));
@@ -98,6 +137,7 @@ export class DesktopFriendRoomRuntimeV1 {
 
   selectPreset(presetId: FriendRoomPresetIdV1): void {
     const build = createPresetBuildV1(presetId, this.options.createdAt?.() ?? new Date().toISOString());
+    this.ownBuild = structuredClone(build);
     if (this.host) this.host.selectBuild(build);
     else if (this.guest) this.guest.selectBuild(build);
     else throw new Error('请先连接好友');
@@ -117,6 +157,11 @@ export class DesktopFriendRoomRuntimeV1 {
     else if (this.guest) this.guest.requestRematch();
     else throw new Error('请先连接好友');
     this.emitCurrentSnapshot();
+  }
+
+  closeRoom(): void {
+    if (this.host) this.emitSnapshot(this.host.close());
+    else this.notifyRecovery(undefined);
   }
 
   transportClosed(): void {
@@ -150,11 +195,54 @@ export class DesktopFriendRoomRuntimeV1 {
   }
 
   private emitSnapshot(snapshot: FriendRoomSnapshotV1): void {
+    if (this.recoverySessionId && snapshot.sessionId !== this.recoverySessionId) {
+      this.options.onEvent({ kind: 'error', message: '这不是原好友房间，请重新会合。' });
+      return;
+    }
+    if (this.role === 'guest' && this.recoveryRevision && snapshot.revision < this.recoveryRevision) {
+      this.options.onEvent({ kind: 'error', message: '房间状态早于本机记录，请让房主重新生成会合邀请。' });
+      return;
+    }
     if (snapshot.status === 'configuring') this.settlement = undefined;
     this.options.onEvent({ kind: 'snapshot', snapshot });
+    if (snapshot.status === 'closed') this.notifyRecovery(undefined);
+    else this.notifyRecovery(this.createRecoveryCapsule(snapshot));
     const enteredComplete = snapshot.status === 'complete' && this.previousStatus !== 'complete';
     this.previousStatus = snapshot.status;
     if (enteredComplete) this.persistPublicReplay(snapshot);
+  }
+
+  private createRecoveryCapsule(snapshot: FriendRoomSnapshotV1): FriendRoomRecoveryCapsuleV1 | undefined {
+    if (!this.role || !this.displayName) return undefined;
+    const createdAtMs = Date.parse(snapshot.createdAt);
+    if (!Number.isFinite(createdAtMs)) return undefined;
+    return {
+      version: 1,
+      role: this.role,
+      sessionId: snapshot.sessionId,
+      displayName: this.displayName,
+      revision: snapshot.revision,
+      createdAt: snapshot.createdAt,
+      expiresAt: new Date(createdAtMs + 24 * 60 * 60 * 1000).toISOString(),
+      ...(this.ownBuild ? { ownBuild: structuredClone(this.ownBuild) } : {}),
+      publicSnapshot: {
+        status: snapshot.status,
+        mapId: snapshot.mapId,
+        participants: snapshot.participants.map((participant) => ({
+          seat: participant.seat,
+          displayName: participant.displayName,
+          connected: participant.connected,
+          ready: participant.ready,
+        })),
+      },
+    };
+  }
+
+  private notifyRecovery(capsule: FriendRoomRecoveryCapsuleV1 | undefined): void {
+    if (!this.options.onRecovery) return;
+    Promise.resolve(this.options.onRecovery(capsule)).catch(() => {
+      this.options.onEvent({ kind: 'error', message: '房间恢复信息未能安全保存。' });
+    });
   }
 
   private persistPublicReplay(snapshot: FriendRoomSnapshotV1): void {

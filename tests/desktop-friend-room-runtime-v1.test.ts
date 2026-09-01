@@ -4,6 +4,8 @@ import {
   friendRoomPresetOptionsV1,
   type DesktopFriendRoomEventV1,
 } from '../src/desktop/friend-room-runtime-v1.js';
+import type { FriendRoomRecoveryCapsuleV1 } from '../src/desktop/friend-room-recovery-store-v1.js';
+import { createPresetBuildV1 } from '../src/desktop/preset-builds-v1.js';
 
 describe('桌面好友房间比赛运行时 v1', () => {
   it('只向玩家暴露三套可选战术，不暴露代码或协议字段', () => {
@@ -165,5 +167,122 @@ describe('桌面好友房间比赛运行时 v1', () => {
         { seat: 'guest', connected: true, build: { label: '钢铁堡垒队' } },
       ],
     });
+  });
+
+  it('生成最小加密胶囊所需状态，并在应用重启后恢复同一房间及双方自己的 Build', () => {
+    let host!: DesktopFriendRoomRuntimeV1;
+    let guest!: DesktopFriendRoomRuntimeV1;
+    const hostCapsules: FriendRoomRecoveryCapsuleV1[] = [];
+    const guestCapsules: FriendRoomRecoveryCapsuleV1[] = [];
+    host = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => guest.receivePeer(payload),
+      onEvent: () => undefined,
+      onRecovery: (capsule) => { if (capsule) hostCapsules.push(capsule); },
+      createdAt: () => '2026-09-01T10:00:00.000Z', maxTicks: 4,
+    });
+    guest = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => host.receivePeer(payload),
+      onEvent: () => undefined,
+      onRecovery: (capsule) => { if (capsule) guestCapsules.push(capsule); },
+      createdAt: () => '2026-09-01T10:00:00.000Z', maxTicks: 4,
+    });
+    host.start({ role: 'host', sessionId: 'friend-restart', displayName: '乐淳' });
+    guest.start({ role: 'guest', displayName: 'Ghost' });
+    host.selectPreset('medium');
+    guest.selectPreset('heavy');
+
+    const hostCapsule = hostCapsules.at(-1)!;
+    const guestCapsule = guestCapsules.at(-1)!;
+    expect(hostCapsule).toMatchObject({
+      role: 'host', sessionId: 'friend-restart', displayName: '乐淳',
+      ownBuild: { buildId: 'friend-medium' },
+      expiresAt: '2026-09-02T10:00:00.000Z',
+    });
+    expect(guestCapsule).toMatchObject({ role: 'guest', ownBuild: { buildId: 'friend-heavy' } });
+    expect(JSON.stringify(hostCapsule.publicSnapshot)).not.toMatch(/source|codeHash|bundleHash/i);
+
+    let restoredHost!: DesktopFriendRoomRuntimeV1;
+    let restoredGuest!: DesktopFriendRoomRuntimeV1;
+    const restoredHostEvents: DesktopFriendRoomEventV1[] = [];
+    restoredHost = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => restoredGuest.receivePeer(payload),
+      onEvent: (event) => restoredHostEvents.push(event),
+      createdAt: () => '2026-09-01T11:00:00.000Z', maxTicks: 4,
+    });
+    restoredGuest = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => restoredHost.receivePeer(payload),
+      onEvent: () => undefined,
+      createdAt: () => '2026-09-01T11:00:00.000Z', maxTicks: 4,
+    });
+
+    restoredHost.restore(hostCapsule);
+    restoredGuest.restore(guestCapsule);
+
+    expect(restoredHostEvents.at(-1)?.snapshot).toMatchObject({
+      sessionId: 'friend-restart',
+      status: 'configuring',
+      revision: expect.any(Number),
+      participants: [
+        { seat: 'host', build: { buildId: 'friend-medium' } },
+        { seat: 'guest', build: { buildId: 'friend-heavy' } },
+      ],
+    });
+    expect(restoredHostEvents.at(-1)!.snapshot!.revision).toBeGreaterThan(hostCapsule.revision);
+  });
+
+  it('房主明确离开会通知客人并清除双方本地恢复入口', () => {
+    let host!: DesktopFriendRoomRuntimeV1;
+    let guest!: DesktopFriendRoomRuntimeV1;
+    const hostRecovery: Array<FriendRoomRecoveryCapsuleV1 | undefined> = [];
+    const guestRecovery: Array<FriendRoomRecoveryCapsuleV1 | undefined> = [];
+    const guestEvents: DesktopFriendRoomEventV1[] = [];
+    host = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => guest.receivePeer(payload), onEvent: () => undefined,
+      onRecovery: (value) => hostRecovery.push(value),
+    });
+    guest = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => host.receivePeer(payload), onEvent: (event) => guestEvents.push(event),
+      onRecovery: (value) => guestRecovery.push(value),
+    });
+    host.start({ role: 'host', sessionId: 'friend-close', displayName: 'Host' });
+    guest.start({ role: 'guest', displayName: 'Guest' });
+    host.selectPreset('scout');
+    guest.selectPreset('heavy');
+
+    host.closeRoom();
+
+    expect(guestEvents.at(-1)?.snapshot).toMatchObject({ status: 'closed', error: '房主已关闭好友房间。' });
+    expect(hostRecovery.at(-1)).toBeUndefined();
+    expect(guestRecovery.at(-1)).toBeUndefined();
+  });
+
+  it('恢复时拒绝会话版本落后于本机胶囊的房主状态', () => {
+    const base: FriendRoomRecoveryCapsuleV1 = {
+      version: 1,
+      role: 'host',
+      sessionId: 'friend-stale',
+      displayName: 'Host',
+      revision: 5,
+      createdAt: '2026-09-01T10:00:00.000Z',
+      expiresAt: '2026-09-02T10:00:00.000Z',
+      ownBuild: createPresetBuildV1('scout', '2026-09-01T10:00:00.000Z'),
+      publicSnapshot: {
+        status: 'configuring', mapId: 'frontier-v2',
+        participants: [{ seat: 'host', displayName: 'Host', connected: true, ready: false }],
+      },
+    };
+    let host!: DesktopFriendRoomRuntimeV1;
+    let guest!: DesktopFriendRoomRuntimeV1;
+    const guestEvents: DesktopFriendRoomEventV1[] = [];
+    host = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => guest.receivePeer(payload), onEvent: () => undefined,
+    });
+    guest = new DesktopFriendRoomRuntimeV1({
+      sendPeer: (payload) => host.receivePeer(payload), onEvent: (event) => guestEvents.push(event),
+    });
+    host.restore(base);
+    guest.restore({ ...base, role: 'guest', displayName: 'Guest', revision: 50 });
+
+    expect(guestEvents.at(-1)).toEqual({ kind: 'error', message: '房间状态早于本机记录，请让房主重新生成会合邀请。' });
   });
 });

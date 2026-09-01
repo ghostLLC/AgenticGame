@@ -192,6 +192,26 @@ describe('好友房间 P2P v1', () => {
     expect(guest.getSnapshot()).toEqual(host.getSnapshot());
   });
 
+  it('房主明确退出时向客人发送房间关闭事件，关闭后不能继续操作', () => {
+    const [hostPeer, guestPeer] = memoryPeerPair();
+    const host = new FriendRoomHostSessionV1({
+      peer: hostPeer,
+      sessionId: 'friend-session-closed',
+      displayName: 'Host',
+      maxTicks: 4,
+    });
+    const guest = new FriendRoomGuestSessionV1({ peer: guestPeer, displayName: 'Guest' });
+    host.selectBuild(build('host-build', 'Host v1', passiveSource));
+
+    const closed = host.close();
+
+    expect(closed).toMatchObject({ status: 'closed', error: '房主已关闭好友房间。' });
+    expect(guest.getSnapshot()).toEqual(closed);
+    expect(() => host.setReady(false)).toThrow('Friend room is not configurable');
+    expect(() => guest.selectBuild(build('guest-build', 'Guest', passiveSource))).not.toThrow();
+    expect(host.getSnapshot().status).toBe('closed');
+  });
+
   it('把默认 120 回合完整回放控制在单条 DataChannel 消息上限内', async () => {
     const [hostPeer, guestPeer] = memoryPeerPair();
     const host = new FriendRoomHostSessionV1({
