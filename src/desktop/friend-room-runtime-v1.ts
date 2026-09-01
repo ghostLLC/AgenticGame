@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   FriendRoomGuestSessionV1,
   FriendRoomHostSessionV1,
@@ -10,6 +11,7 @@ import {
   friendRoomPresetOptionsV1,
   type FriendRoomPresetIdV1,
 } from './preset-builds-v1.js';
+import type { FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
 
 export {
   friendRoomPresetOptionsV1,
@@ -28,6 +30,12 @@ export interface DesktopFriendRoomRuntimeOptionsV1 {
   onEvent(event: DesktopFriendRoomEventV1): void;
   createdAt?: () => string;
   maxTicks?: number;
+  onPublicReplay?(input: {
+    replay: FriendRoomReplayV1;
+    createdAt: string;
+    localTeamId: string;
+    completionKey: string;
+  }): void | Promise<void>;
 }
 
 export interface DesktopFriendRoomStartV1 {
@@ -44,6 +52,9 @@ export class DesktopFriendRoomRuntimeV1 {
   private guest?: FriendRoomGuestSessionV1;
   private role?: FriendRoomRoleV1;
   private settlement?: Promise<void>;
+  private persistence?: Promise<void>;
+  private readonly persistedCompletions = new Set<string>();
+  private previousStatus?: FriendRoomSnapshotV1['status'];
 
   constructor(options: DesktopFriendRoomRuntimeOptionsV1) {
     this.options = options;
@@ -120,6 +131,11 @@ export class DesktopFriendRoomRuntimeV1 {
   async waitForSettlement(): Promise<void> {
     this.trackSettlement();
     await this.settlement;
+    await this.persistence;
+  }
+
+  async waitForPersistence(): Promise<void> {
+    await this.persistence;
   }
 
   private emitCurrentSnapshot(): void {
@@ -136,6 +152,26 @@ export class DesktopFriendRoomRuntimeV1 {
   private emitSnapshot(snapshot: FriendRoomSnapshotV1): void {
     if (snapshot.status === 'configuring') this.settlement = undefined;
     this.options.onEvent({ kind: 'snapshot', snapshot });
+    const enteredComplete = snapshot.status === 'complete' && this.previousStatus !== 'complete';
+    this.previousStatus = snapshot.status;
+    if (enteredComplete) this.persistPublicReplay(snapshot);
+  }
+
+  private persistPublicReplay(snapshot: FriendRoomSnapshotV1): void {
+    if (snapshot.status !== 'complete' || !snapshot.replay || !this.role || !this.options.onPublicReplay) return;
+    const identity = `${snapshot.sessionId}:${snapshot.revision}`;
+    if (this.persistedCompletions.has(identity)) return;
+    this.persistedCompletions.add(identity);
+    const completionKey = createHash('sha256').update(identity, 'utf8').digest('hex');
+    const localTeamId = this.role === 'host' ? 'current' : 'historical';
+    this.persistence = Promise.resolve(this.options.onPublicReplay({
+      replay: structuredClone(snapshot.replay),
+      createdAt: snapshot.createdAt,
+      localTeamId,
+      completionKey,
+    })).catch(() => {
+      this.options.onEvent({ kind: 'error', message: '比赛已经结束，但回放未能保存。' });
+    });
   }
 
   private trackSettlement(): void {

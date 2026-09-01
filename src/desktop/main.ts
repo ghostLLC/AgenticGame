@@ -14,16 +14,18 @@ import { ReplayRepositoryV2 } from '../replay/repository-v2.js';
 import { BuildRevisionNoteRepositoryV1 } from './build-revision-note-repository-v1.js';
 import { GarageServiceV1 } from './garage-service-v1.js';
 import { PracticeMatchServiceV1 } from './practice-match-service-v1.js';
+import { PublicReplayRepositoryV1 } from './public-replay-repository-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
-function installFriendRoomIpc(): void {
+function installFriendRoomIpc(publicReplayRepository: PublicReplayRepositoryV1): void {
   ipcMain.handle('friend-room:start', (event, input: DesktopFriendRoomStartV1) => {
     assertRoomStart(input);
     const sender = event.sender;
     const runtime = new DesktopFriendRoomRuntimeV1({
       sendPeer: (payload) => sendIfAlive(sender, 'friend-room:peer-outbound', payload),
       onEvent: (roomEvent) => sendIfAlive(sender, 'friend-room:event', roomEvent),
+      onPublicReplay: async (input) => { await publicReplayRepository.save(input); },
     });
     roomRuntimes.set(sender.id, runtime);
     runtime.start(input);
@@ -83,6 +85,7 @@ app.whenReady().then(() => {
   const quarantineRoot = join(userDataRoot, 'quarantine');
   const buildRepository = new SavedBuildRepositoryV2(join(userDataRoot, 'builds'), { quarantineRoot });
   const replayRepository = new ReplayRepositoryV2(join(userDataRoot, 'replays'));
+  const publicReplayRepository = new PublicReplayRepositoryV1(join(userDataRoot, 'public-replays'));
   const applicationService = new DesktopApplicationServiceV1({
     profileRepository: new PlayerProfileRepositoryV1(userDataRoot),
     garageService: new GarageServiceV1({
@@ -96,7 +99,7 @@ app.whenReady().then(() => {
   registerDesktopApplicationIpcV1({
     handle: (channel, handler) => ipcMain.handle(channel, handler),
   }, applicationService);
-  installFriendRoomIpc();
+  installFriendRoomIpc(publicReplayRepository);
   createGameWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createGameWindow();

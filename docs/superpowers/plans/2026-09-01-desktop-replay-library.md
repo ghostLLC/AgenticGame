@@ -127,23 +127,23 @@ Commit: `feat: add verified replay library`
 - Public replay ID is a deterministic digest internal to the main process; it is opaque in IPC.
 - `DesktopFriendRoomRuntimeV1` invokes `onPublicReplay(snapshot)` once per completed room revision on both host and guest paths; repository save is idempotent.
 
-- [ ] **Step 1: Write failing strict public-replay tests**
+- [x] **Step 1: Write failing strict public-replay tests**
 
 Reject unknown fields, source/hash/action/log additions, invalid frames, oversized arrays and path tricks. Assert atomic save/load/list and dedupe.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
-- [ ] **Step 3: Implement strict public repository**
+- [x] **Step 3: Implement strict public repository**
 
-- [ ] **Step 4: Write failing runtime persistence tests**
+- [x] **Step 4: Write failing runtime persistence tests**
 
 Assert complete snapshots persist once, rematches create a second entry, non-complete/repeated snapshots do not duplicate and persistence failure maps to a safe local error without corrupting the room result.
 
-- [ ] **Step 5: Implement runtime hook and production composition**
+- [x] **Step 5: Implement runtime hook and production composition**
 
 Use `userData/public-replays`; do not persist full friend bundles.
 
-- [ ] **Step 6: Run GREEN, existing friend-room regressions and commit**
+- [x] **Step 6: Run GREEN, existing friend-room regressions and commit**
 
 Commit: `feat: preserve friend public replays`
 

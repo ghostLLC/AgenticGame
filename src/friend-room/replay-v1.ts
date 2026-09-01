@@ -109,7 +109,7 @@ export function createFriendRoomReplayV1(bundle: MatchBundleV2): FriendRoomRepla
     return { tick: checkpoint.tick, tanks, projectiles, objective };
   });
 
-  return {
+  return assertFriendRoomReplayV1({
     version: 1,
     modeName: studio.modeName,
     map: {
@@ -128,7 +128,107 @@ export function createFriendRoomReplayV1(bundle: MatchBundleV2): FriendRoomRepla
     result: structuredClone(studio.result),
     moments: structuredClone(studio.moments),
     frames,
-  };
+  });
+}
+
+export function assertFriendRoomReplayV1(value: unknown): FriendRoomReplayV1 {
+  try {
+    const root = exactRecord(value, ['version', 'modeName', 'map', 'participants', 'result', 'moments', 'frames']);
+    if (root.version !== 1) invalid();
+    boundedText(root.modeName, 1, 80);
+    const map = exactRecord(root.map, ['id', 'width', 'height', 'terrainCells', 'captureZones']);
+    stableText(map.id, 64);
+    const width = boundedInteger(map.width, 1, 512);
+    const height = boundedInteger(map.height, 1, 512);
+    const terrainCells = boundedArray(map.terrainCells, 0, 20_000);
+    terrainCells.forEach((cell) => {
+      const item = exactRecord(cell, ['x', 'y', 'terrainId']);
+      boundedInteger(item.x, 0, width - 1);
+      boundedInteger(item.y, 0, height - 1);
+      stableText(item.terrainId, 64);
+    });
+    const captureZones = boundedArray(map.captureZones, 0, 64);
+    captureZones.forEach((zone) => {
+      const item = exactRecord(zone, ['id', 'x', 'y', 'width', 'height']);
+      stableText(item.id, 64);
+      boundedInteger(item.x, 0, width - 1);
+      boundedInteger(item.y, 0, height - 1);
+      boundedInteger(item.width, 1, width);
+      boundedInteger(item.height, 1, height);
+    });
+
+    const participants = boundedArray(root.participants, 2, 8);
+    const teamIds = new Set<string>();
+    participants.forEach((participant) => {
+      const item = exactRecord(participant, ['teamId', 'displayName', 'vehicleName', 'weaponName']);
+      const teamId = stableText(item.teamId, 64);
+      if (teamIds.has(teamId)) invalid();
+      teamIds.add(teamId);
+      boundedText(item.displayName, 1, 80);
+      boundedText(item.vehicleName, 1, 80);
+      boundedText(item.weaponName, 1, 80);
+    });
+
+    const result = exactRecord(root.result, ['winningTeamIds', 'reason', 'ticks']);
+    const ticks = boundedInteger(result.ticks, 0, 1_000_000);
+    teamIdArray(result.winningTeamIds, teamIds, 0, participants.length);
+    stableText(result.reason, 80);
+    const moments = boundedArray(root.moments, 1, 20_000);
+    moments.forEach((moment) => {
+      const item = exactRecord(moment, ['tick', 'kind', 'title', 'summary', 'teamIds']);
+      boundedInteger(item.tick, 0, ticks);
+      if (!['start', 'damage', 'destruction', 'objective', 'system', 'result'].includes(String(item.kind))) invalid();
+      boundedText(item.title, 1, 160);
+      boundedText(item.summary, 0, 320);
+      teamIdArray(item.teamIds, teamIds, 0, participants.length);
+    });
+
+    const frames = boundedArray(root.frames, 1, 20_000);
+    let previousTick = -1;
+    frames.forEach((frame) => {
+      const item = exactRecord(frame, ['tick', 'tanks', 'projectiles', 'objective']);
+      const tick = boundedInteger(item.tick, 0, ticks);
+      if (tick <= previousTick) invalid();
+      previousTick = tick;
+      boundedArray(item.tanks, 1, 32).forEach((tank) => {
+        const unit = exactRecord(tank, [
+          'teamId', 'displayName', 'vehicleName', 'x', 'y', 'hp', 'maxHp',
+          'bodyDirection', 'turretDirection', 'ammunition', 'alive',
+        ]);
+        if (!teamIds.has(stableText(unit.teamId, 64))) invalid();
+        boundedText(unit.displayName, 1, 80);
+        boundedText(unit.vehicleName, 1, 80);
+        boundedInteger(unit.x, 0, width - 1);
+        boundedInteger(unit.y, 0, height - 1);
+        const maxHp = boundedInteger(unit.maxHp, 1, 1_000_000);
+        boundedInteger(unit.hp, 0, maxHp);
+        boundedInteger(unit.bodyDirection, 0, 7);
+        boundedInteger(unit.turretDirection, 0, 7);
+        boundedInteger(unit.ammunition, 0, 1_000_000);
+        if (typeof unit.alive !== 'boolean') invalid();
+      });
+      boundedArray(item.projectiles, 0, 4_096).forEach((projectile) => {
+        const shot = exactRecord(projectile, ['id', 'ownerTeamId', 'x', 'y', 'direction']);
+        boundedInteger(shot.id, 0, Number.MAX_SAFE_INTEGER);
+        if (!teamIds.has(stableText(shot.ownerTeamId, 64))) invalid();
+        boundedInteger(shot.x, 0, width - 1);
+        boundedInteger(shot.y, 0, height - 1);
+        boundedInteger(shot.direction, 0, 7);
+      });
+      if (item.objective !== null) {
+        const objective = exactRecord(item.objective, ['zoneId', 'capturingTeamId', 'progress', 'required', 'contested']);
+        stableText(objective.zoneId, 64);
+        if (objective.capturingTeamId !== null && !teamIds.has(stableText(objective.capturingTeamId, 64))) invalid();
+        const required = boundedInteger(objective.required, 1, 1_000_000);
+        boundedInteger(objective.progress, 0, required);
+        if (typeof objective.contested !== 'boolean') invalid();
+      }
+    });
+    if (frames.at(-1) && (frames.at(-1) as FriendRoomReplayFrameV1).tick !== ticks) invalid();
+    return structuredClone(value) as FriendRoomReplayV1;
+  } catch (error) {
+    throw new Error('Invalid FriendRoomReplayV1', { cause: error });
+  }
 }
 
 function publicObjective(value: Record<string, unknown>): FriendRoomReplayObjectiveV1 {
@@ -170,4 +270,46 @@ function direction(value: unknown, label: string): number {
 function boolean(value: unknown, label: string): boolean {
   if (typeof value !== 'boolean') throw new Error(`Invalid ${label}`);
   return value;
+}
+
+function exactRecord(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) invalid();
+  const result = value as Record<string, unknown>;
+  if (Object.keys(result).length !== keys.length || Object.keys(result).some((key) => !keys.includes(key))) invalid();
+  return result;
+}
+
+function boundedArray(value: unknown, minimum: number, maximum: number): unknown[] {
+  if (!Array.isArray(value) || value.length < minimum || value.length > maximum) invalid();
+  return value;
+}
+
+function boundedText(value: unknown, minimum: number, maximum: number): string {
+  if (typeof value !== 'string' || value.trim() !== value || value.length < minimum || value.length > maximum) invalid();
+  return value;
+}
+
+function stableText(value: unknown, maximum: number): string {
+  const result = boundedText(value, 1, maximum);
+  if (!/^[a-z0-9]+(?:[-_.][a-z0-9]+)*$/.test(result)) invalid();
+  return result;
+}
+
+function boundedInteger(value: unknown, minimum: number, maximum: number): number {
+  if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) invalid();
+  return value as number;
+}
+
+function teamIdArray(value: unknown, teamIds: ReadonlySet<string>, minimum: number, maximum: number): void {
+  const array = boundedArray(value, minimum, maximum);
+  const seen = new Set<string>();
+  for (const item of array) {
+    const teamId = stableText(item, 64);
+    if (!teamIds.has(teamId) || seen.has(teamId)) invalid();
+    seen.add(teamId);
+  }
+}
+
+function invalid(): never {
+  throw new Error('invalid public replay field');
 }
