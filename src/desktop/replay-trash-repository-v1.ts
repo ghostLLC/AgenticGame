@@ -127,6 +127,17 @@ export class ReplayTrashRepositoryV1 {
     return entries.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.entryId.localeCompare(b.entryId));
   }
 
+  async loadMetadata(entryId: string): Promise<unknown | null> {
+    const entry = await this.load(entryId);
+    if (!entry.hasMetadata) return null;
+    try {
+      return JSON.parse(await readFile(resolve(this.directoryFor(entryId), 'metadata.json'), 'utf8')) as unknown;
+    } catch (error) {
+      if (isCode(error, 'ENOENT')) throw new Error(`Trash metadata missing: ${entryId}`);
+      throw error;
+    }
+  }
+
   async purgeExpired(now: string): Promise<string[]> {
     const instant = Date.parse(canonicalInstant(now));
     const expired = (await this.list()).filter((entry) => instant - Date.parse(entry.deletedAt) >= this.retentionMs);

@@ -149,6 +149,11 @@ export class ReplayRepositoryV2 {
     });
   }
 
+  filePath(bundleHash: string): string {
+    validateBundleHash(bundleHash);
+    return this.fileFor(bundleHash);
+  }
+
   private fileFor(bundleHash: string): string {
     return resolve(this.root, `${bundleHash}.json`);
   }

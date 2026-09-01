@@ -90,25 +90,25 @@ export interface ReplayCardV1 {
 
 The service produces cards, counts, filters, a privacy-safe playable replay, note updates, export filename, trash/restore/empty operations and sanitized diagnostics.
 
-- [ ] **Step 1: Write failing real-service tests**
+- [x] **Step 1: Write failing real-service tests**
 
 Seed real duel/capture bundles and a corrupt file. Assert date/result/mode/revision/query filters, stable ordering, correct player outcome, at most player-safe data, public/local separation and healthy entries surviving corruption.
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
 Run: `npm test -- tests/desktop-replay-library-service-v1.test.ts`
 
-- [ ] **Step 3: Implement list/open/note/export projections**
+- [x] **Step 3: Implement list/open/note/export projections**
 
 For local bundles, call `createReplayStudioViewV2` and `createFriendRoomReplayV1` only after verification. Export a verified full local bundle or strict public replay into `exports/`; never return its path or content.
 
-- [ ] **Step 4: Implement recoverable delete and trash views**
+- [x] **Step 4: Implement recoverable delete and trash views**
 
 Clean entries older than seven days on service bootstrap/list. Explicit empty-trash remains a separate method.
 
-- [ ] **Step 5: Run GREEN, privacy assertions and typecheck**
+- [x] **Step 5: Run GREEN, privacy assertions and typecheck**
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit: `feat: add verified replay library`
 
