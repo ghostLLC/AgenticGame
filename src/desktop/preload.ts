@@ -1,5 +1,8 @@
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
 import { createDesktopPreloadApiV1 } from './desktop-preload-api-v1.js';
+import { createFriendRoomPlatformPreloadApiV1 } from './friend-room-platform-ipc-v1.js';
+
+const platformApi = createFriendRoomPlatformPreloadApiV1((channel, input) => ipcRenderer.invoke(channel, input));
 
 contextBridge.exposeInMainWorld('agenticGameDesktop', {
   ...createDesktopPreloadApiV1((channel, input) => ipcRenderer.invoke(channel, input)),
@@ -7,6 +10,7 @@ contextBridge.exposeInMainWorld('agenticGameDesktop', {
     clipboard.writeText(text);
   },
   friendRoom: {
+    ...platformApi,
     start(input: unknown): Promise<void> {
       return ipcRenderer.invoke('friend-room:start', input);
     },
@@ -36,6 +40,12 @@ contextBridge.exposeInMainWorld('agenticGameDesktop', {
     },
     onEvent(listener: (event: unknown) => void): void {
       ipcRenderer.on('friend-room:event', (_ipcEvent, roomEvent: unknown) => listener(roomEvent));
+    },
+    onNearbyChanged(listener: (cards: unknown) => void): void {
+      ipcRenderer.on('friend-room:nearby-changed', (_event, cards: unknown) => listener(cards));
+    },
+    onNearbyConfirmation(listener: (answer: unknown) => void): void {
+      ipcRenderer.on('friend-room:nearby-confirmation', (_event, answer: unknown) => listener(answer));
     },
   },
 });
