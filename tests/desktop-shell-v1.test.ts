@@ -45,7 +45,7 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).toContain('指挥中心');
     expect(html).toContain('开始教学战斗');
     expect(html).toContain('选择你的作战风格');
-    expect(html).toContain('继续好友房间');
+    expect(html).toContain('id="command-friend-title"');
     expect(html).toContain('快速练习');
     expect(html).toContain('完成教学，进入指挥中心');
     expect(html).toContain('role="dialog"');
@@ -106,6 +106,42 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).not.toMatch(/复制路径|复制哈希|源代码|随机种子|JSON|module\.exports|codeHash|bundleHash/i);
     expect(css).toContain('.replay-library-layout');
     expect(css).toContain('.replay-card-grid');
+  });
+
+  it('把附近好友、重启续接和连接诊断做成正常游戏流程', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+    const css = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/styles.css', import.meta.url)),
+      'utf8',
+    );
+    const renderer = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer.ts', import.meta.url)),
+      'utf8',
+    );
+    for (const id of [
+      'command-friend-card', 'command-friend-title', 'pairing-nearby', 'pairing-remote',
+      'nearby-panel', 'nearby-host-name', 'nearby-create-room', 'nearby-guest-name',
+      'nearby-friend-list', 'remote-panel', 'friend-diagnostics-run', 'friend-diagnostics-results',
+      'leave-room-sheet', 'confirm-leave-room', 'cancel-leave-room',
+    ]) expect(html).toContain(`id="${id}"`);
+    expect(html).toContain('同一网络的好友会自动出现');
+    expect(html).toContain('异地邀请');
+    expect(html).toContain('双方需要同时在线');
+    expect(html).toContain('Windows 防火墙');
+    expect(html).toContain('部分网络可能无法异地直连');
+    expect(renderer).toContain('inspectRecovery()');
+    expect(renderer).toContain('friendRoom.restore()');
+    expect(renderer).toContain('friendRoom.stopNearby()');
+    expect(renderer).toContain('friendRoom.leave(true)');
+    expect(renderer).toContain('cancelLeaveButton.focus()');
+    expect(renderer).toContain("event.key === 'Escape'");
+    expect(html).not.toMatch(/UDP|WebRTC|DataChannel|AGFR|复制路径|恢复密文|源代码/i);
+    expect(css).toContain('.pairing-mode-switch');
+    expect(css).toContain('.nearby-friend-card');
+    expect(css).toContain('.diagnostic-result-grid');
   });
 
   it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {

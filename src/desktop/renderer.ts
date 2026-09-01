@@ -30,12 +30,19 @@ import { UnifiedReplayControllerV1 } from './renderer/unified-replay-controller-
 import { renderReplayLibraryV1 } from './renderer/replay-library-view-v1.js';
 import { buildUnifiedReplayViewV1, renderUnifiedReplayFrameV1 } from './renderer/unified-replay-view-v1.js';
 import type { ReplayLibraryFilterV1, ReplaySourceV1 } from './replay-library-service-v1.js';
+import type {
+  FriendRoomNearbyRendererEventsV1,
+  FriendRoomPlatformRendererApiV1,
+  FriendRoomRecoveryProjectionV1,
+} from './friend-room-platform-ipc-v1.js';
+import type { NearbyFriendCardV1 } from './lan-discovery-v1.js';
+import type { ReleaseDiagnosticItemV1 } from './release-diagnostics-service-v1.js';
 
 declare global {
   interface Window {
     agenticGameDesktop?: DesktopApiV1 & {
       copyText(text: string): void;
-      friendRoom: {
+      friendRoom: FriendRoomPlatformRendererApiV1 & FriendRoomNearbyRendererEventsV1 & {
         start(input: DesktopFriendRoomStartV1): Promise<void>;
         receivePeer(payload: string): void;
         selectPreset(presetId: FriendRoomPresetIdV1): Promise<void>;
@@ -57,6 +64,10 @@ let roomRuntimeStarted = false;
 let unsubscribePeerMessages: (() => void) | undefined;
 let lastRoomSnapshot: FriendRoomSnapshotV1 | undefined;
 let recoveryActive = false;
+let restartRecoveryPending = false;
+let recoveryProjection: FriendRoomRecoveryProjectionV1 = { status: 'missing' };
+let nearbyActive = false;
+const nearbyCards = new Map<string, NearbyFriendCardV1>();
 let replayTimer: number | undefined;
 const replayController = new UnifiedReplayControllerV1();
 const libraryReplayController = new UnifiedReplayControllerV1();
@@ -122,6 +133,14 @@ const recoveryInvitationResult = element<HTMLTextAreaElement>('recovery-invitati
 const recoveryInvitationInput = element<HTMLTextAreaElement>('recovery-invitation-input');
 const recoveryConfirmationResult = element<HTMLTextAreaElement>('recovery-confirmation-result');
 const recoveryConfirmationInput = element<HTMLTextAreaElement>('recovery-confirmation-input');
+const pairingModeSwitch = element<HTMLElement>('pairing-mode-switch');
+const nearbyPanel = element<HTMLElement>('nearby-panel');
+const remotePanel = element<HTMLElement>('remote-panel');
+const nearbyFriendList = element<HTMLElement>('nearby-friend-list');
+const tacticsPanel = element<HTMLElement>('tactics-panel');
+const diagnosticsResults = element<HTMLElement>('friend-diagnostics-results');
+const leaveRoomSheet = element<HTMLElement>('leave-room-sheet');
+const cancelLeaveButton = element<HTMLButtonElement>('cancel-leave-room');
 
 const desktopApi = desktopApiClientV1(window);
 const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room', 'replays']);
@@ -234,12 +253,14 @@ let currentSnapshot: FriendRoomEntrySnapshotV1 = controller.getSnapshot();
 
 controller.subscribe((snapshot) => {
   currentSnapshot = snapshot;
+  activeSessionId = activeConnection?.getSessionId() ?? activeSessionId;
   statusCard.dataset.tone = snapshot.playerStatus.tone;
   statusEyebrow.textContent = snapshot.playerStatus.eyebrow;
   statusTitle.textContent = snapshot.playerStatus.title;
   statusDetail.textContent = snapshot.playerStatus.detail;
   hostFollowup.hidden = !snapshot.invitationCard;
   guestFollowup.hidden = !snapshot.joinConfirmation;
+  element<HTMLButtonElement>('reset-room').hidden = !snapshot.role && recoveryProjection.status !== 'available';
   if (snapshot.invitationCard) {
     if (roomRuntimeStarted) recoveryInvitationResult.value = snapshot.invitationCard;
     else invitationResult.value = snapshot.invitationCard;
@@ -272,6 +293,65 @@ window.agenticGameDesktop?.friendRoom.onEvent((event) => {
     return;
   }
   if (event.snapshot) renderRoomSnapshot(event.snapshot);
+});
+
+window.agenticGameDesktop?.friendRoom.onNearbyChanged((cards) => {
+  nearbyCards.clear();
+  for (const card of cards) nearbyCards.set(card.discoveryId, card);
+  renderNearbyFriends();
+});
+
+window.agenticGameDesktop?.friendRoom.onNearbyConfirmation((answer) => {
+  if (currentSnapshot.role !== 'host') return;
+  void runAction(async () => {
+    await controller.confirmFriend(answer.joinConfirmation);
+    showToast(`${answer.displayName} 正在加入房间`, false);
+  });
+});
+
+element<HTMLButtonElement>('pairing-nearby').addEventListener('click', () => void switchPairingMode('nearby'));
+element<HTMLButtonElement>('pairing-remote').addEventListener('click', () => void switchPairingMode('remote'));
+element<HTMLButtonElement>('nearby-create-room').addEventListener('click', () => {
+  void runAction(async () => {
+    await startNearbyDiscovery();
+    const displayName = element<HTMLInputElement>('nearby-host-name').value;
+    await controller.createRoom(displayName);
+    const snapshot = controller.getSnapshot();
+    if (!snapshot.invitationCard || !activeSessionId) throw new Error('附近房间未能准备完成');
+    await window.agenticGameDesktop?.friendRoom.publishNearby({
+      sessionId: activeSessionId,
+      displayName: snapshot.nickname,
+      invitationCard: snapshot.invitationCard,
+    });
+    setPlayerStatus('附近房间已开启', '等待好友加入', '让好友打开附近好友页面，你的房间会自动出现。', 'waiting');
+  });
+});
+
+nearbyFriendList.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-nearby-id]');
+  const card = button?.dataset.nearbyId ? nearbyCards.get(button.dataset.nearbyId) : undefined;
+  if (!card) return;
+  void runAction(async () => {
+    const displayName = element<HTMLInputElement>('nearby-guest-name').value;
+    await controller.joinRoom(displayName, card.invitationCard);
+    const confirmation = controller.getSnapshot().joinConfirmation;
+    if (!confirmation) throw new Error('加入确认未能准备完成');
+    await window.agenticGameDesktop?.friendRoom.sendNearbyConfirmation({
+      discoveryId: card.discoveryId,
+      displayName: controller.getSnapshot().nickname,
+      joinConfirmation: confirmation,
+    });
+    setPlayerStatus('已确认加入', '等待房主接收', '保持双方游戏在线，连接完成后会自动进入战前准备。', 'waiting');
+  });
+});
+
+element<HTMLButtonElement>('friend-diagnostics-run').addEventListener('click', () => {
+  void runAction(async () => {
+    diagnosticsResults.hidden = false;
+    diagnosticsResults.replaceChildren(createDiagnosticPendingCard());
+    const report = await window.agenticGameDesktop?.friendRoom.runDiagnostics();
+    if (report) renderDiagnostics(report.items);
+  });
 });
 
 element<HTMLButtonElement>('create-room').addEventListener('click', () => {
@@ -356,7 +436,33 @@ element<HTMLButtonElement>('copy-recovery-confirmation').addEventListener('click
   copyText(recoveryConfirmationResult.value, '会合确认已复制');
 });
 
-element<HTMLButtonElement>('reset-room').addEventListener('click', () => void resetRoom());
+element<HTMLButtonElement>('reset-room').addEventListener('click', () => {
+  if (!currentSnapshot.role && recoveryProjection.status !== 'available') {
+    void resetRoomLocally();
+    return;
+  }
+  leaveRoomSheet.hidden = false;
+  cancelLeaveButton.focus();
+});
+cancelLeaveButton.addEventListener('click', () => {
+  leaveRoomSheet.hidden = true;
+  element<HTMLButtonElement>('reset-room').focus();
+});
+element<HTMLButtonElement>('confirm-leave-room').addEventListener('click', () => {
+  void runAction(async () => {
+    await window.agenticGameDesktop?.friendRoom.leave(true);
+    recoveryProjection = { status: 'missing' };
+    renderRecoveryCommandCard();
+    leaveRoomSheet.hidden = true;
+    await resetRoomLocally(false);
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !leaveRoomSheet.hidden) {
+    leaveRoomSheet.hidden = true;
+    element<HTMLButtonElement>('reset-room').focus();
+  }
+});
 
 async function runAction(action: () => Promise<void>): Promise<void> {
   setBusy(true);
@@ -394,12 +500,17 @@ async function enterBattlePreparation(snapshot: FriendRoomEntrySnapshotV1): Prom
   const peer = activeConnection.getPeer();
   if (!peer) return;
   const resuming = roomRuntimeStarted;
+  const restoringAfterRestart = restartRecoveryPending;
   detachPeerMessages();
   unsubscribePeerMessages = peer.subscribe((payload) => {
     window.agenticGameDesktop?.friendRoom.receivePeer(payload);
   });
   try {
-    if (resuming) await window.agenticGameDesktop.friendRoom.resumeTransport();
+    if (restoringAfterRestart) {
+      await window.agenticGameDesktop.friendRoom.restore();
+      roomRuntimeStarted = true;
+      restartRecoveryPending = false;
+    } else if (resuming) await window.agenticGameDesktop.friendRoom.resumeTransport();
     else {
       await window.agenticGameDesktop.friendRoom.start({
         role: snapshot.role,
@@ -410,10 +521,16 @@ async function enterBattlePreparation(snapshot: FriendRoomEntrySnapshotV1): Prom
     }
     recoveryActive = false;
     recoveryPanel.hidden = true;
+    tacticsPanel.hidden = false;
+    pairingModeSwitch.hidden = true;
+    nearbyPanel.hidden = true;
+    remotePanel.hidden = true;
+    await stopNearbyDiscovery();
     roomColumns.hidden = true;
     prepSection.hidden = false;
   } catch (error) {
-    if (!resuming) roomRuntimeStarted = false;
+    if (!resuming && !restoringAfterRestart) roomRuntimeStarted = false;
+    if (restoringAfterRestart) restartRecoveryPending = true;
     else recoveryActive = true;
     detachPeerMessages();
     showToast(error instanceof Error ? error.message : '无法进入战前准备', true);
@@ -424,6 +541,9 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   lastRoomSnapshot = snapshot;
   if (snapshot.status !== 'complete' && replayController.getSnapshot().open) resetReplayView();
   roomColumns.hidden = true;
+  pairingModeSwitch.hidden = true;
+  nearbyPanel.hidden = true;
+  remotePanel.hidden = true;
   prepSection.hidden = false;
   const host = snapshot.participants.find((item) => item.seat === 'host');
   const guest = snapshot.participants.find((item) => item.seat === 'guest');
@@ -433,7 +553,7 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   const mine = snapshot.participants.find((item) => item.seat === currentSnapshot.role);
   resultPanel.hidden = true;
   readyMatch.textContent = mine?.ready ? '取消准备' : '准备出战';
-  const locked = recoveryActive || snapshot.status === 'running' || snapshot.status === 'complete' || snapshot.status === 'failed';
+  const locked = recoveryActive || snapshot.status === 'running' || snapshot.status === 'complete' || snapshot.status === 'failed' || snapshot.status === 'closed';
   presetSelect.disabled = locked || Boolean(mine?.ready);
   element<HTMLButtonElement>('lock-preset').disabled = locked || Boolean(mine?.ready);
   readyMatch.disabled = locked || !mine?.build;
@@ -462,6 +582,11 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   } else if (snapshot.status === 'failed') {
     prepState.textContent = '比赛未完成';
     setPlayerStatus('比赛未完成', '请重新创建好友房间', snapshot.error ?? '房主设备未能完成比赛。', 'danger');
+  } else if (snapshot.status === 'closed') {
+    recoveryActive = false;
+    restartRecoveryPending = false;
+    prepState.textContent = '房间已结束';
+    setPlayerStatus('好友房间已结束', '房主已经离开', '已保存的战术和回放仍在本机，可以返回并创建新房间。', 'danger');
   } else {
     const readyCount = snapshot.participants.filter((item) => item.ready).length;
     prepState.textContent = `${readyCount} / 2 已准备`;
@@ -651,7 +776,7 @@ function stopReplayTimer(): void {
 }
 
 function requireCurrentRoom(): string {
-  const sessionId = lastRoomSnapshot?.sessionId;
+  const sessionId = lastRoomSnapshot?.sessionId ?? activeSessionId;
   if (!sessionId) throw new Error('当前好友房间尚未准备好');
   return sessionId;
 }
@@ -668,20 +793,26 @@ function setPlayerStatus(eyebrow: string, title: string, detail: string, tone: s
   statusDetail.textContent = detail;
 }
 
-async function resetRoom(): Promise<void> {
+async function resetRoomLocally(resetRuntime = true): Promise<void> {
   detachPeerMessages();
   resetReplayView();
   roomRuntimeStarted = false;
   recoveryActive = false;
+  restartRecoveryPending = false;
   activeSessionId = undefined;
   activeConnection = undefined;
   lastRoomSnapshot = undefined;
-  await window.agenticGameDesktop?.friendRoom.reset();
+  if (resetRuntime) await window.agenticGameDesktop?.friendRoom.reset();
   prepSection.hidden = true;
   resultPanel.hidden = true;
   recoveryPanel.hidden = true;
+  tacticsPanel.hidden = false;
+  pairingModeSwitch.hidden = false;
+  nearbyPanel.hidden = false;
+  remotePanel.hidden = true;
   roomColumns.hidden = false;
   controller.reset();
+  if (appShellController.getSnapshot().page === 'friend-room') await startNearbyDiscovery();
 }
 
 async function initializeApplicationShell(): Promise<void> {
@@ -692,6 +823,7 @@ async function initializeApplicationShell(): Promise<void> {
     await onboarding;
     await appShellController.bootstrap();
     renderAppShellV1(appShellController.getSnapshot());
+    await refreshRecoveryEntry();
     await ensurePageData(appShellController.getSnapshot().page);
     renderOnboardingV1(onboardingController.getSnapshot(), bootstrap.needsOnboarding);
   } catch (error) {
@@ -701,6 +833,7 @@ async function initializeApplicationShell(): Promise<void> {
 
 async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | 'replays'): Promise<void> {
   try {
+    if (page !== 'friend-room') await stopNearbyDiscovery();
     await appShellController.navigate(page);
     renderAppShellV1(appShellController.getSnapshot());
     await ensurePageData(page);
@@ -715,10 +848,136 @@ async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | '
     renderReplayLibraryV1(replayLibraryController.getSnapshot());
     return;
   }
+  if (page === 'friend-room') {
+    if (recoveryProjection.status === 'available' && !roomRuntimeStarted && !restartRecoveryPending) {
+      prepareRestartRecovery(recoveryProjection);
+    } else if (!roomRuntimeStarted && !restartRecoveryPending) {
+      await switchPairingMode('nearby');
+    }
+    return;
+  }
   if (page !== 'garage' && page !== 'practice') return;
   if (!garageController.getSnapshot().garage && garageController.getSnapshot().status !== 'loading') {
     await garageController.load();
   }
+}
+
+async function refreshRecoveryEntry(): Promise<void> {
+  recoveryProjection = await window.agenticGameDesktop?.friendRoom.inspectRecovery() ?? { status: 'missing' };
+  renderRecoveryCommandCard();
+}
+
+function renderRecoveryCommandCard(): void {
+  const available = recoveryProjection.status === 'available';
+  element<HTMLElement>('command-friend-card').classList.toggle('primary-command', available);
+  element<HTMLElement>('command-friend-title').textContent = available ? '继续好友房间' : '好友房间';
+  element<HTMLElement>('command-friend-detail').textContent = recoveryProjection.status === 'available'
+    ? `上次房间仍在安全保留，${recoveryProjection.role === 'host' ? '重新邀请好友' : '等待房主重新邀请'}即可继续。`
+    : '寻找同一网络的好友，或邀请异地朋友直连开战。';
+  element<HTMLButtonElement>('command-open-friend-room').textContent = available ? '继续上次房间' : '进入好友房间';
+}
+
+function prepareRestartRecovery(projection: Extract<FriendRoomRecoveryProjectionV1, { status: 'available' }>): void {
+  activeSessionId = projection.sessionId;
+  restartRecoveryPending = true;
+  recoveryActive = true;
+  controller.restoreIdentity(projection.role, projection.displayName);
+  pairingModeSwitch.hidden = true;
+  nearbyPanel.hidden = true;
+  remotePanel.hidden = true;
+  roomColumns.hidden = true;
+  prepSection.hidden = false;
+  tacticsPanel.hidden = true;
+  for (const participant of projection.publicSnapshot.participants) {
+    renderParticipant(participant.seat, {
+      ...participant,
+      rematchRequested: false,
+    });
+  }
+  prepState.textContent = '等待重新会合';
+  renderRecoveryPanel();
+}
+
+async function switchPairingMode(mode: 'nearby' | 'remote'): Promise<void> {
+  if (roomRuntimeStarted || restartRecoveryPending) return;
+  const nearby = mode === 'nearby';
+  element('pairing-nearby').classList.toggle('active', nearby);
+  element('pairing-remote').classList.toggle('active', !nearby);
+  nearbyPanel.hidden = !nearby;
+  remotePanel.hidden = nearby;
+  if (nearby) await startNearbyDiscovery();
+  else await stopNearbyDiscovery();
+}
+
+async function startNearbyDiscovery(): Promise<void> {
+  if (nearbyActive || !window.agenticGameDesktop) return;
+  await window.agenticGameDesktop.friendRoom.startNearby();
+  nearbyActive = true;
+}
+
+async function stopNearbyDiscovery(): Promise<void> {
+  if (!nearbyActive || !window.agenticGameDesktop) return;
+  nearbyActive = false;
+  nearbyCards.clear();
+  renderNearbyFriends();
+  await window.agenticGameDesktop.friendRoom.stopNearby();
+}
+
+function renderNearbyFriends(): void {
+  if (nearbyCards.size === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'nearby-empty';
+    const title = document.createElement('b');
+    title.textContent = '正在寻找附近好友';
+    const detail = document.createElement('span');
+    detail.textContent = '请让房主保持好友房间页面开启。';
+    empty.append(title, detail);
+    nearbyFriendList.replaceChildren(empty);
+    return;
+  }
+  nearbyFriendList.replaceChildren(...[...nearbyCards.values()].map((card) => {
+    const row = document.createElement('article');
+    row.className = 'nearby-friend-card';
+    const copy = document.createElement('div');
+    const name = document.createElement('b');
+    name.textContent = card.displayName;
+    const detail = document.createElement('span');
+    detail.textContent = '附近房间 · 正在等待好友';
+    copy.append(name, detail);
+    const join = document.createElement('button');
+    join.type = 'button';
+    join.className = 'join-button';
+    join.dataset.nearbyId = card.discoveryId;
+    join.textContent = '加入房间';
+    row.append(copy, join);
+    return row;
+  }));
+}
+
+function createDiagnosticPendingCard(): HTMLElement {
+  const card = document.createElement('article');
+  card.className = 'diagnostic-result';
+  card.dataset.status = 'warning';
+  const title = document.createElement('b');
+  title.textContent = '正在检查';
+  const detail = document.createElement('span');
+  detail.textContent = '通常需要几秒钟，请稍候。';
+  card.append(title, detail);
+  return card;
+}
+
+function renderDiagnostics(items: ReleaseDiagnosticItemV1[]): void {
+  diagnosticsResults.replaceChildren(...items.map((item) => {
+    const card = document.createElement('article');
+    card.className = 'diagnostic-result';
+    card.dataset.status = item.status;
+    const title = document.createElement('b');
+    title.textContent = item.title;
+    const detail = document.createElement('span');
+    detail.textContent = item.detail;
+    card.append(title, detail);
+    return card;
+  }));
 }
 
 function readReplayFilter(): ReplayLibraryFilterV1 {

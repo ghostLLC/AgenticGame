@@ -48,10 +48,10 @@
               <span>让当前战术与训练对手交锋，战斗结束后立即复盘。</span>
               <button id="command-quick-practice" class="primary-button" type="button">进入战术实验室</button>
             </article>
-            <article class="command-card">
+            <article id="command-friend-card" class="command-card">
               <p>好友对战</p>
-              <h2>继续好友房间</h2>
-              <span>创建邀请或接受好友邀请，双方准备后立即开战。</span>
+              <h2 id="command-friend-title">好友房间</h2>
+              <span id="command-friend-detail">寻找同一网络的好友，或邀请异地朋友直连开战。</span>
               <button id="command-open-friend-room" class="secondary-button" type="button">进入好友房间</button>
             </article>
             <article class="command-card">
@@ -280,9 +280,34 @@
           <p id="status-eyebrow">好友房间</p>
           <h2 id="status-title">带上你的战车，与好友开战</h2>
           <span id="status-detail">创建邀请或接受朋友的邀请，即可进入好友房间。</span>
-          <button id="reset-room" class="text-button" type="button">重新开始</button>
+          <button id="reset-room" class="text-button" type="button">离开房间</button>
         </section>
 
+        <div id="pairing-mode-switch" class="pairing-mode-switch" aria-label="好友配对方式">
+          <button id="pairing-nearby" class="active" type="button"><b>附近好友</b><span>同一网络，自动发现</span></button>
+          <button id="pairing-remote" type="button"><b>异地邀请</b><span>交换邀请，直接连接</span></button>
+        </div>
+
+        <section id="nearby-panel" class="nearby-panel">
+          <article class="nearby-host-card">
+            <p class="step orange">我来发起</p>
+            <h2>让好友在附近看到我</h2>
+            <p>只在当前页面临时出现，离开后立即停止。双方需要同时在线。</p>
+            <label for="nearby-host-name">你的昵称</label>
+            <input id="nearby-host-name" maxlength="20" placeholder="例如：乐淳" autocomplete="nickname">
+            <button id="nearby-create-room" data-action class="primary-button" type="button">创建附近房间</button>
+          </article>
+          <article class="nearby-guest-card">
+            <div class="nearby-heading"><div><p class="step blue">加入好友</p><h2>附近正在等待的房间</h2></div><span>同一网络的好友会自动出现</span></div>
+            <label for="nearby-guest-name">你的昵称</label>
+            <input id="nearby-guest-name" maxlength="20" placeholder="例如：Ghost" autocomplete="nickname">
+            <div id="nearby-friend-list" class="nearby-friend-list" aria-live="polite">
+              <div class="nearby-empty"><b>正在寻找附近好友</b><span>请让房主保持好友房间页面开启。</span></div>
+            </div>
+          </article>
+        </section>
+
+        <div id="remote-panel" hidden>
         <div id="room-columns" class="room-columns">
           <article class="room-card host-card">
             <p class="step orange">01 <span>·</span> 我来发起</p>
@@ -332,6 +357,18 @@
             </div>
           </article>
         </div>
+        <p class="remote-boundary">异地连接不经过本项目的服务器。双方需要同时在线；部分网络可能无法异地直连。</p>
+        </div>
+
+        <section class="friend-diagnostics">
+          <div><p>连接检查</p><h2>遇到问题时，一键检查这台电脑</h2><span>检查本地数据、比赛环境、安全恢复、剪贴板、附近好友、异地连接与版本。Windows 防火墙可能影响附近好友。</span></div>
+          <button id="friend-diagnostics-run" class="secondary-button compact-action" type="button">运行连接检查</button>
+          <div id="friend-diagnostics-results" class="diagnostic-result-grid" aria-live="polite" hidden></div>
+        </section>
+
+        <section id="leave-room-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="离开好友房间" hidden>
+          <div><p>离开好友房间</p><h2>房主离开会结束这个房间</h2><span>已保存的战术与回放不会删除；意外断线仍可在 24 小时内重新会合。</span><div class="sheet-actions"><button id="cancel-leave-room" class="secondary-button" type="button">留在房间</button><button id="confirm-leave-room" class="primary-button" type="button">确认离开</button></div></div>
+        </section>
 
         <section id="prep-section" class="prep-section" hidden>
           <div id="prep-lobby">
@@ -360,7 +397,7 @@
             </article>
           </div>
 
-          <div class="tactics-panel">
+          <div id="tactics-panel" class="tactics-panel">
             <div>
               <label for="preset-select">本场战术</label>
               <select id="preset-select">
@@ -457,6 +494,7 @@
               </aside>
             </div>
           </section>
+
         </section>
         </section>
       </section>
