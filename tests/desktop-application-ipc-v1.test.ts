@@ -15,6 +15,10 @@ import { ReplayRepositoryV2 } from '../src/replay/repository-v2.js';
 import { BuildRevisionNoteRepositoryV1 } from '../src/desktop/build-revision-note-repository-v1.js';
 import { GarageServiceV1 } from '../src/desktop/garage-service-v1.js';
 import { PracticeMatchServiceV1 } from '../src/desktop/practice-match-service-v1.js';
+import { PublicReplayRepositoryV1 } from '../src/desktop/public-replay-repository-v1.js';
+import { ReplayMetadataRepositoryV1 } from '../src/desktop/replay-metadata-repository-v1.js';
+import { ReplayTrashRepositoryV1 } from '../src/desktop/replay-trash-repository-v1.js';
+import { ReplayLibraryServiceV1 } from '../src/desktop/replay-library-service-v1.js';
 
 const roots: string[] = [];
 
@@ -40,6 +44,13 @@ describe('桌面应用 IPC v1', () => {
         now,
       }),
       practiceService: new PracticeMatchServiceV1({ buildRepository, replayRepository, now }),
+      replayService: new ReplayLibraryServiceV1({
+        replayRepository,
+        publicRepository: new PublicReplayRepositoryV1(join(root, 'public-replays')),
+        metadataRepository: new ReplayMetadataRepositoryV1(join(root, 'replay-metadata')),
+        trashRepository: new ReplayTrashRepositoryV1(join(root, 'replay-trash'), { now }),
+        exportsRoot: join(root, 'exports'), now,
+      }),
       now,
       createPlayerId: () => '11111111-1111-4111-8111-111111111111',
     });
@@ -60,6 +71,15 @@ describe('桌面应用 IPC v1', () => {
       'garage:quarantine',
       'garage:export-diagnostic',
       'practice:run',
+      'replays:list',
+      'replays:open',
+      'replays:note',
+      'replays:export',
+      'replays:move-to-trash',
+      'replays:list-trash',
+      'replays:restore',
+      'replays:empty-trash',
+      'replays:export-diagnostic',
     ]);
     await expect(handlers.get('profile:create')?.({}, { displayName: 3, doctrine: 'scout' }))
       .rejects.toThrow('指挥官信息无效');
@@ -74,6 +94,11 @@ describe('桌面应用 IPC v1', () => {
     await expect(handlers.get('practice:run')?.({}, {
       currentRevision: 0, opponentRevision: 1, modeId: 'duel', seed: 1,
     })).rejects.toThrow('练习赛配置无效');
+    await expect(handlers.get('replays:open')?.({}, { replayId: '../escape', source: 'practice' }))
+      .rejects.toThrow('回放操作无效');
+    await expect(handlers.get('replays:note')?.({}, { replayId: 'a'.repeat(64), source: 'practice', note: 'x', path: 'C:\\' }))
+      .rejects.toThrow('回放操作无效');
+    await expect(handlers.get('replays:empty-trash')?.({}, false)).rejects.toThrow('需要明确确认');
     await expect(handlers.get('practice:run')?.({}, {
       currentRevision: 1, opponentRevision: 1, modeId: 'ranked', seed: 1,
     })).rejects.toThrow('练习赛配置无效');
@@ -102,6 +127,15 @@ describe('桌面应用 IPC v1', () => {
     await api.garage.quarantine();
     await api.garage.exportDiagnostic();
     await api.practice.run({ currentRevision: 2, opponentRevision: 1, modeId: 'capture', seed: 9 });
+    await api.replays.list({ source: 'practice' });
+    await api.replays.open({ replayId: 'a'.repeat(64), source: 'practice' });
+    await api.replays.note({ replayId: 'a'.repeat(64), source: 'practice', note: '侧翼时机' });
+    await api.replays.export({ replayId: 'a'.repeat(64), source: 'practice' });
+    await api.replays.moveToTrash({ replayId: 'a'.repeat(64), source: 'practice' });
+    await api.replays.listTrash();
+    await api.replays.restore('practice-' + 'a'.repeat(64));
+    await api.replays.emptyTrash(true);
+    await api.replays.exportDiagnostic();
 
     expect(calls).toEqual([
       ['app:bootstrap', undefined],
@@ -116,6 +150,15 @@ describe('桌面应用 IPC v1', () => {
       ['garage:quarantine', undefined],
       ['garage:export-diagnostic', undefined],
       ['practice:run', { currentRevision: 2, opponentRevision: 1, modeId: 'capture', seed: 9 }],
+      ['replays:list', { source: 'practice' }],
+      ['replays:open', { replayId: 'a'.repeat(64), source: 'practice' }],
+      ['replays:note', { replayId: 'a'.repeat(64), source: 'practice', note: '侧翼时机' }],
+      ['replays:export', { replayId: 'a'.repeat(64), source: 'practice' }],
+      ['replays:move-to-trash', { replayId: 'a'.repeat(64), source: 'practice' }],
+      ['replays:list-trash', undefined],
+      ['replays:restore', 'practice-' + 'a'.repeat(64)],
+      ['replays:empty-trash', true],
+      ['replays:export-diagnostic', undefined],
     ]);
     expect(api).not.toHaveProperty('invoke');
   });

@@ -202,6 +202,26 @@ export class ReplayLibraryServiceV1 {
     return this.trashRepository.empty(true);
   }
 
+  async exportDiagnostic(): Promise<string> {
+    const snapshot = await this.list({});
+    const createdAt = canonicalInstant(this.now());
+    const filename = `回放诊断-${createdAt.slice(0, 10).replaceAll('-', '')}.json`;
+    await atomicJson(resolve(this.exportsRoot, filename), {
+      version: 1,
+      createdAt,
+      counts: snapshot.counts,
+      entries: snapshot.cards.map((card) => ({
+        source: card.source,
+        createdAt: card.createdAt,
+        modeName: card.modeName,
+        outcome: card.outcome,
+        ticks: card.ticks,
+        integrity: card.integrity,
+      })),
+    });
+    return filename;
+  }
+
   private async localCandidates(): Promise<Candidate[]> {
     return Promise.all((await this.replayRepository.inspect()).map(async (inspection): Promise<Candidate> => {
       const note = (await this.metadataRepository.load(inspection.bundleHash))?.note ?? '';

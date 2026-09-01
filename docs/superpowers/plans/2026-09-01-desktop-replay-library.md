@@ -167,19 +167,19 @@ Commit: `feat: preserve friend public replays`
 - Library controller preserves last good cards on refresh failure and guards concurrent mutations.
 - Unified replay controller consumes only `FriendRoomReplayV1`, supporting open/seek/play/pause/close.
 
-- [ ] **Step 1: Write failing service/IPC/preload tests**
+- [x] **Step 1: Write failing service/IPC/preload tests**
 
-- [ ] **Step 2: Run and verify RED**
+- [x] **Step 2: Run and verify RED**
 
-- [ ] **Step 3: Implement application composition and fixed IPC**
+- [x] **Step 3: Implement application composition and fixed IPC**
 
-- [ ] **Step 4: Write failing controller tests**
+- [x] **Step 4: Write failing controller tests**
 
-- [ ] **Step 5: Run and verify RED**
+- [x] **Step 5: Run and verify RED**
 
-- [ ] **Step 6: Implement pure controllers**
+- [x] **Step 6: Implement pure controllers**
 
-- [ ] **Step 7: Run focused GREEN, typecheck and commit**
+- [x] **Step 7: Run focused GREEN, typecheck and commit**
 
 Commit: `feat: expose replay studio APIs`
 

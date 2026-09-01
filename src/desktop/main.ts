@@ -15,6 +15,9 @@ import { BuildRevisionNoteRepositoryV1 } from './build-revision-note-repository-
 import { GarageServiceV1 } from './garage-service-v1.js';
 import { PracticeMatchServiceV1 } from './practice-match-service-v1.js';
 import { PublicReplayRepositoryV1 } from './public-replay-repository-v1.js';
+import { ReplayMetadataRepositoryV1 } from './replay-metadata-repository-v1.js';
+import { ReplayTrashRepositoryV1 } from './replay-trash-repository-v1.js';
+import { ReplayLibraryServiceV1 } from './replay-library-service-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
@@ -86,6 +89,8 @@ app.whenReady().then(() => {
   const buildRepository = new SavedBuildRepositoryV2(join(userDataRoot, 'builds'), { quarantineRoot });
   const replayRepository = new ReplayRepositoryV2(join(userDataRoot, 'replays'));
   const publicReplayRepository = new PublicReplayRepositoryV1(join(userDataRoot, 'public-replays'));
+  const replayMetadataRepository = new ReplayMetadataRepositoryV1(join(userDataRoot, 'replay-metadata'));
+  const replayTrashRepository = new ReplayTrashRepositoryV1(join(userDataRoot, 'replay-trash'));
   const applicationService = new DesktopApplicationServiceV1({
     profileRepository: new PlayerProfileRepositoryV1(userDataRoot),
     garageService: new GarageServiceV1({
@@ -95,6 +100,13 @@ app.whenReady().then(() => {
       diagnosticsRoot: join(userDataRoot, 'diagnostics'),
     }),
     practiceService: new PracticeMatchServiceV1({ buildRepository, replayRepository }),
+    replayService: new ReplayLibraryServiceV1({
+      replayRepository,
+      publicRepository: publicReplayRepository,
+      metadataRepository: replayMetadataRepository,
+      trashRepository: replayTrashRepository,
+      exportsRoot: join(userDataRoot, 'exports'),
+    }),
   });
   registerDesktopApplicationIpcV1({
     handle: (channel, handler) => ipcMain.handle(channel, handler),

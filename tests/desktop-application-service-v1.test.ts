@@ -10,6 +10,10 @@ import { ReplayRepositoryV2 } from '../src/replay/repository-v2.js';
 import { BuildRevisionNoteRepositoryV1 } from '../src/desktop/build-revision-note-repository-v1.js';
 import { GarageServiceV1 } from '../src/desktop/garage-service-v1.js';
 import { PracticeMatchServiceV1 } from '../src/desktop/practice-match-service-v1.js';
+import { PublicReplayRepositoryV1 } from '../src/desktop/public-replay-repository-v1.js';
+import { ReplayMetadataRepositoryV1 } from '../src/desktop/replay-metadata-repository-v1.js';
+import { ReplayTrashRepositoryV1 } from '../src/desktop/replay-trash-repository-v1.js';
+import { ReplayLibraryServiceV1 } from '../src/desktop/replay-library-service-v1.js';
 
 const roots: string[] = [];
 
@@ -35,6 +39,13 @@ async function service(): Promise<DesktopApplicationServiceV1> {
       now,
     }),
     practiceService: new PracticeMatchServiceV1({ buildRepository, replayRepository, now }),
+    replayService: new ReplayLibraryServiceV1({
+      replayRepository,
+      publicRepository: new PublicReplayRepositoryV1(join(root, 'public-replays')),
+      metadataRepository: new ReplayMetadataRepositoryV1(join(root, 'replay-metadata')),
+      trashRepository: new ReplayTrashRepositoryV1(join(root, 'replay-trash'), { now }),
+      exportsRoot: join(root, 'exports'), now,
+    }),
     now,
     createPlayerId: () => '11111111-1111-4111-8111-111111111111',
   });
@@ -95,5 +106,8 @@ describe('DesktopApplicationServiceV1', () => {
     expect(garage).toMatchObject({ status: 'ready', currentRevision: 1 });
     expect(updated).toMatchObject({ status: 'ready', currentRevision: 2 });
     expect(match).toMatchObject({ currentRevision: 2, opponentRevision: 1, modeName: '歼灭决斗' });
+    const library = await app.listReplays({ modeId: 'duel' });
+    expect(library.cards).toEqual([expect.objectContaining({ source: 'practice', playable: true })]);
+    await expect(app.openReplay(match.replayHash, 'practice')).resolves.toMatchObject({ replay: { version: 1 } });
   });
 });

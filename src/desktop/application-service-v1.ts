@@ -9,6 +9,13 @@ import {
 import { runTutorialMatchV1, type TutorialMatchResultV1 } from './tutorial-match-service-v1.js';
 import type { GarageSaveInputV1, GarageServiceV1, GarageSnapshotV1, GarageDiagnosticExportV1 } from './garage-service-v1.js';
 import type { PracticeMatchServiceV1, PracticeResultViewV1, PracticeRunInputV1 } from './practice-match-service-v1.js';
+import type {
+  ReplayLibraryFilterV1,
+  ReplayLibraryServiceV1,
+  ReplayLibrarySnapshotV1,
+  ReplaySourceV1,
+  ReplayTrashCardV1,
+} from './replay-library-service-v1.js';
 
 export interface DesktopBootstrapV1 {
   needsOnboarding: boolean;
@@ -22,6 +29,7 @@ export interface DesktopApplicationServiceOptionsV1 {
   tutorialRunner?: typeof runTutorialMatchV1;
   garageService?: GarageServiceV1;
   practiceService?: PracticeMatchServiceV1;
+  replayService?: ReplayLibraryServiceV1;
 }
 
 export class DesktopApplicationServiceV1 {
@@ -31,6 +39,7 @@ export class DesktopApplicationServiceV1 {
   private readonly tutorialRunner: typeof runTutorialMatchV1;
   private readonly garageService?: GarageServiceV1;
   private readonly practiceService?: PracticeMatchServiceV1;
+  private readonly replayService?: ReplayLibraryServiceV1;
 
   constructor(options: DesktopApplicationServiceOptionsV1) {
     this.repository = options.profileRepository;
@@ -39,6 +48,7 @@ export class DesktopApplicationServiceV1 {
     this.tutorialRunner = options.tutorialRunner ?? runTutorialMatchV1;
     this.garageService = options.garageService;
     this.practiceService = options.practiceService;
+    this.replayService = options.replayService;
   }
 
   async bootstrap(): Promise<DesktopBootstrapV1> {
@@ -109,6 +119,51 @@ export class DesktopApplicationServiceV1 {
     return this.requirePracticeService().run(input);
   }
 
+  async listReplays(filter: ReplayLibraryFilterV1): Promise<ReplayLibrarySnapshotV1> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().list(filter);
+  }
+
+  async openReplay(replayId: string, source: ReplaySourceV1) {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().open(replayId, source);
+  }
+
+  async updateReplayNote(replayId: string, source: ReplaySourceV1, note: string): Promise<void> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().updateNote(replayId, source, note);
+  }
+
+  async exportReplay(replayId: string, source: ReplaySourceV1): Promise<string> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().export(replayId, source);
+  }
+
+  async moveReplayToTrash(replayId: string, source: ReplaySourceV1) {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().moveToTrash(replayId, source);
+  }
+
+  async listReplayTrash(): Promise<ReplayTrashCardV1[]> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().listTrash();
+  }
+
+  async restoreReplay(entryId: string): Promise<void> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().restore(entryId);
+  }
+
+  async emptyReplayTrash(confirmed: boolean): Promise<string[]> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().emptyTrash(confirmed);
+  }
+
+  async exportReplayDiagnostic(): Promise<string> {
+    await this.requireCompletedProfile();
+    return this.requireReplayService().exportDiagnostic();
+  }
+
   private async requireProfile(): Promise<PlayerProfileV1> {
     const profile = await this.repository.load();
     if (!profile) throw new Error('请先建立指挥官档案');
@@ -129,6 +184,11 @@ export class DesktopApplicationServiceV1 {
   private requirePracticeService(): PracticeMatchServiceV1 {
     if (!this.practiceService) throw new Error('练习赛服务暂不可用');
     return this.practiceService;
+  }
+
+  private requireReplayService(): ReplayLibraryServiceV1 {
+    if (!this.replayService) throw new Error('回放工作室暂不可用');
+    return this.replayService;
   }
 
   private async saveUpdated(profile: PlayerProfileV1): Promise<PlayerProfileV1> {

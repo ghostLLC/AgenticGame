@@ -2,6 +2,7 @@ import type { DesktopApplicationServiceV1 } from './application-service-v1.js';
 import type { DesktopPageIdV1, PlayerDoctrineV1, TutorialStageV1 } from './player-profile-v1.js';
 import type { GarageSaveInputV1, GarageTacticIdV1 } from './garage-service-v1.js';
 import type { PracticeRunInputV1 } from './practice-match-service-v1.js';
+import type { ReplayLibraryFilterV1, ReplaySourceV1 } from './replay-library-service-v1.js';
 
 export type DesktopIpcHandlerV1 = (event: unknown, input?: unknown) => Promise<unknown>;
 
@@ -54,6 +55,57 @@ export function registerDesktopApplicationIpcV1(
   registrar.handle('garage:quarantine', async () => service.quarantineGarageHistory());
   registrar.handle('garage:export-diagnostic', async () => service.exportGarageDiagnostic());
   registrar.handle('practice:run', async (_event, input) => service.runPractice(assertPracticeInput(input)));
+  registrar.handle('replays:list', async (_event, input) => service.listReplays(assertReplayFilter(input)));
+  registrar.handle('replays:open', async (_event, input) => {
+    const action = assertReplayAction(input);
+    return service.openReplay(action.replayId, action.source);
+  });
+  registrar.handle('replays:note', async (_event, input) => {
+    if (!isRecord(input) || !hasExactKeys(input, ['replayId', 'source', 'note'])
+      || typeof input.note !== 'string' || input.note.trim() !== input.note || [...input.note].length > 240) {
+      throw new Error('回放操作无效');
+    }
+    const action = assertReplayAction({ replayId: input.replayId, source: input.source });
+    return service.updateReplayNote(action.replayId, action.source, input.note);
+  });
+  registrar.handle('replays:export', async (_event, input) => {
+    const action = assertReplayAction(input);
+    return service.exportReplay(action.replayId, action.source);
+  });
+  registrar.handle('replays:move-to-trash', async (_event, input) => {
+    const action = assertReplayAction(input);
+    return service.moveReplayToTrash(action.replayId, action.source);
+  });
+  registrar.handle('replays:list-trash', async () => service.listReplayTrash());
+  registrar.handle('replays:restore', async (_event, input) => {
+    if (typeof input !== 'string' || !/^(practice|friend-public)-[0-9a-f]{64}$/.test(input)) throw new Error('回收站操作无效');
+    return service.restoreReplay(input);
+  });
+  registrar.handle('replays:empty-trash', async (_event, input) => {
+    if (input !== true) throw new Error('清空回收站需要明确确认');
+    return service.emptyReplayTrash(true);
+  });
+  registrar.handle('replays:export-diagnostic', async () => service.exportReplayDiagnostic());
+}
+
+function assertReplayAction(input: unknown): { replayId: string; source: ReplaySourceV1 } {
+  if (!isRecord(input) || !hasExactKeys(input, ['replayId', 'source'])
+    || typeof input.replayId !== 'string' || !/^[0-9a-f]{64}$/.test(input.replayId)
+    || (input.source !== 'practice' && input.source !== 'friend-public')) throw new Error('回放操作无效');
+  return { replayId: input.replayId, source: input.source };
+}
+
+function assertReplayFilter(input: unknown): ReplayLibraryFilterV1 {
+  if (!isRecord(input) || !Object.keys(input).every((key) => [
+    'source', 'modeId', 'outcome', 'buildRevision', 'query', 'dateFrom', 'dateTo',
+  ].includes(key))) throw new Error('回放筛选条件无效');
+  if (input.source !== undefined && input.source !== 'practice' && input.source !== 'friend-public') throw new Error('回放筛选条件无效');
+  if (input.modeId !== undefined && input.modeId !== 'duel' && input.modeId !== 'capture') throw new Error('回放筛选条件无效');
+  if (input.outcome !== undefined && input.outcome !== 'victory' && input.outcome !== 'defeat' && input.outcome !== 'draw') throw new Error('回放筛选条件无效');
+  if (input.buildRevision !== undefined && !validRevision(input.buildRevision)) throw new Error('回放筛选条件无效');
+  if (input.query !== undefined && (typeof input.query !== 'string' || input.query.trim() !== input.query || [...input.query].length > 80)) throw new Error('回放筛选条件无效');
+  for (const date of [input.dateFrom, input.dateTo]) if (date !== undefined && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date))) throw new Error('回放筛选条件无效');
+  return structuredClone(input) as ReplayLibraryFilterV1;
 }
 
 function assertGarageInput(input: unknown): GarageSaveInputV1 {
