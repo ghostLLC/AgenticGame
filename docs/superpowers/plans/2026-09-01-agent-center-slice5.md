@@ -52,3 +52,4 @@
 - Windows folder candidate launched with all observed Electron processes responding.
 - ZIP: `release/AgenticGame-0.1.0-slice5-win-x64.zip`, 162093279 bytes, SHA-256 `C94BA5355DA12AD5BE2CA9388CD442F548EB63C5518D21D0A347F3FA7018B800`.
 - Honest boundary: no real paid-provider API call and no two-real-Windows-device acceptance yet; both remain external acceptance items, not inferred from mocks.
+- Stable implementation key `e3405f5` was pushed to GitHub main. Feishu UX, technical architecture, development log, and quality documents were updated and read back; each contains that stable key exactly once.
