@@ -96,4 +96,5 @@
 - Playwright: 1440x900 and 1100x700, no horizontal overflow, modal focus loop verified, 0 console errors/warnings, and no raw room protocol material in player-visible text.
 - Windows folder candidate launched with all observed Electron processes responding.
 - ZIP: `release/AgenticGame-0.1.0-slice4-win-x64.zip`, 162080033 bytes, SHA-256 `C88ED7D3003EF988D2D1829F8E2463564185D13B1BC54CA010A7AD45B4DB3ADB`.
+- Stable implementation key `b5bf4a8` was pushed to `main`; Feishu UX, technical architecture, development log, and quality documents were updated and read back with exactly one occurrence of that key in each document.
 - Remaining external acceptance boundary: two real Windows devices have not yet completed cross-device LAN/internet/restart-recovery testing.
