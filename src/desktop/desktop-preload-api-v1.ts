@@ -37,5 +37,11 @@ export function createDesktopPreloadApiV1(invoke: DesktopInvokeV1): DesktopApiV1
       emptyTrash: (confirmed) => invoke('replays:empty-trash', confirmed) as ReturnType<DesktopApiV1['replays']['emptyTrash']>,
       exportDiagnostic: () => invoke('replays:export-diagnostic') as ReturnType<DesktopApiV1['replays']['exportDiagnostic']>,
     },
+    agentCenter: {
+      get: () => invoke('agent-center:get') as ReturnType<DesktopApiV1['agentCenter']['get']>,
+      run: (input) => invoke('agent-center:run', input) as ReturnType<DesktopApiV1['agentCenter']['run']>,
+      cancel: () => invoke('agent-center:cancel') as ReturnType<DesktopApiV1['agentCenter']['cancel']>,
+      save: (input) => invoke('agent-center:save', input) as ReturnType<DesktopApiV1['agentCenter']['save']>,
+    },
   };
 }

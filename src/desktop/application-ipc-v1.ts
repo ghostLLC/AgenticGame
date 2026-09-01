@@ -3,6 +3,10 @@ import type { DesktopPageIdV1, PlayerDoctrineV1, TutorialStageV1 } from './playe
 import type { GarageSaveInputV1, GarageTacticIdV1 } from './garage-service-v1.js';
 import type { PracticeRunInputV1 } from './practice-match-service-v1.js';
 import type { ReplayLibraryFilterV1, ReplaySourceV1 } from './replay-library-service-v1.js';
+import type {
+  AgentCenterRunInputV1,
+  AgentCenterSaveInputV1,
+} from './agent-center-service-v1.js';
 
 export type DesktopIpcHandlerV1 = (event: unknown, input?: unknown) => Promise<unknown>;
 
@@ -86,6 +90,69 @@ export function registerDesktopApplicationIpcV1(
     return service.emptyReplayTrash(true);
   });
   registrar.handle('replays:export-diagnostic', async () => service.exportReplayDiagnostic());
+  registrar.handle('agent-center:get', async () => service.getAgentCenter());
+  registrar.handle('agent-center:run', async (_event, input) => service.runAgentCenter(assertAgentRunInput(input)));
+  registrar.handle('agent-center:cancel', async () => service.cancelAgentCenter());
+  registrar.handle('agent-center:save', async (_event, input) => service.saveAgentCandidate(assertAgentSaveInput(input)));
+}
+
+function assertAgentRunInput(input: unknown): AgentCenterRunInputV1 {
+  if (!isRecord(input) || !hasExactKeys(input, ['revision', 'provider', 'goal', 'depth'])
+    || !validRevision(input.revision)
+    || (input.depth !== 'quick' && input.depth !== 'standard' && input.depth !== 'deep')
+    || typeof input.goal !== 'string' || input.goal.trim() !== input.goal || [...input.goal].length < 1 || [...input.goal].length > 500
+    || !isRecord(input.provider) || !hasExactKeys(input.provider, ['kind', 'baseUrl', 'model', 'apiKey'])
+    || (input.provider.kind !== 'openai-compatible' && input.provider.kind !== 'anthropic')
+    || !boundedTrimmed(input.provider.baseUrl, 1, 500)
+    || !boundedTrimmed(input.provider.model, 1, 120)
+    || !boundedTrimmed(input.provider.apiKey, 1, 4096)
+    || !safeProviderUrl(input.provider.baseUrl as string)) {
+    throw new Error('AI 战术调整参数无效');
+  }
+  return {
+    revision: input.revision as number,
+    provider: {
+      kind: input.provider.kind as AgentCenterRunInputV1['provider']['kind'],
+      baseUrl: input.provider.baseUrl as string,
+      model: input.provider.model as string,
+      apiKey: input.provider.apiKey as string,
+    },
+    goal: input.goal as string,
+    depth: input.depth as AgentCenterRunInputV1['depth'],
+  };
+}
+
+function assertAgentSaveInput(input: unknown): AgentCenterSaveInputV1 {
+  if (!isRecord(input) || !hasExactKeys(input, ['candidateId', 'label', 'note', 'confirmed']) || input.confirmed !== true) {
+    throw new Error('保存候选方案需要明确确认');
+  }
+  if (typeof input.candidateId !== 'string' || input.candidateId.length < 1 || input.candidateId.length > 64
+    || !/^[a-z0-9]+(?:[-_.][a-z0-9]+)*$/.test(input.candidateId)
+    || !boundedTrimmed(input.label, 1, 80) || !boundedTrimmed(input.note, 0, 240)) {
+    throw new Error('候选方案无效');
+  }
+  return {
+    candidateId: input.candidateId,
+    label: input.label as string,
+    note: input.note as string,
+    confirmed: true,
+  };
+}
+
+function safeProviderUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    return (url.protocol === 'https:' || (url.protocol === 'http:' && loopback))
+      && !url.username && !url.password && !url.search && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
+function boundedTrimmed(value: unknown, minimum: number, maximum: number): value is string {
+  return typeof value === 'string' && value.trim() === value
+    && [...value].length >= minimum && [...value].length <= maximum;
 }
 
 function assertReplayAction(input: unknown): { replayId: string; source: ReplaySourceV1 } {

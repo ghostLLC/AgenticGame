@@ -15,6 +15,12 @@ import type {
   ReplayTrashCardV1,
 } from './replay-library-service-v1.js';
 import type { FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
+import type {
+  AgentCenterRunInputV1,
+  AgentCenterRunResultV1,
+  AgentCenterSaveInputV1,
+  AgentCenterSnapshotV1,
+} from './agent-center-service-v1.js';
 
 export interface DesktopApiV1 {
   app: {
@@ -49,5 +55,11 @@ export interface DesktopApiV1 {
     restore(entryId: string): Promise<void>;
     emptyTrash(confirmed: true): Promise<string[]>;
     exportDiagnostic(): Promise<string>;
+  };
+  agentCenter: {
+    get(): Promise<AgentCenterSnapshotV1>;
+    run(input: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1>;
+    cancel(): Promise<boolean>;
+    save(input: AgentCenterSaveInputV1): Promise<{ revision: number; label: string }>;
   };
 }

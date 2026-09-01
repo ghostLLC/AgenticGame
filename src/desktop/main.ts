@@ -31,6 +31,7 @@ import {
   probeWritableDirectoryV1,
 } from './release-diagnostics-service-v1.js';
 import { runTutorialMatchV1 } from './tutorial-match-service-v1.js';
+import { AgentCenterServiceV1 } from './agent-center-service-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
@@ -187,11 +188,12 @@ app.whenReady().then(() => {
   const publicReplayRepository = new PublicReplayRepositoryV1(join(userDataRoot, 'public-replays'));
   const replayMetadataRepository = new ReplayMetadataRepositoryV1(join(userDataRoot, 'replay-metadata'));
   const replayTrashRepository = new ReplayTrashRepositoryV1(join(userDataRoot, 'replay-trash'));
+  const noteRepository = new BuildRevisionNoteRepositoryV1(join(userDataRoot, 'build-metadata'), { quarantineRoot });
   const applicationService = new DesktopApplicationServiceV1({
     profileRepository: new PlayerProfileRepositoryV1(userDataRoot),
     garageService: new GarageServiceV1({
       buildRepository,
-      noteRepository: new BuildRevisionNoteRepositoryV1(join(userDataRoot, 'build-metadata'), { quarantineRoot }),
+      noteRepository,
       replayRepository,
       diagnosticsRoot: join(userDataRoot, 'diagnostics'),
     }),
@@ -203,6 +205,7 @@ app.whenReady().then(() => {
       trashRepository: replayTrashRepository,
       exportsRoot: join(userDataRoot, 'exports'),
     }),
+    agentCenterService: new AgentCenterServiceV1({ buildRepository, noteRepository }),
   });
   registerDesktopApplicationIpcV1({
     handle: (channel, handler) => ipcMain.handle(channel, handler),

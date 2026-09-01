@@ -14,6 +14,7 @@ import { PublicReplayRepositoryV1 } from '../src/desktop/public-replay-repositor
 import { ReplayMetadataRepositoryV1 } from '../src/desktop/replay-metadata-repository-v1.js';
 import { ReplayTrashRepositoryV1 } from '../src/desktop/replay-trash-repository-v1.js';
 import { ReplayLibraryServiceV1 } from '../src/desktop/replay-library-service-v1.js';
+import { AgentCenterServiceV1 } from '../src/desktop/agent-center-service-v1.js';
 
 const roots: string[] = [];
 
@@ -29,11 +30,12 @@ async function service(): Promise<DesktopApplicationServiceV1> {
   const quarantineRoot = join(root, 'quarantine');
   const buildRepository = new SavedBuildRepositoryV2(join(root, 'builds'), { quarantineRoot, now });
   const replayRepository = new ReplayRepositoryV2(join(root, 'replays'));
+  const noteRepository = new BuildRevisionNoteRepositoryV1(join(root, 'build-metadata'), { quarantineRoot, now });
   return new DesktopApplicationServiceV1({
     profileRepository: new PlayerProfileRepositoryV1(root),
     garageService: new GarageServiceV1({
       buildRepository,
-      noteRepository: new BuildRevisionNoteRepositoryV1(join(root, 'build-metadata'), { quarantineRoot, now }),
+      noteRepository,
       replayRepository,
       diagnosticsRoot: join(root, 'diagnostics'),
       now,
@@ -45,6 +47,11 @@ async function service(): Promise<DesktopApplicationServiceV1> {
       metadataRepository: new ReplayMetadataRepositoryV1(join(root, 'replay-metadata')),
       trashRepository: new ReplayTrashRepositoryV1(join(root, 'replay-trash'), { now }),
       exportsRoot: join(root, 'exports'), now,
+    }),
+    agentCenterService: new AgentCenterServiceV1({
+      buildRepository,
+      noteRepository,
+      providerFactory: () => ({ id: 'unused', complete: async () => ({ content: '' }) }),
     }),
     now,
     createPlayerId: () => '11111111-1111-4111-8111-111111111111',
@@ -109,5 +116,8 @@ describe('DesktopApplicationServiceV1', () => {
     const library = await app.listReplays({ modeId: 'duel' });
     expect(library.cards).toEqual([expect.objectContaining({ source: 'practice', playable: true })]);
     await expect(app.openReplay(match.replayHash, 'practice')).resolves.toMatchObject({ replay: { version: 1 } });
+    await expect(app.getAgentCenter()).resolves.toMatchObject({
+      builds: [expect.objectContaining({ revision: 1 }), expect.objectContaining({ revision: 2 })],
+    });
   });
 });

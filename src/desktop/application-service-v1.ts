@@ -16,6 +16,13 @@ import type {
   ReplaySourceV1,
   ReplayTrashCardV1,
 } from './replay-library-service-v1.js';
+import type {
+  AgentCenterRunInputV1,
+  AgentCenterRunResultV1,
+  AgentCenterSaveInputV1,
+  AgentCenterServiceV1,
+  AgentCenterSnapshotV1,
+} from './agent-center-service-v1.js';
 
 export interface DesktopBootstrapV1 {
   needsOnboarding: boolean;
@@ -30,6 +37,7 @@ export interface DesktopApplicationServiceOptionsV1 {
   garageService?: GarageServiceV1;
   practiceService?: PracticeMatchServiceV1;
   replayService?: ReplayLibraryServiceV1;
+  agentCenterService?: AgentCenterServiceV1;
 }
 
 export class DesktopApplicationServiceV1 {
@@ -40,6 +48,7 @@ export class DesktopApplicationServiceV1 {
   private readonly garageService?: GarageServiceV1;
   private readonly practiceService?: PracticeMatchServiceV1;
   private readonly replayService?: ReplayLibraryServiceV1;
+  private readonly agentCenterService?: AgentCenterServiceV1;
 
   constructor(options: DesktopApplicationServiceOptionsV1) {
     this.repository = options.profileRepository;
@@ -49,6 +58,7 @@ export class DesktopApplicationServiceV1 {
     this.garageService = options.garageService;
     this.practiceService = options.practiceService;
     this.replayService = options.replayService;
+    this.agentCenterService = options.agentCenterService;
   }
 
   async bootstrap(): Promise<DesktopBootstrapV1> {
@@ -164,6 +174,26 @@ export class DesktopApplicationServiceV1 {
     return this.requireReplayService().exportDiagnostic();
   }
 
+  async getAgentCenter(): Promise<AgentCenterSnapshotV1> {
+    await this.requireCompletedProfile();
+    return this.requireAgentCenterService().getSnapshot();
+  }
+
+  async runAgentCenter(input: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1> {
+    await this.requireCompletedProfile();
+    return this.requireAgentCenterService().run(input);
+  }
+
+  async cancelAgentCenter(): Promise<boolean> {
+    await this.requireCompletedProfile();
+    return this.requireAgentCenterService().cancel();
+  }
+
+  async saveAgentCandidate(input: AgentCenterSaveInputV1): Promise<{ revision: number; label: string }> {
+    await this.requireCompletedProfile();
+    return this.requireAgentCenterService().saveCandidate(input);
+  }
+
   private async requireProfile(): Promise<PlayerProfileV1> {
     const profile = await this.repository.load();
     if (!profile) throw new Error('请先建立指挥官档案');
@@ -189,6 +219,11 @@ export class DesktopApplicationServiceV1 {
   private requireReplayService(): ReplayLibraryServiceV1 {
     if (!this.replayService) throw new Error('回放工作室暂不可用');
     return this.replayService;
+  }
+
+  private requireAgentCenterService(): AgentCenterServiceV1 {
+    if (!this.agentCenterService) throw new Error('AI 队友中心暂不可用');
+    return this.agentCenterService;
   }
 
   private async saveUpdated(profile: PlayerProfileV1): Promise<PlayerProfileV1> {

@@ -80,6 +80,10 @@ describe('桌面应用 IPC v1', () => {
       'replays:restore',
       'replays:empty-trash',
       'replays:export-diagnostic',
+      'agent-center:get',
+      'agent-center:run',
+      'agent-center:cancel',
+      'agent-center:save',
     ]);
     await expect(handlers.get('profile:create')?.({}, { displayName: 3, doctrine: 'scout' }))
       .rejects.toThrow('指挥官信息无效');
@@ -99,6 +103,14 @@ describe('桌面应用 IPC v1', () => {
     await expect(handlers.get('replays:note')?.({}, { replayId: 'a'.repeat(64), source: 'practice', note: 'x', path: 'C:\\' }))
       .rejects.toThrow('回放操作无效');
     await expect(handlers.get('replays:empty-trash')?.({}, false)).rejects.toThrow('需要明确确认');
+    await expect(handlers.get('agent-center:run')?.({}, {
+      revision: 1,
+      provider: { kind: 'openai-compatible', baseUrl: 'http://localhost.evil.example/v1', model: 'model', apiKey: 'key' },
+      goal: '调整战术', depth: 'quick',
+    })).rejects.toThrow('AI 战术调整参数无效');
+    await expect(handlers.get('agent-center:save')?.({}, {
+      candidateId: 'candidate-1', label: '候选', note: '', confirmed: false,
+    })).rejects.toThrow('需要明确确认');
     await expect(handlers.get('practice:run')?.({}, {
       currentRevision: 1, opponentRevision: 1, modeId: 'ranked', seed: 1,
     })).rejects.toThrow('练习赛配置无效');
@@ -136,6 +148,14 @@ describe('桌面应用 IPC v1', () => {
     await api.replays.restore('practice-' + 'a'.repeat(64));
     await api.replays.emptyTrash(true);
     await api.replays.exportDiagnostic();
+    await api.agentCenter.get();
+    await api.agentCenter.run({
+      revision: 2,
+      provider: { kind: 'anthropic', baseUrl: 'https://api.anthropic.com/v1', model: 'claude-test', apiKey: 'session-key' },
+      goal: '加强抢点', depth: 'standard',
+    });
+    await api.agentCenter.cancel();
+    await api.agentCenter.save({ candidateId: 'candidate-1', label: 'AI 抢点版', note: '提高抢点', confirmed: true });
 
     expect(calls).toEqual([
       ['app:bootstrap', undefined],
@@ -159,6 +179,14 @@ describe('桌面应用 IPC v1', () => {
       ['replays:restore', 'practice-' + 'a'.repeat(64)],
       ['replays:empty-trash', true],
       ['replays:export-diagnostic', undefined],
+      ['agent-center:get', undefined],
+      ['agent-center:run', {
+        revision: 2,
+        provider: { kind: 'anthropic', baseUrl: 'https://api.anthropic.com/v1', model: 'claude-test', apiKey: 'session-key' },
+        goal: '加强抢点', depth: 'standard',
+      }],
+      ['agent-center:cancel', undefined],
+      ['agent-center:save', { candidateId: 'candidate-1', label: 'AI 抢点版', note: '提高抢点', confirmed: true }],
     ]);
     expect(api).not.toHaveProperty('invoke');
   });
