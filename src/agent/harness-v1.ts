@@ -5,6 +5,12 @@ export interface AgentToolV1 {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: {
+    readOnlyHint: boolean;
+    destructiveHint: boolean;
+    idempotentHint: boolean;
+    openWorldHint: boolean;
+  };
   execute(input: AgentToolInputV1): Promise<AgentToolOutputV1>;
 }
 

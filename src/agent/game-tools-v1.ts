@@ -26,6 +26,7 @@ export function createGameToolsV1(options: GameToolsOptionsV1 = {}): AgentToolV1
       name: 'get_game_context',
       description: 'Get the current official Tank Arena vehicles, weapons, modes, map and bot interface summary.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      annotations: readOnlyAnnotations(),
       async execute() {
         return {
           schemaVersion: 1,
@@ -55,6 +56,7 @@ export function createGameToolsV1(options: GameToolsOptionsV1 = {}): AgentToolV1
     {
       name: 'evaluate_bot',
       description: 'Run JavaScript bot source against the deterministic official baseline in the real v2 sandbox.',
+      annotations: readOnlyAnnotations(),
       inputSchema: {
         type: 'object',
         properties: {
@@ -122,6 +124,10 @@ export function createGameToolsV1(options: GameToolsOptionsV1 = {}): AgentToolV1
       },
     },
   ];
+}
+
+function readOnlyAnnotations(): NonNullable<AgentToolV1['annotations']> {
+  return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 }
 
 function parseEvaluationInput(input: Record<string, unknown>): {

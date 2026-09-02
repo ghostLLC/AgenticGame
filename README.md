@@ -1,9 +1,11 @@
 # AgenticGame · 坦克竞技场
 
-**游戏优先、代码可选的 AI 原生坦克策略游戏。** 目标体验是让普通玩家从选车、装配和预设指挥官开始；
-想深入的玩家再让 Codex、Claude Code 等外部 Agent 编写 Bot，或使用内置 BYOK Harness 描述战术并生成 Bot。
+**游戏优先、代码可选的 AI 原生坦克策略游戏。** 玩家在 Codex、WorkBuddy、Qoder 等熟悉的 Agent
+里描述战术，游戏负责可信评测、版本、回放与好友竞技；也可只使用桌面内置战术和 BYOK 教练。
 
-当前已有两条可运行入口：保留给开发者与 Agent 的 CLI，以及面向普通玩家的独立桌面游戏窗口。
+当前的主要创作入口是 Codex、WorkBuddy、Qoder 等外部 Agent：安装包自带独立 Agent Bridge，
+Agent 可直接读取玩家版本、修改和真实评测战术、保存新版本并发起新旧版本练习赛。桌面游戏负责
+版本查看、回放、好友房间和不使用外部 Agent 时的内置 AI 战术教练。
 桌面端已具备本地玩家档案、可恢复首次体验、真实教学战斗、战后复盘、指挥中心、不可变版本车库、
 新旧版本/镜像练习赛，以及压缩好友邀请、直连、战前准备、三套预设战术、双方准备、房主自动开赛、
 战报同步、再来一局、房间内断线恢复和双方可看的逐回合战术回放。
@@ -15,11 +17,11 @@ Public Beta B 同时提供 Windows x64 便携 ZIP 与当前用户 NSIS 安装包
 ## 玩法闭环
 
 ```
-你 ──> 把 docs/tank-spec.md 喂给你的 AI agent
-     ──> AI 产出 my-tank.js
-     ──> arena validate / self / play 挑战基准 bot
-     ──> 观看回放，告诉 AI 哪里打得蠢
-     ──> AI 迭代代码 …… 直到你认为它够强
+你 ──> 在 Codex / WorkBuddy / Qoder 里描述想要的战术
+     ──> Agent Bridge 自动提供规则、当前版本和真实沙箱评测
+     ──> 你确认后，Agent 保存不可变新版本并让它挑战旧版本
+     ──> 在游戏的回放工作室查看结果，再告诉 Agent 哪里需要改进
+     ──> Agent 继续迭代 …… 直到你认为它够强
      ──> 进入好友房间，配置由游戏自动同步，双方查看同一战报
 ```
 
@@ -31,7 +33,21 @@ Public Beta B 同时提供 Windows x64 便携 ZIP 与当前用户 NSIS 安装包
 当前 Public Beta B Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`；可直接使用
 `release/AgenticGame-0.1.0-win-x64-setup.exe` 安装，或解压
 `release/AgenticGame-0.1.0-public-beta-b-win-x64.zip` 的完整目录后运行。安装包未签名，Windows
-可能显示 SmartScreen 提示。开发环境需要 Node.js ≥ 20：
+可能显示 SmartScreen 提示。
+
+安装版和便携版根目录均包含 `AgenticGame-Agent.exe`。先在 PowerShell 生成对应 Agent 的配置，
+把输出合并到该 Agent 的 MCP 配置后重启：
+
+```powershell
+& "C:\完整路径\AgenticGame-Agent.exe" config codex
+& "C:\完整路径\AgenticGame-Agent.exe" config qoder
+& "C:\完整路径\AgenticGame-Agent.exe" config workbuddy
+```
+
+接入后可直接说：“读取我的 AgenticGame 战术版本，改进据点争夺能力；先评测，等我确认后保存，
+再让新版本和旧版本打一场。”不需要把规则书、源码文件或比赛日志手工传给 Agent。
+
+开发环境需要 Node.js ≥ 20：
 
 ```bash
 npm install
@@ -44,6 +60,9 @@ npm run pack:desktop-folder
 
 # 生成当前用户 NSIS 安装包
 npm run pack:desktop-installer
+
+# 单独生成外部 Agent 使用的 Windows MCP Bridge
+npm run build:agent-bridge
 
 # 内置示例对战（Chaser vs Sniper）并自动打开网页回放
 npm run arena -- demo
@@ -171,10 +190,13 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 
 接口与验收口径见 [Replay Studio v2 规格](docs/product/replay-studio-v2-spec.md)。
 
-## AI 原生接入（首个可运行纵切）
+## AI 原生接入
 
-- 外部 Agent：`npm run arena -- mcp` 启动本地 stdio 服务，Codex、Claude Code 等 MCP Host 可发现
-  `get_game_context` 与 `evaluate_bot`，后者直接运行真实 v2 沙箱比赛并返回已验证摘要。
+- 外部 Agent：发行包内 `AgenticGame-Agent.exe mcp` 启动本地 stdio 服务，不监听网络端口、不依赖
+  Node 或项目源码。Codex、WorkBuddy、Qoder 等 MCP Host 可发现六个工具：读取游戏规则、临时评测、
+  读取玩家工作区、保存不可变版本、运行新旧版本练习赛、读取已验证战绩。
+- Agent Bridge 默认和桌面游戏共享 `%APPDATA%\AgenticGame`，Agent 保存的版本与练习赛会直接出现在
+  游戏车库和回放工作室；源码开发时仍可使用 `npm run arena -- mcp`。
 - 内置 BYOK：设置 `AGENTIC_GAME_API_KEY` 后运行
   `npm run arena -- agent <bot.js> --model <id> --base-url <兼容端点>`；密钥不写入参数、配置、日志或回放。
 - Harness 采用工具白名单、模型轮次/工具调用预算、AbortSignal 和结果脱敏；外部与内置路径共享完全相同的游戏工具。
@@ -221,8 +243,8 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - [x] 把 v2 配置历史、新旧/镜像练习赛和关键时刻投影接入玩家界面
 - [x] Replay Studio 回放库、好友赛公开回放持久化与完整逐回合桌面入口
 - [x] Agent Center：OpenAI-compatible / Anthropic BYOK、取消、脱敏、3/5/10 场评测与确认保存
-- [x] 外部 Agent MCP 接入 + 内置 OpenAI-compatible BYOK Harness 首个可运行纵切
-- [ ] 外部 Agent 接入向导与更多评测对手/模式
+- [x] 外部 Agent MCP 主入口：独立 EXE、六工具版本/评测/练习赛闭环与 Codex/Qoder/WorkBuddy 配置生成
+- [ ] 桌面内一键接入向导与更多评测对手/模式
 - [ ] 2v2、更多地图、更多比赛模式与赛季内容
 
 ## 常见问题
