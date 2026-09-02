@@ -35,8 +35,11 @@ Public Beta B 同时提供 Windows x64 便携 ZIP 与当前用户 NSIS 安装包
 `release/AgenticGame-0.1.0-public-beta-b-win-x64.zip` 的完整目录后运行。安装包未签名，Windows
 可能显示 SmartScreen 提示。
 
-安装版和便携版根目录均包含 `AgenticGame-Agent.exe`。先在 PowerShell 生成对应 Agent 的配置，
-把输出合并到该 Agent 的 MCP 配置后重启：
+打开游戏的“AI 战术教练”，在“连接我的 AI 队友”中选择 Codex、WorkBuddy 或 Qoder，点击“一键接入”
+并重启对应 AI 工具即可。向导只增改 AgenticGame 自己的连接，保留其他连接和原配置；首次修改既有
+配置时会在同目录留下一个恢复备份。
+
+高级用户也可以使用安装版和便携版根目录的 `AgenticGame-Agent.exe`，在 PowerShell 生成配置后手动合并：
 
 ```powershell
 & "C:\完整路径\AgenticGame-Agent.exe" config codex
@@ -195,6 +198,9 @@ tests/          v1/v2 引擎、Runner、内容、配置和 Replay 契约测试
 - 外部 Agent：发行包内 `AgenticGame-Agent.exe mcp` 启动本地 stdio 服务，不监听网络端口、不依赖
   Node 或项目源码。Codex、WorkBuddy、Qoder 等 MCP Host 可发现六个工具：读取游戏规则、临时评测、
   读取玩家工作区、保存不可变版本、运行新旧版本练习赛、读取已验证战绩。
+- 桌面一键接入：AI 战术教练会识别 Codex、WorkBuddy、Qoder 的用户配置；只有玩家点击后才合并
+  AgenticGame 连接，保留其他设置、注释和连接并创建一次性备份，随后回读为“已经接入”。损坏的
+  原配置不会被覆盖，页面也不显示配置格式、文件路径或命令。
 - Agent Bridge 默认和桌面游戏共享 `%APPDATA%\AgenticGame`，Agent 保存的版本与练习赛会直接出现在
   游戏车库和回放工作室；源码开发时仍可使用 `npm run arena -- mcp`。
 - 内置 BYOK：设置 `AGENTIC_GAME_API_KEY` 后运行

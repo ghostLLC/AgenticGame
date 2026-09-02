@@ -354,6 +354,25 @@ button:disabled { opacity: .45; cursor: default; }
 .sheet-actions { margin-top: 20px; }
 .sheet-actions button { margin: 0; }
 
+.agent-connector-panel { margin-bottom: 18px; padding: 20px; border: 1px solid #554133; border-radius: 18px; background: radial-gradient(circle at 8% 0, rgba(218, 119, 65, .13), transparent 34%), linear-gradient(145deg, #302720, #211c19); box-shadow: 0 18px 42px rgba(0, 0, 0, .22); }
+.agent-connector-privacy { margin: 4px 0 16px; color: #aebf9b; font-size: 10px; line-height: 1.6; }
+.agent-connector-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.agent-connector-card { min-width: 0; padding: 15px; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 11px; align-items: start; border: 1px solid #493b32; border-radius: 13px; background: rgba(24, 20, 18, .7); }
+.agent-connector-mark { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid rgba(239, 140, 54, .38); border-radius: 10px; color: #ffc28d; background: rgba(218, 119, 65, .11); font-size: 15px; font-weight: 850; }
+.agent-connector-card p { margin: 1px 0 4px; color: var(--orange); font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.agent-connector-card h3 { margin: 0 0 5px; font-size: 15px; }
+.agent-connector-card span { min-height: 30px; display: block; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.agent-connector-card strong { grid-column: 1 / -1; width: max-content; padding: 5px 8px; border-radius: 999px; color: #d8c9bd; background: #362d27; font-size: 9px; }
+.agent-connector-card strong[data-state="connected"] { color: #cce6b1; background: rgba(105, 145, 74, .2); }
+.agent-connector-card strong[data-state="ready"] { color: #ffd2aa; background: rgba(218, 119, 65, .18); }
+.agent-connector-card strong[data-state="needs-attention"] { color: #f1b1a3; background: rgba(203, 91, 67, .18); }
+.agent-connector-card button { grid-column: 1 / -1; width: 100%; margin: 0; }
+.agent-connector-footer { min-height: 35px; margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.agent-connector-footer p { margin: 0; color: #bdd99f; font-size: 10px; }
+.agent-connector-footer p.is-error { color: #f2aa99; }
+.agent-connector-footer button { width: auto; margin-left: auto; }
+.agent-path-divider { margin: 7px 0 18px; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 9px; }
+.agent-path-divider::before, .agent-path-divider::after { height: 1px; content: ''; flex: 1; background: var(--line); }
 .agent-center-layout { display: grid; grid-template-columns: minmax(400px, .92fr) minmax(400px, 1.08fr); gap: 22px; align-items: start; }
 .agent-briefing-card, .agent-stage { padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(145deg, #2c2521, #1f1b19); box-shadow: 0 18px 42px rgba(0, 0, 0, .22); }
 .agent-briefing-card > label, .agent-model-row label, .agent-save-form label, .agent-advanced label { display: grid; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 11px; font-weight: 750; }
@@ -426,6 +445,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .practice-report-stage { min-height: 320px; }
   .nearby-panel { grid-template-columns: 1fr; }
   .agent-center-layout { grid-template-columns: 1fr; }
+  .agent-connector-grid { grid-template-columns: 1fr; }
   .agent-stage { min-height: 340px; }
   .settings-layout { grid-template-columns: 1fr; }
 }

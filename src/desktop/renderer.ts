@@ -40,6 +40,9 @@ import type { ReleaseDiagnosticItemV1 } from './release-diagnostics-service-v1.j
 import { AgentCenterControllerV1 } from './renderer/agent-center-controller-v1.js';
 import { renderAgentCenterV1 } from './renderer/agent-center-view-v1.js';
 import type { AgentCenterRunInputV1 } from './agent-center-service-v1.js';
+import { AgentConnectorControllerV1 } from './renderer/agent-connector-controller-v1.js';
+import { renderAgentConnectorV1 } from './renderer/agent-connector-view-v1.js';
+import type { ExternalAgentHostV1 } from './agent-connector-service-v1.js';
 import { SettingsControllerV1 } from './renderer/settings-controller-v1.js';
 import { renderSettingsV1 } from './renderer/settings-view-v1.js';
 import { AudioFeedbackV1, BrowserToneSynthV1 } from './renderer/audio-feedback-v1.js';
@@ -159,6 +162,7 @@ const garageController = new GarageControllerV1(desktopApi);
 const practiceLabController = new PracticeLabControllerV1(desktopApi);
 const replayLibraryController = new ReplayLibraryControllerV1(desktopApi.replays);
 const agentCenterController = new AgentCenterControllerV1(desktopApi.agentCenter);
+const agentConnectorController = new AgentConnectorControllerV1(desktopApi.agentConnector);
 const settingsController = new SettingsControllerV1(desktopApi.settings);
 const audioFeedback = new AudioFeedbackV1(new BrowserToneSynthV1());
 
@@ -174,6 +178,7 @@ agentCenterController.subscribe((snapshot) => {
   renderAgentCenterV1(snapshot);
   if (snapshot.center) syncAgentProvider(false);
 });
+agentConnectorController.subscribe((snapshot) => renderAgentConnectorV1(snapshot));
 settingsController.subscribe((snapshot) => {
   renderSettingsV1(snapshot);
   if (snapshot.settings) {
@@ -211,6 +216,10 @@ element<HTMLSelectElement>('agent-provider').addEventListener('change', () => sy
 element<HTMLButtonElement>('agent-run').addEventListener('click', () => void runAgentCenter());
 element<HTMLButtonElement>('agent-cancel').addEventListener('click', () => void agentCenterController.cancel());
 element<HTMLButtonElement>('agent-save').addEventListener('click', () => void saveAgentCandidate());
+for (const host of ['codex', 'workbuddy', 'qoder'] as ExternalAgentHostV1[]) {
+  element<HTMLButtonElement>(`agent-connect-${host}`).addEventListener('click', () => void agentConnectorController.connect(host));
+}
+element<HTMLButtonElement>('agent-connector-refresh').addEventListener('click', () => void agentConnectorController.load());
 element<HTMLSelectElement>('garage-vehicle').addEventListener('change', () => {
   const garage = garageController.getSnapshot().garage;
   if (garage) renderGarageLoadoutPreviewV1(garage);
@@ -915,8 +924,12 @@ async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | '
     return;
   }
   if (page === 'agent-center') {
-    const snapshot = agentCenterController.getSnapshot();
-    if (snapshot.status === 'idle' || snapshot.status === 'error') await agentCenterController.load();
+    const centerSnapshot = agentCenterController.getSnapshot();
+    const connectorSnapshot = agentConnectorController.getSnapshot();
+    await Promise.all([
+      centerSnapshot.status === 'idle' || centerSnapshot.status === 'error' ? agentCenterController.load() : Promise.resolve(),
+      connectorSnapshot.status === 'idle' || connectorSnapshot.status === 'error' ? agentConnectorController.load() : Promise.resolve(),
+    ]);
     return;
   }
   if (page === 'settings') {

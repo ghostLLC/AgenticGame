@@ -11,6 +11,7 @@ export function desktopApiClientV1(host: unknown): DesktopApiV1 {
   const practice = record(api?.practice);
   const replays = record(api?.replays);
   const agentCenter = record(api?.agentCenter);
+  const agentConnector = record(api?.agentConnector);
   const settings = record(api?.settings);
   if (!api
     || typeof app?.bootstrap !== 'function'
@@ -36,6 +37,8 @@ export function desktopApiClientV1(host: unknown): DesktopApiV1 {
     || typeof agentCenter?.run !== 'function'
     || typeof agentCenter?.cancel !== 'function'
     || typeof agentCenter?.save !== 'function'
+    || typeof agentConnector?.inspect !== 'function'
+    || typeof agentConnector?.connect !== 'function'
     || typeof settings?.get !== 'function'
     || typeof settings?.save !== 'function'
     || typeof settings?.diagnosticPreview !== 'function'

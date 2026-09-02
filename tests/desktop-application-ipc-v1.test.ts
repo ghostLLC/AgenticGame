@@ -85,6 +85,8 @@ describe('桌面应用 IPC v1', () => {
       'agent-center:run',
       'agent-center:cancel',
       'agent-center:save',
+      'agent-connector:inspect',
+      'agent-connector:connect',
       'settings:get',
       'settings:save',
       'settings:diagnostic-preview',
@@ -119,6 +121,8 @@ describe('桌面应用 IPC v1', () => {
     await expect(handlers.get('agent-center:save')?.({}, {
       candidateId: 'candidate-1', label: '候选', note: '', confirmed: false,
     })).rejects.toThrow('需要明确确认');
+    await expect(handlers.get('agent-connector:connect')?.({}, 'claude-code'))
+      .rejects.toThrow('AI 队友无效');
     await expect(handlers.get('settings:save')?.({}, { ...defaultAppSettingsV1(), apiKey: 'forbidden' }))
       .rejects.toThrow('设置无效');
     await expect(handlers.get('practice:run')?.({}, {
@@ -166,6 +170,8 @@ describe('桌面应用 IPC v1', () => {
     });
     await api.agentCenter.cancel();
     await api.agentCenter.save({ candidateId: 'candidate-1', label: 'AI 抢点版', note: '提高抢点', confirmed: true });
+    await api.agentConnector.inspect();
+    await api.agentConnector.connect('codex');
     await api.settings.get();
     await api.settings.save({ ...defaultAppSettingsV1(), masterVolume: 60 });
     await api.settings.diagnosticPreview();
@@ -204,6 +210,8 @@ describe('桌面应用 IPC v1', () => {
       }],
       ['agent-center:cancel', undefined],
       ['agent-center:save', { candidateId: 'candidate-1', label: 'AI 抢点版', note: '提高抢点', confirmed: true }],
+      ['agent-connector:inspect', undefined],
+      ['agent-connector:connect', 'codex'],
       ['settings:get', undefined],
       ['settings:save', { ...defaultAppSettingsV1(), masterVolume: 60 }],
       ['settings:diagnostic-preview', undefined],

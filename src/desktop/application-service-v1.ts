@@ -25,6 +25,12 @@ import type {
 } from './agent-center-service-v1.js';
 import type { AppSettingsV1 } from './app-settings-v1.js';
 import type { SettingsServiceV1 } from './settings-service-v1.js';
+import type {
+  AgentConnectorResultV1,
+  AgentConnectorServiceV1,
+  AgentConnectorSnapshotV1,
+  ExternalAgentHostV1,
+} from './agent-connector-service-v1.js';
 
 export interface DesktopBootstrapV1 {
   needsOnboarding: boolean;
@@ -40,6 +46,7 @@ export interface DesktopApplicationServiceOptionsV1 {
   practiceService?: PracticeMatchServiceV1;
   replayService?: ReplayLibraryServiceV1;
   agentCenterService?: AgentCenterServiceV1;
+  agentConnectorService?: AgentConnectorServiceV1;
   settingsService?: SettingsServiceV1;
 }
 
@@ -52,6 +59,7 @@ export class DesktopApplicationServiceV1 {
   private readonly practiceService?: PracticeMatchServiceV1;
   private readonly replayService?: ReplayLibraryServiceV1;
   private readonly agentCenterService?: AgentCenterServiceV1;
+  private readonly agentConnectorService?: AgentConnectorServiceV1;
   private readonly settingsService?: SettingsServiceV1;
 
   constructor(options: DesktopApplicationServiceOptionsV1) {
@@ -63,6 +71,7 @@ export class DesktopApplicationServiceV1 {
     this.practiceService = options.practiceService;
     this.replayService = options.replayService;
     this.agentCenterService = options.agentCenterService;
+    this.agentConnectorService = options.agentConnectorService;
     this.settingsService = options.settingsService;
   }
 
@@ -199,6 +208,16 @@ export class DesktopApplicationServiceV1 {
     return this.requireAgentCenterService().saveCandidate(input);
   }
 
+  async inspectAgentConnectors(): Promise<AgentConnectorSnapshotV1> {
+    await this.requireCompletedProfile();
+    return this.requireAgentConnectorService().inspect();
+  }
+
+  async connectAgent(host: ExternalAgentHostV1): Promise<AgentConnectorResultV1> {
+    await this.requireCompletedProfile();
+    return this.requireAgentConnectorService().connect(host);
+  }
+
   async getSettings() { await this.requireCompletedProfile(); return this.requireSettingsService().get(); }
   async saveSettings(input: AppSettingsV1) { await this.requireCompletedProfile(); return this.requireSettingsService().save(input); }
   async getDiagnosticPreview() { await this.requireCompletedProfile(); return this.requireSettingsService().diagnosticPreview(); }
@@ -237,6 +256,11 @@ export class DesktopApplicationServiceV1 {
   private requireAgentCenterService(): AgentCenterServiceV1 {
     if (!this.agentCenterService) throw new Error('AI 队友中心暂不可用');
     return this.agentCenterService;
+  }
+
+  private requireAgentConnectorService(): AgentConnectorServiceV1 {
+    if (!this.agentConnectorService) throw new Error('AI 队友接入向导暂不可用');
+    return this.agentConnectorService;
   }
 
   private requireSettingsService(): SettingsServiceV1 {

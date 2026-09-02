@@ -24,6 +24,11 @@ import type {
 import type { AppSettingsV1 } from './app-settings-v1.js';
 import type { DiagnosticPrivacyPreviewV1, LegacyImportProjectionV1 } from './settings-service-v1.js';
 import type { ReleaseDiagnosticReportV1 } from './release-diagnostics-service-v1.js';
+import type {
+  AgentConnectorResultV1,
+  AgentConnectorSnapshotV1,
+  ExternalAgentHostV1,
+} from './agent-connector-service-v1.js';
 
 export interface DesktopApiV1 {
   app: {
@@ -64,6 +69,10 @@ export interface DesktopApiV1 {
     run(input: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1>;
     cancel(): Promise<boolean>;
     save(input: AgentCenterSaveInputV1): Promise<{ revision: number; label: string }>;
+  };
+  agentConnector: {
+    inspect(): Promise<AgentConnectorSnapshotV1>;
+    connect(host: ExternalAgentHostV1): Promise<AgentConnectorResultV1>;
   };
   settings: {
     get(): Promise<AppSettingsV1>;

@@ -158,6 +158,8 @@ describe('桌面游戏外壳 v1', () => {
       'agent-model', 'agent-api-key', 'agent-goal', 'agent-run', 'agent-cancel', 'agent-result',
       'agent-result-wins', 'agent-result-hp', 'agent-result-violations', 'agent-save-label',
       'agent-save-note', 'agent-save',
+      'agent-connector-panel', 'agent-connector-privacy', 'agent-connector-notice',
+      'agent-connect-codex', 'agent-connect-workbuddy', 'agent-connect-qoder', 'agent-connector-refresh',
     ]) expect(html).toContain(`id="${id}"`);
     expect(html).toContain('AI 战术教练');
     expect(html).toContain('密钥仅用于本次运行');
@@ -165,8 +167,11 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).toContain('3 场');
     expect(html).toContain('5 场');
     expect(html).toContain('10 场');
+    expect(html).toContain('连接我的 AI 队友');
+    expect(html).toContain('不会改动其他连接');
+    expect(html).toContain('重启后生效');
     expect(renderer).toContain("navigateApp('agent-center')");
-    expect(html).not.toMatch(/module\.exports|codeHash|bundleHash|seed|transcript|toolCall|MCP|JSON/i);
+    expect(html).not.toMatch(/module\.exports|codeHash|bundleHash|seed|transcript|toolCall|MCP|JSON|TOML/i);
   });
 
   it('提供正常游戏风格的整备中心、音效设置和脱敏发布检查', () => {

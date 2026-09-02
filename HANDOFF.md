@@ -233,6 +233,7 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **Replay Studio v2 后端**：真实 Runner 可通过 `onBundle` 原子保存不可变比赛包；仓库按 bundle hash 去重并在加载/列表时验证完整性；玩家侧投影提供配置、结果和关键时刻，默认不暴露源码与哈希。
 - **据点争夺模式**：`capture` 模式与 `frontier-v2@2.1.0` 中央目标区已进入真实引擎；连续占领 30 tick、双方争夺/离开重置、歼灭优先、Bot 公开目标上下文与 Replay Studio 关键时刻均已实现。
 - **外部 Agent 主入口**：Windows 发行包自带独立 `AgenticGame-Agent.exe` MCP stdio Bridge，无需源码、Node、端口或 API Key。Codex、WorkBuddy、Qoder 可读取规则与玩家工作区、真实评测、保存不可变 revision、运行新旧版本练习赛并读取脱敏战绩；默认与桌面游戏共享用户数据，Server instructions 和工具 annotations 明确工作流与读写边界。
+- **一键接入向导**：桌面“AI 战术教练”会检查 Codex、WorkBuddy、Qoder 是否已安装及 AgenticGame 是否已接入；玩家点击对应按钮后才执行原位合并。Codex 的 TOML 和 Qoder/WorkBuddy 的 JSONC 均保留其他设置与注释，只替换 AgenticGame 自己的条目；既有文件首次修改前创建 `.before-agenticgame.bak`，写入采用同目录临时文件、同步落盘和原子替换，损坏配置保持不变。Renderer 只收到玩家化状态，不接收路径或配置正文。
 - **内置 AI 闭环**：统一 Tool Registry 与外部 Agent 复用真实沙箱；桌面 BYOK 支持 OpenAI-compatible / Anthropic、严格工具白名单、轮次/调用预算和密钥脱敏。
 - **好友房间 P2P 首期纵切**：`FriendRoomHostSessionV1` 由房主设备权威维护状态并执行真实 Gameplay v2；客人 Build 通过 `FriendRoomPeerV1` 自动同步，双方收到脱敏结果投影。`FriendDataChannelPeerV1` 已覆盖 Unicode 大消息分帧/重组、上限校验和通道生命周期；`webrtc-handshake-v1` 已覆盖无服务器手动 offer/answer、ICE 等待、方向与会话校验；`FriendRoomBrowserConnectionV1` 已接入真实浏览器 RTCPeerConnection、直连/STUN/TURN 配置与连接状态机。
 - **好友房间桌面可玩纵切**：Electron `BrowserWindow` 已替代“启动本地服务再打开浏览器”的玩家路径；`AGFR2` 将邀请与加入确认压缩为 gzip + Base64URL，并兼容旧 `AGFR1`。玩家进入战前准备后选择游骑侦察、中线突击或钢铁堡垒战术，双方准备即由房主设备运行真实比赛并同步同一战报；赛后双方确认即可保留连接与战术再来一局。若 DataChannel 中断但应用仍在运行，房主可用同一 `sessionId` 生成新会合邀请，新连接接管原房间并保留双方 Build 和既有战报；未开赛的准备状态会清除。房主还会从已校验 Bundle 生成无源码/哈希的公开回放，向双方同步地图、每 tick 单位/炮弹/据点状态和关键时刻，桌面端以战术地图、时间轴和播放控件呈现。页面不开放 Node 权限，默认文案不暴露底层联机术语。
@@ -245,15 +246,15 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`public-replays/`、`replay-metadata/`、`replay-trash/`、`rooms/`、`quarantine/`、`diagnostics/`、`exports/` 分别保存档案、配置、版本说明、完整练习赛、好友公开回放、复盘笔记、七天回收站、系统加密房间恢复信息、隔离数据、脱敏检查报告和玩家主动导出文件。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
-- **质量基线**：249 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流与配置生成、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、固定 IPC 和桌面导航；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录与安装包展开目录内的独立 Bridge 均完成真实 stdio 保存/练习赛冒烟。
+- **质量基线**：257 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、固定 IPC 和桌面导航；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录内的独立 Bridge 完成真实 stdio 保存/练习赛冒烟，桌面候选启动后保持响应。
 
 ### Public Beta B Windows 候选
 
 - 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
-- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，184527924 字节，SHA-256 `44E1B98CB7C2C892B5FF6785BDA74425B881C41A4F192B7D086A28DAB20C0ABB`。
-- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，126696065 字节，SHA-256 `37E2C56390CE0DC40F07DB912C4EB681050E3CAAC9ED62FF216BB5A9EED0DDE2`。
+- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，184544003 字节，SHA-256 `EE29D70C14FB2E49E3B5A4B5209F3567A1E2815BF22194070538F107711DD0B9`。
+- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，126736669 字节，SHA-256 `15F3E75EEE1495B4F28B0D43B87F26DAAE6A342D4217CB4783A8920407227697`。
 - Agent Bridge：`release/AgenticGame-win-x64/AgenticGame-Agent.exe`，58437713 字节，SHA-256 `AE558253567A692CB307E469882ED918D4EFBA072A9A1D4D78B1487498549003`。
-- 进程冒烟：2026-09-02 目录版启动后 4 个 Electron 进程均 `Responding=True`，检查结束后只终止该候选路径的进程。
+- 进程冒烟：2026-09-02 目录版以隔离用户目录启动，主进程 `Responding=True`，检查结束后只终止该候选进程。
 - 浏览器验收：1440×900 与 1100×700 完成设置保存、七项检查、脱敏导出、旧版导入与异地好友偏好继承；0 个控制台错误/警告，页面无横向溢出，未发现实际密钥或路径载荷。
 - 边界：代码与单机发布产物已达到统一验收候选。没有使用用户真实付费 API Key 做线上厂商调用；NSIS 尚未在全新 Windows 用户环境真实安装/卸载；两台真实 Windows 设备的局域网、异地网络与应用重启恢复仍待最终验收。无自有 TURN 时严格 NAT 可能失败。Ardot 同步按用户当前要求延后。
 
@@ -301,7 +302,7 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 249 项自动化测试（含 v1/v2、好友房、回放、外部 Agent、AI 教练与发布策略）
+npm run test          # 257 项自动化测试（含 v1/v2、好友房、回放、外部 Agent、一键接入、AI 教练与发布策略）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口

@@ -43,6 +43,10 @@ export function createDesktopPreloadApiV1(invoke: DesktopInvokeV1): DesktopApiV1
       cancel: () => invoke('agent-center:cancel') as ReturnType<DesktopApiV1['agentCenter']['cancel']>,
       save: (input) => invoke('agent-center:save', input) as ReturnType<DesktopApiV1['agentCenter']['save']>,
     },
+    agentConnector: {
+      inspect: () => invoke('agent-connector:inspect') as ReturnType<DesktopApiV1['agentConnector']['inspect']>,
+      connect: (host) => invoke('agent-connector:connect', host) as ReturnType<DesktopApiV1['agentConnector']['connect']>,
+    },
     settings: {
       get: () => invoke('settings:get') as ReturnType<DesktopApiV1['settings']['get']>,
       save: (input) => invoke('settings:save', input) as ReturnType<DesktopApiV1['settings']['save']>,

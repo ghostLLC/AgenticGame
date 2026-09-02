@@ -1,5 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, safeStorage, shell, webContents, type WebContents } from 'electron';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import {
   DesktopFriendRoomRuntimeV1,
   type DesktopFriendRoomStartV1,
@@ -35,6 +36,7 @@ import { AgentCenterServiceV1 } from './agent-center-service-v1.js';
 import { AppSettingsRepositoryV1 } from './app-settings-repository-v1.js';
 import { LegacyDataImportServiceV1 } from './legacy-data-import-service-v1.js';
 import { SettingsServiceV1 } from './settings-service-v1.js';
+import { AgentConnectorServiceV1 } from './agent-connector-service-v1.js';
 
 const roomRuntimes = new Map<number, DesktopFriendRoomRuntimeV1>();
 
@@ -236,6 +238,12 @@ app.whenReady().then(() => {
       exportsRoot: join(userDataRoot, 'exports'),
     }),
     agentCenterService: new AgentCenterServiceV1({ buildRepository, noteRepository }),
+    agentConnectorService: new AgentConnectorServiceV1({
+      homeDirectory: homedir(),
+      bridgePath: app.isPackaged
+        ? join(dirname(process.execPath), 'AgenticGame-Agent.exe')
+        : join(app.getAppPath(), 'dist', 'agent-bridge', 'AgenticGame-Agent.exe'),
+    }),
     settingsService,
   });
   registerDesktopApplicationIpcV1({

@@ -8,6 +8,7 @@ import type {
   AgentCenterSaveInputV1,
 } from './agent-center-service-v1.js';
 import { assertAppSettingsV1 } from './app-settings-v1.js';
+import type { ExternalAgentHostV1 } from './agent-connector-service-v1.js';
 
 export type DesktopIpcHandlerV1 = (event: unknown, input?: unknown) => Promise<unknown>;
 
@@ -28,6 +29,7 @@ const COMPATIBLE_WEAPON = new Map([
   ['medium', 'medium-cannon'],
   ['heavy', 'heavy-cannon'],
 ]);
+const EXTERNAL_AGENT_HOSTS = new Set<ExternalAgentHostV1>(['codex', 'workbuddy', 'qoder']);
 
 export function registerDesktopApplicationIpcV1(
   registrar: DesktopIpcRegistrarV1,
@@ -95,6 +97,11 @@ export function registerDesktopApplicationIpcV1(
   registrar.handle('agent-center:run', async (_event, input) => service.runAgentCenter(assertAgentRunInput(input)));
   registrar.handle('agent-center:cancel', async () => service.cancelAgentCenter());
   registrar.handle('agent-center:save', async (_event, input) => service.saveAgentCandidate(assertAgentSaveInput(input)));
+  registrar.handle('agent-connector:inspect', async () => service.inspectAgentConnectors());
+  registrar.handle('agent-connector:connect', async (_event, input) => {
+    if (typeof input !== 'string' || !EXTERNAL_AGENT_HOSTS.has(input as ExternalAgentHostV1)) throw new Error('AI 队友无效');
+    return service.connectAgent(input as ExternalAgentHostV1);
+  });
   registrar.handle('settings:get', async () => service.getSettings());
   registrar.handle('settings:save', async (_event, input) => {
     try { return service.saveSettings(assertAppSettingsV1(input)); }

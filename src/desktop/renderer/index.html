@@ -284,6 +284,40 @@
             <div class="trust-pill">本次使用 <span>·</span> 由你确认保存</div>
           </div>
 
+          <section id="agent-connector-panel" class="agent-connector-panel" hidden>
+            <div class="section-heading">
+              <div><p>常用搭档</p><h2>连接我的 AI 队友</h2></div>
+              <span>一次设置 · 重启后生效</span>
+            </div>
+            <p id="agent-connector-privacy" class="agent-connector-privacy">只会增加 AgenticGame 连接，不会改动其他连接。</p>
+            <div class="agent-connector-grid">
+              <article class="agent-connector-card">
+                <div class="agent-connector-mark" aria-hidden="true">C</div>
+                <div><p>长期协作</p><h3>Codex</h3><span>持续改进战术，并复盘每次变化</span></div>
+                <strong id="agent-connector-status-codex">正在检查</strong>
+                <button id="agent-connect-codex" class="primary-button compact-action" type="button">一键接入</button>
+              </article>
+              <article class="agent-connector-card">
+                <div class="agent-connector-mark" aria-hidden="true">W</div>
+                <div><p>训练编排</p><h3>WorkBuddy</h3><span>用自然语言组织长期训练任务</span></div>
+                <strong id="agent-connector-status-workbuddy">正在检查</strong>
+                <button id="agent-connect-workbuddy" class="primary-button compact-action" type="button">一键接入</button>
+              </article>
+              <article class="agent-connector-card">
+                <div class="agent-connector-mark" aria-hidden="true">Q</div>
+                <div><p>快速迭代</p><h3>Qoder</h3><span>在策略构想与上场验证间快速往返</span></div>
+                <strong id="agent-connector-status-qoder">正在检查</strong>
+                <button id="agent-connect-qoder" class="primary-button compact-action" type="button">一键接入</button>
+              </article>
+            </div>
+            <div class="agent-connector-footer">
+              <p id="agent-connector-notice" role="status" hidden></p>
+              <button id="agent-connector-refresh" class="text-button" type="button">重新检查</button>
+            </div>
+          </section>
+
+          <div class="agent-path-divider"><span>或者直接在游戏内使用 AI 战术教练</span></div>
+
           <section id="agent-loading" class="player-state-card" aria-live="polite">
             <div class="battle-loader small-loader"><span></span></div>
             <div><p>正在邀请 AI 队友</p><h2>读取你的战术版本与可用训练方案</h2></div>
