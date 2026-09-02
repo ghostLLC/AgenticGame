@@ -17,6 +17,7 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "pack:desktop-folder": "npm run build:desktop && node scripts/pack-desktop-folder.mjs",
     "pack:desktop": "npm run build:desktop && electron-builder --win portable --x64",
+    "pack:desktop-installer": "npm run build:desktop && electron-builder --win nsis --x64",
     "build:exe": "node scripts/pack.mjs"
   },
   "engines": {
@@ -45,8 +46,22 @@
       "package.json"
     ],
     "win": {
-      "target": ["portable"],
+      "target": ["portable", "nsis"],
       "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "AgenticGame-${version}-win-x64-portable.${ext}"
+    },
+    "nsis": {
+      "artifactName": "AgenticGame-${version}-win-x64-setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AgenticGame",
+      "uninstallDisplayName": "AgenticGame"
     }
   },
   "dependencies": {
