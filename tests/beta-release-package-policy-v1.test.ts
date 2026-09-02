@@ -7,7 +7,10 @@ const root = (path: string) => readFileSync(fileURLToPath(new URL(`../${path}`, 
 describe('Public Beta B release policy', () => {
   it('生成当前用户 NSIS 安装包且卸载默认保留玩家数据', () => {
     const pkg = JSON.parse(root('package.json')) as Record<string, any>;
-    expect(pkg.scripts['pack:desktop-installer']).toContain('electron-builder --win nsis --x64');
+    expect(pkg.scripts['pack:desktop-installer']).toContain('scripts/pack-desktop-installer.mjs');
+    const installerScript = root('scripts/pack-desktop-installer.mjs');
+    expect(installerScript).toContain('ELECTRON_BUILDER_CACHE');
+    expect(installerScript).toContain("'--win', 'nsis', '--x64'");
     expect(pkg.build.win.target).toContain('nsis');
     expect(pkg.build.win.signAndEditExecutable).toBe(false);
     expect(pkg.build.nsis).toMatchObject({

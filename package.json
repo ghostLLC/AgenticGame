@@ -17,7 +17,7 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "pack:desktop-folder": "npm run build:desktop && node scripts/pack-desktop-folder.mjs",
     "pack:desktop": "npm run build:desktop && electron-builder --win portable --x64",
-    "pack:desktop-installer": "npm run build:desktop && electron-builder --win nsis --x64",
+    "pack:desktop-installer": "npm run build:desktop && node scripts/pack-desktop-installer.mjs",
     "build:exe": "node scripts/pack.mjs"
   },
   "engines": {

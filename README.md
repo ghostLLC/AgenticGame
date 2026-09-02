@@ -9,6 +9,8 @@
 战报同步、再来一局、房间内断线恢复和双方可看的逐回合战术回放。
 独立“回放工作室”现已统一收录练习赛与好友赛，支持玩家筛选、完整播放、复盘笔记、应用内导出、
 损坏回放隔离，以及保留七天的可恢复回收站。
+“整备中心”现已提供声音/动效与好友偏好、七项玩家化运行检查、脱敏报告导出和旧版战术/回放迁移；
+Public Beta B 同时提供 Windows x64 便携 ZIP 与当前用户 NSIS 安装包。
 
 ## 玩法闭环
 
@@ -26,9 +28,10 @@
 
 ## 快速开始
 
-当前 Slice 5 Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`，分发包为
-`release/AgenticGame-0.1.0-slice5-win-x64.zip`；解压完整目录后运行，不要只复制其中的 EXE。
-该候选用于内部持续开发，不代表 Public Beta B 已完成。开发环境需要 Node.js ≥ 20：
+当前 Public Beta B Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`；可直接使用
+`release/AgenticGame-0.1.0-win-x64-setup.exe` 安装，或解压
+`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip` 的完整目录后运行。安装包未签名，Windows
+可能显示 SmartScreen 提示。开发环境需要 Node.js ≥ 20：
 
 ```bash
 npm install
@@ -38,6 +41,9 @@ npm run desktop
 
 # 生成 Windows x64 可运行目录
 npm run pack:desktop-folder
+
+# 生成当前用户 NSIS 安装包
+npm run pack:desktop-installer
 
 # 内置示例对战（Chaser vs Sniper）并自动打开网页回放
 npm run arena -- demo
@@ -53,6 +59,10 @@ npm run arena -- serve replays/<文件>.json
 npm run arena -- mcp  # 外部 Agent 的本地 MCP stdio 服务
 npm run test          # 自动化测试（含好友房间 P2P、封存排位原型、Agent Harness / MCP / BYOK provider）
 ```
+
+两台真实 Windows 设备的最终联机验收使用
+`scripts/acceptance/friend-room-two-device.ps1`，分别记录局域网、异地邀请和应用重启恢复；脚本不会把
+未执行步骤自动写成通过。完整发布说明见 [Public Beta B](docs/releases/0.1.0-public-beta-b.md)。
 
 正式双人流程采用好友房间：双方在线并建立 P2P 连接 → 各自选择并锁定 SavedBuild → 客人 Build
 由程序自动同步 → 房主设备运行比赛 → 双方查看同一结果。用户不再处理 `.js` 文件或上传流程。

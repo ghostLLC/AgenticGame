@@ -2,7 +2,7 @@
 
 > 本文档面向**接手本项目的下一位 AI agent**（或协作者）。包含：
 > 完整玩法逻辑、代码架构、当前进度、已验证项、已知问题、打包指引、以及下一步路线图。
-> 所有内容截至 2026-09-01 实际完成与验证状态，请以此为准。
+> 所有内容截至 2026-09-02 实际完成与验证状态，请以此为准。
 
 ---
 
@@ -240,20 +240,20 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **Public Beta Slice 3 回放工作室**：练习赛完整 Bundle 与好友房公开回放分根保存；好友房双方在完整比赛状态首次到达时各自幂等落盘，重赛形成新记录，保存失败不污染比赛结果。桌面回放库支持来源/模式/结果/版本/文字筛选、完整逐回合统一播放器、复盘笔记、应用内导出、损坏项独立呈现、七天可恢复删除与明确确认清空。Renderer 不接收完整比赛包，也没有路径型删除或导出入口。
 - **Public Beta Slice 4 附近好友与安全恢复**：同一局域网内可在好友页面开启期间临时发现房主并交换 WebRTC 邀请/确认，比赛数据仍走 DataChannel；离开页面立即停止 UDP 广播。应用重启后可在 24 小时内从 Electron `safeStorage` 加密胶囊恢复原房间身份、自己的 Build 与公开状态，再由双方在线建立新连接；系统加密不可用时禁用恢复且不存明文。房主明确离开会通知对方房间关闭并清除恢复。七项连接检查仅返回玩家化结论，不暴露地址、邀请、密文、源码或路径。
 - **Public Beta Slice 5 AI 战术教练**：桌面玩家选择已验证 Build、AI 厂商、本次密钥、目标与 3/5/10 场评测强度；Provider 支持 OpenAI-compatible Chat Completions 和 Anthropic Messages，并统一限制 HTTPS/精确 loopback、请求时长与响应大小。Harness 先生成并单局验证候选，再用真实 Gameplay v2 worker 让候选对战所选 Build；可停止剩余评测，候选只驻留内存，玩家明确确认后才保存为新 revision。Renderer 不接收源码、模型 transcript、工具调用、内部编号或密钥。
+- **Public Beta Slice 6 发布面**：新增严格且原子保存的玩家设置、声音/动效与好友偏好、程序生成的界面/战斗音效、七项玩家化检查与脱敏 JSON 导出。旧版目录只能经系统目录选择器导入：有效 `my-bots/*.js` 成为不可变指挥官版本，已验证 Replay v1 转为不含源码/哈希/动作/日志的经典公开回放；超限、损坏和符号链接条目跳过。当前用户 NSIS 安装包与便携 ZIP 均已生成，更新入口只打开官方 GitHub Releases，不静默下载或安装。
 - **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`public-replays/`、`replay-metadata/`、`replay-trash/`、`rooms/`、`quarantine/`、`diagnostics/`、`exports/` 分别保存档案、配置、版本说明、完整练习赛、好友公开回放、复盘笔记、七天回收站、系统加密房间恢复信息、隔离数据、脱敏检查报告和玩家主动导出文件。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
-- **质量基线**：227 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、固定 IPC 和桌面导航；TypeScript 类型检查、生产依赖审计、通用构建与桌面构建通过。
+- **质量基线**：244 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、固定 IPC 和桌面导航；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。
 
-### Public Beta Slice 5 Windows 候选
+### Public Beta B Windows 候选
 
 - 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
-- 分发包：`release/AgenticGame-0.1.0-slice5-win-x64.zip`
-- ZIP 字节数：`162093279`
-- SHA-256：`C94BA5355DA12AD5BE2CA9388CD442F548EB63C5518D21D0A347F3FA7018B800`
-- 进程冒烟：2026-09-01 启动后 `Responding=True`，检查结束后候选进程为 0。
-- 浏览器验收：1440×900 与 1100×700 完成 AI 厂商/Build/目标选择、标准评测、取消后保留已完成结果与明确保存新版本；密钥输入在运行开始后清空，0 个控制台错误/警告，页面无横向溢出，玩家可见文案未出现密钥、源码、Endpoint、hash、seed、transcript、工具调用或开发格式。
-- 边界：这是已验证的 Slice 5 候选，不是完整 Public Beta B；没有使用用户真实付费 API Key 做线上厂商调用，Provider 通过隔离 HTTP 契约与模拟响应验证。两台真实 Windows 设备联机/恢复仍待最终验收；无 TURN 时严格 NAT 仍可能失败。Slice 6 继续完成设置、音频、诊断导出、NSIS 与最终 Beta 验收；Ardot 同步按用户当前要求延后。
+- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，162101481 字节，SHA-256 `5A1F96DF2A3844095688671A5BB0F4B2153AC1382552498CB3CDC12874E91DF1`。
+- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，112062693 字节，SHA-256 `A308C8CF7D21E777F92C382E4F3496D5BAF740A672596FF62DBD84B7A5CB1167`。
+- 进程冒烟：2026-09-02 目录版启动后 4 个 Electron 进程均 `Responding=True`，检查结束后只终止该候选路径的进程。
+- 浏览器验收：1440×900 与 1100×700 完成设置保存、七项检查、脱敏导出、旧版导入与异地好友偏好继承；0 个控制台错误/警告，页面无横向溢出，未发现实际密钥或路径载荷。
+- 边界：代码与单机发布产物已达到统一验收候选。没有使用用户真实付费 API Key 做线上厂商调用；NSIS 尚未在全新 Windows 用户环境真实安装/卸载；两台真实 Windows 设备的局域网、异地网络与应用重启恢复仍待最终验收。无自有 TURN 时严格 NAT 可能失败。Ardot 同步按用户当前要求延后。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -299,11 +299,12 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 227 项自动化测试（含 v1/v2、桌面基础、车库/练习赛、好友房、回放工作室与 AI 战术教练）
+npm run test          # 244 项自动化测试（含 v1/v2、好友房、回放、AI 教练、整备中心与发布策略）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口
 npm run pack:desktop-folder # 生成 release/AgenticGame-win-x64/AgenticGame.exe
+npm run pack:desktop-installer # 生成当前用户 NSIS 安装包
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
 ```
 
@@ -337,7 +338,7 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 ## 七、下一步路线图（按优先级）
 
 **$P0–P1 已完成：v0.1 稳定基线、Core/Replay v2、Runner 双格式输出与 Gameplay v2 首期玩法纵切。**
-**$P2 中层体验（已完成 Beta B Slice 1–4）**：桌面基础、可恢复首次体验、不可变车库、新旧/镜像练习赛、Replay Studio、局域网好友发现与应用重启房间恢复均已进入玩家路径。云端权威房间继续封存为未来排位原型。
+**$P2 中层体验（已完成 Beta B Slice 1–4、6）**：桌面基础、可恢复首次体验、不可变车库、新旧/镜像练习赛、Replay Studio、局域网好友发现、应用重启房间恢复、玩家设置、运行检查、旧版迁移和 Windows 发布产物均已进入玩家路径。云端权威房间继续封存为未来排位原型。
 **$P3 AI 原生入口（Beta B 已完成）**：MCP、OpenAI-compatible / Anthropic BYOK、玩家化 Agent Center、取消、脱敏、多场评测与确认保存 revision 已进入真实路径。
 **$P4 游戏化 UX**：严格按 Ardot 设计实现六大模块，隐藏默认路径中的开发术语并强化战斗因果反馈。
 **$P5 模式与内容扩展**：2v2、更多地图、赛事/赛季模式和社区内容。
@@ -361,4 +362,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.8（2026-09-01）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*
+*文档版本：v1.9（2026-09-02）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*

@@ -16,3 +16,11 @@ Finish the player-facing release surface and produce reproducible Windows Beta B
 ## Honest completion boundary
 
 The code and artifacts can be completed on this workstation. A second real Windows device and a real remote NAT path are external acceptance environments; the final report must mark those steps pending until the user runs the supplied script/checklist, and must not infer them from browser tabs or loopback tests.
+
+## Completion evidence
+
+- Settings, diagnostics, legacy import, audio feedback, fixed IPC and player UI are implemented with contract/controller/integration coverage.
+- 244 automated tests, typecheck, production audit, general build and desktop build pass.
+- Playwright covered save, seven diagnostics, redacted export, legacy import and friend-mode preference at 1440×900 and 1100×700 with no horizontal overflow and 0 console warnings/errors.
+- Folder EXE stayed responsive; unsigned per-user NSIS and portable ZIP were generated and hashed.
+- Real two-device LAN/remote/recovery and a clean-user NSIS installation remain explicit final acceptance steps.
