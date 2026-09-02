@@ -23,4 +23,5 @@ The code and artifacts can be completed on this workstation. A second real Windo
 - 244 automated tests, typecheck, production audit, general build and desktop build pass.
 - Playwright covered save, seven diagnostics, redacted export, legacy import and friend-mode preference at 1440×900 and 1100×700 with no horizontal overflow and 0 console warnings/errors.
 - Folder EXE stayed responsive; unsigned per-user NSIS and portable ZIP were generated and hashed.
+- Stable implementation key `ba189c1` was pushed to `origin/main`, then written once to each UX, technical, development-log and quality-gate Feishu document and verified by read-back.
 - Real two-device LAN/remote/recovery and a clean-user NSIS installation remain explicit final acceptance steps.
