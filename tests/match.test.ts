@@ -27,6 +27,10 @@ describe('runMatch', () => {
       botB: { path: 'sitting-duck.js', code: targetCode },
       seed: 7,
       maxTicks: 120,
+      // This assertion covers deterministic gameplay, not wall-clock timeout policy.
+      // Keep the worker budget above parallel-suite scheduler jitter so timing noise
+      // cannot become a replay violation.
+      tickBudgetMs: 1_000,
       createdAt: '2026-08-24T00:00:00.000Z',
     };
 
