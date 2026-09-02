@@ -169,6 +169,29 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).not.toMatch(/module\.exports|codeHash|bundleHash|seed|transcript|toolCall|MCP|JSON/i);
   });
 
+  it('提供正常游戏风格的整备中心、音效设置和脱敏发布检查', () => {
+    const html = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/index.html', import.meta.url)),
+      'utf8',
+    );
+    const css = readFileSync(
+      fileURLToPath(new URL('../src/desktop/renderer/styles.css', import.meta.url)),
+      'utf8',
+    );
+    for (const id of [
+      'nav-settings', 'page-settings', 'settings-master-volume', 'settings-effects-volume',
+      'settings-motion', 'settings-nearby', 'settings-friend-mode', 'settings-save',
+      'settings-run-diagnostics', 'settings-export-diagnostics', 'settings-import-legacy',
+      'settings-open-releases', 'settings-diagnostic-results',
+    ]) expect(html).toContain(`id="${id}"`);
+    expect(html).toContain('声音与动效');
+    expect(html).toContain('不会包含');
+    expect(html).toContain('Windows 可能显示 SmartScreen 提示');
+    expect(html).not.toMatch(/apiKey|恢复密文|完整邀请卡|Bot 源码|文件路径|my-bots|Replay v1/i);
+    expect(css).toContain('.settings-layout');
+    expect(css).toContain('body[data-motion="reduced"]');
+  });
+
   it('桌面包携带比赛沙盒，好友准备完成后可以真正开赛', () => {
     const buildScript = readFileSync(
       fileURLToPath(new URL('../scripts/build-desktop.mjs', import.meta.url)),

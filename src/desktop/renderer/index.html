@@ -25,6 +25,7 @@
         <button id="nav-friend-room">好友房间</button>
         <button id="nav-replays">回放工作室</button>
         <button id="nav-agent-center">AI 战术教练</button>
+        <button id="nav-settings">整备中心</button>
         <div class="sidebar-spacer"></div>
         <section class="sync-note">
           <strong>战术自动同步</strong>
@@ -344,6 +345,58 @@
               </article>
             </section>
           </div>
+        </section>
+
+        <section id="page-settings" class="app-page settings-page" hidden>
+          <div class="hero-row settings-hero">
+            <div>
+              <p class="eyebrow">FIELD SUPPORT <span>·</span> 整备中心</p>
+              <h1>让游戏按你的习惯运行</h1>
+              <p class="subtitle">调整声音与动效，检查联机环境，或把旧版战术和回放带回来。</p>
+            </div>
+            <div class="trust-pill">本机设置 <span>·</span> 不需要账号</div>
+          </div>
+
+          <section id="settings-loading" class="player-state-card" aria-live="polite">
+            <div class="battle-loader small-loader"><span></span></div>
+            <div><p>整备中心正在开启</p><h2>正在读取本机设置</h2></div>
+          </section>
+
+          <div id="settings-workspace" class="settings-layout" hidden>
+            <section class="settings-card">
+              <div class="section-heading"><div><p>视听体验</p><h2>声音与动效</h2></div><span>音效为 B 版程序生成基线</span></div>
+              <label class="range-setting" for="settings-master-volume"><span><b>主音量</b><small>所有游戏声音的总开关</small></span><output id="settings-master-value">80%</output></label>
+              <input id="settings-master-volume" type="range" min="0" max="100" step="5" value="80">
+              <label class="range-setting" for="settings-effects-volume"><span><b>战斗与界面音效</b><small>按钮、准备、命中与战果提示</small></span><output id="settings-effects-value">75%</output></label>
+              <input id="settings-effects-volume" type="range" min="0" max="100" step="5" value="75">
+              <div class="settings-field-grid">
+                <label>动画强度<select id="settings-motion"><option value="full">完整动效</option><option value="reduced">减少动效</option></select></label>
+                <label>进入好友房默认方式<select id="settings-friend-mode"><option value="nearby">附近好友</option><option value="remote">异地邀请</option></select></label>
+              </div>
+              <label class="toggle-setting"><input id="settings-nearby" type="checkbox"><span><b>允许附近好友发现</b><small>仅在好友房间页面开启，离开后立即停止</small></span></label>
+              <button id="settings-save" class="primary-button" type="button">保存游戏设置</button>
+            </section>
+
+            <section class="settings-card support-card">
+              <div class="section-heading"><div><p>出战保障</p><h2>连接与运行检查</h2></div><span>共七项玩家检查</span></div>
+              <p id="settings-diagnostic-privacy" class="privacy-note">导出前会显示报告包含和不会包含的内容。</p>
+              <div class="settings-actions"><button id="settings-run-diagnostics" class="primary-button" type="button">运行完整检查</button><button id="settings-export-diagnostics" class="secondary-button" type="button">保存脱敏报告</button></div>
+              <div id="settings-diagnostic-results" class="diagnostic-result-grid settings-diagnostics" aria-live="polite" hidden></div>
+            </section>
+
+            <section class="settings-card migration-card">
+              <div class="section-heading"><div><p>旧版数据</p><h2>带回经典战术与回放</h2></div><span>由系统窗口选择目录</span></div>
+              <p>选择旧版 AgenticGame 数据目录。有效战术会成为新版本，旧比赛记录会转换为脱敏经典回放；损坏或过大的文件会跳过。</p>
+              <button id="settings-import-legacy" class="secondary-button" type="button">选择旧版数据目录</button>
+            </section>
+
+            <section class="settings-card release-card">
+              <div class="section-heading"><div><p>版本与更新</p><h2>Public Beta B</h2></div><span>不静默下载或安装</span></div>
+              <p>更新只从项目 GitHub Releases 页面获取，由你决定是否下载和安装。当前安装包未签名，Windows 可能显示 SmartScreen 提示。</p>
+              <button id="settings-open-releases" class="secondary-button" type="button">查看正式发布页</button>
+            </section>
+          </div>
+          <p id="settings-message" class="settings-message" role="status" hidden></p>
         </section>
 
         <section id="page-friend-room" class="app-page" hidden>

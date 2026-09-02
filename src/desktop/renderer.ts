@@ -40,6 +40,10 @@ import type { ReleaseDiagnosticItemV1 } from './release-diagnostics-service-v1.j
 import { AgentCenterControllerV1 } from './renderer/agent-center-controller-v1.js';
 import { renderAgentCenterV1 } from './renderer/agent-center-view-v1.js';
 import type { AgentCenterRunInputV1 } from './agent-center-service-v1.js';
+import { SettingsControllerV1 } from './renderer/settings-controller-v1.js';
+import { renderSettingsV1 } from './renderer/settings-view-v1.js';
+import { AudioFeedbackV1, BrowserToneSynthV1 } from './renderer/audio-feedback-v1.js';
+import type { AppSettingsV1 } from './app-settings-v1.js';
 
 declare global {
   interface Window {
@@ -76,6 +80,9 @@ const replayController = new UnifiedReplayControllerV1();
 const libraryReplayController = new UnifiedReplayControllerV1();
 let libraryReplayTimer: number | undefined;
 let pendingReplayDelete: { replayId: string; source: ReplaySourceV1 } | undefined;
+let currentSettings: AppSettingsV1 | undefined;
+let lastRoomAudioStatus: FriendRoomSnapshotV1['status'] | undefined;
+let lastReplayAudioTick = -1;
 
 const controller = new FriendRoomEntryControllerV1({
   createConnection: (role: FriendRoomRoleV1) => {
@@ -146,12 +153,14 @@ const leaveRoomSheet = element<HTMLElement>('leave-room-sheet');
 const cancelLeaveButton = element<HTMLButtonElement>('cancel-leave-room');
 
 const desktopApi = desktopApiClientV1(window);
-const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center']);
+const appShellController = new DesktopAppShellControllerV1(desktopApi, ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center', 'settings']);
 const onboardingController = new OnboardingControllerV1(desktopApi);
 const garageController = new GarageControllerV1(desktopApi);
 const practiceLabController = new PracticeLabControllerV1(desktopApi);
 const replayLibraryController = new ReplayLibraryControllerV1(desktopApi.replays);
 const agentCenterController = new AgentCenterControllerV1(desktopApi.agentCenter);
+const settingsController = new SettingsControllerV1(desktopApi.settings);
+const audioFeedback = new AudioFeedbackV1(new BrowserToneSynthV1());
 
 garageController.subscribe((snapshot) => {
   renderGarageViewV1(snapshot);
@@ -165,6 +174,15 @@ agentCenterController.subscribe((snapshot) => {
   renderAgentCenterV1(snapshot);
   if (snapshot.center) syncAgentProvider(false);
 });
+settingsController.subscribe((snapshot) => {
+  renderSettingsV1(snapshot);
+  if (snapshot.settings) {
+    currentSettings = snapshot.settings;
+    audioFeedback.apply(snapshot.settings);
+    document.body.dataset.motion = snapshot.settings.motion;
+  }
+  if (snapshot.notice) showToast(snapshot.notice, false);
+});
 
 element<HTMLButtonElement>('nav-command-center').addEventListener('click', () => void navigateApp('command-center'));
 element<HTMLButtonElement>('nav-garage').addEventListener('click', () => void navigateApp('garage'));
@@ -172,11 +190,22 @@ element<HTMLButtonElement>('nav-practice').addEventListener('click', () => void 
 element<HTMLButtonElement>('nav-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
 element<HTMLButtonElement>('nav-replays').addEventListener('click', () => void navigateApp('replays'));
 element<HTMLButtonElement>('nav-agent-center').addEventListener('click', () => void navigateApp('agent-center'));
+element<HTMLButtonElement>('nav-settings').addEventListener('click', () => void navigateApp('settings'));
 element<HTMLButtonElement>('command-quick-practice').addEventListener('click', () => void navigateApp('practice'));
 element<HTMLButtonElement>('command-open-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLButtonElement>('command-open-friend-room').addEventListener('click', () => void navigateApp('friend-room'));
 element<HTMLButtonElement>('command-open-replays').addEventListener('click', () => void navigateApp('replays'));
 element<HTMLButtonElement>('command-open-agent-center').addEventListener('click', () => void navigateApp('agent-center'));
+element<HTMLInputElement>('settings-master-volume').addEventListener('input', updateSettingsRangeLabels);
+element<HTMLInputElement>('settings-effects-volume').addEventListener('input', updateSettingsRangeLabels);
+element<HTMLButtonElement>('settings-save').addEventListener('click', () => void settingsController.save(readSettingsForm()));
+element<HTMLButtonElement>('settings-run-diagnostics').addEventListener('click', () => void settingsController.runDiagnostics());
+element<HTMLButtonElement>('settings-export-diagnostics').addEventListener('click', () => void settingsController.exportDiagnostics());
+element<HTMLButtonElement>('settings-import-legacy').addEventListener('click', () => void settingsController.importLegacy());
+element<HTMLButtonElement>('settings-open-releases').addEventListener('click', () => void settingsController.openReleases());
+document.addEventListener('click', (event) => {
+  if ((event.target as HTMLElement).closest('button:not(:disabled)')) audioFeedback.cue('button');
+});
 element<HTMLButtonElement>('practice-open-garage').addEventListener('click', () => void navigateApp('garage'));
 element<HTMLSelectElement>('agent-provider').addEventListener('change', () => syncAgentProvider(true));
 element<HTMLButtonElement>('agent-run').addEventListener('click', () => void runAgentCenter());
@@ -396,6 +425,7 @@ element<HTMLButtonElement>('lock-preset').addEventListener('click', () => {
 });
 
 readyMatch.addEventListener('click', () => {
+  audioFeedback.cue('ready');
   void runAction(async () => {
     const mine = lastRoomSnapshot?.participants.find((item) => item.seat === currentSnapshot.role);
     await window.agenticGameDesktop?.friendRoom.setReady(!mine?.ready);
@@ -552,6 +582,8 @@ async function enterBattlePreparation(snapshot: FriendRoomEntrySnapshotV1): Prom
 }
 
 function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
+  const previousStatus = lastRoomAudioStatus;
+  lastRoomAudioStatus = snapshot.status;
   lastRoomSnapshot = snapshot;
   if (snapshot.status !== 'complete' && replayController.getSnapshot().open) resetReplayView();
   roomColumns.hidden = true;
@@ -573,6 +605,7 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
   readyMatch.disabled = locked || !mine?.build;
 
   if (snapshot.status === 'running') {
+    if (previousStatus !== 'running') audioFeedback.cue('battle-start');
     prepState.textContent = '战斗进行中';
     setPlayerStatus('比赛已经开始', '房主正在裁定本场战斗', '战报完成后会自动同步给双方。', 'waiting');
   } else if (snapshot.status === 'complete' && snapshot.result) {
@@ -580,6 +613,7 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
     const winner = snapshot.result.winningSeats.length === 0
       ? '本场平局'
       : snapshot.result.winningSeats.includes(currentSnapshot.role ?? 'host') ? '你赢得了比赛' : '好友赢得了比赛';
+    if (previousStatus !== 'complete') audioFeedback.cue(snapshot.result.winningSeats.includes(currentSnapshot.role ?? 'host') ? 'victory' : 'defeat');
     element<HTMLElement>('result-title').textContent = winner;
     element<HTMLElement>('result-detail').textContent = `战斗持续 ${snapshot.result.ticks} 回合 · 双方剩余耐久 ${snapshot.result.hp[0]} : ${snapshot.result.hp[1]}`;
     rematchButton.textContent = mine?.rematchRequested ? '等待好友确认' : '再来一局';
@@ -594,9 +628,11 @@ function renderRoomSnapshot(snapshot: FriendRoomSnapshotV1): void {
       'success',
     );
   } else if (snapshot.status === 'failed') {
+    if (previousStatus !== 'failed') audioFeedback.cue('disconnect');
     prepState.textContent = '比赛未完成';
     setPlayerStatus('比赛未完成', '请重新创建好友房间', snapshot.error ?? '房主设备未能完成比赛。', 'danger');
   } else if (snapshot.status === 'closed') {
+    if (previousStatus !== 'closed') audioFeedback.cue('disconnect');
     recoveryActive = false;
     restartRecoveryPending = false;
     prepState.textContent = '房间已结束';
@@ -754,6 +790,12 @@ function renderReplayFrame(): void {
   replayMoments.querySelectorAll<HTMLElement>('.replay-moment').forEach((node) => {
     node.classList.toggle('active', Number(node.dataset.tick) === snapshot.frame!.tick);
   });
+  if (snapshot.frame.tick !== lastReplayAudioTick) {
+    lastReplayAudioTick = snapshot.frame.tick;
+    const moments = snapshot.replay.moments.filter((moment) => moment.tick === snapshot.frame!.tick);
+    if (moments.some((moment) => moment.kind === 'destruction')) audioFeedback.cue('destroy');
+    else if (moments.some((moment) => moment.kind === 'damage')) audioFeedback.cue('hit');
+  }
 }
 
 function stepReplay(delta: -1 | 1): void {
@@ -837,6 +879,7 @@ async function initializeApplicationShell(): Promise<void> {
     await onboarding;
     await appShellController.bootstrap();
     renderAppShellV1(appShellController.getSnapshot());
+    if (appShellController.getSnapshot().status === 'ready') await settingsController.load();
     await refreshRecoveryEntry();
     await ensurePageData(appShellController.getSnapshot().page);
     renderOnboardingV1(onboardingController.getSnapshot(), bootstrap.needsOnboarding);
@@ -845,7 +888,7 @@ async function initializeApplicationShell(): Promise<void> {
   }
 }
 
-async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | 'replays' | 'agent-center'): Promise<void> {
+async function navigateApp(page: 'command-center' | 'garage' | 'practice' | 'friend-room' | 'replays' | 'agent-center' | 'settings'): Promise<void> {
   try {
     if (page !== 'friend-room') await stopNearbyDiscovery();
     await appShellController.navigate(page);
@@ -866,7 +909,8 @@ async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | '
     if (recoveryProjection.status === 'available' && !roomRuntimeStarted && !restartRecoveryPending) {
       prepareRestartRecovery(recoveryProjection);
     } else if (!roomRuntimeStarted && !restartRecoveryPending) {
-      await switchPairingMode('nearby');
+      const preferred = currentSettings?.nearbyDiscovery === false ? 'remote' : currentSettings?.defaultFriendMode ?? 'nearby';
+      await switchPairingMode(preferred);
     }
     return;
   }
@@ -875,10 +919,33 @@ async function ensurePageData(page: 'command-center' | 'garage' | 'practice' | '
     if (snapshot.status === 'idle' || snapshot.status === 'error') await agentCenterController.load();
     return;
   }
+  if (page === 'settings') {
+    if (settingsController.getSnapshot().status === 'idle' || settingsController.getSnapshot().status === 'error') await settingsController.load();
+    return;
+  }
   if (page !== 'garage' && page !== 'practice') return;
   if (!garageController.getSnapshot().garage && garageController.getSnapshot().status !== 'loading') {
     await garageController.load();
   }
+}
+
+function readSettingsForm(): AppSettingsV1 {
+  return {
+    version: 1,
+    language: 'zh-CN',
+    masterVolume: Number(element<HTMLInputElement>('settings-master-volume').value),
+    effectsVolume: Number(element<HTMLInputElement>('settings-effects-volume').value),
+    motion: element<HTMLSelectElement>('settings-motion').value as AppSettingsV1['motion'],
+    nearbyDiscovery: element<HTMLInputElement>('settings-nearby').checked,
+    defaultFriendMode: element<HTMLSelectElement>('settings-friend-mode').value as AppSettingsV1['defaultFriendMode'],
+    recentProvider: currentSettings?.recentProvider ?? null,
+    advancedOpen: currentSettings?.advancedOpen ?? false,
+  };
+}
+
+function updateSettingsRangeLabels(): void {
+  element<HTMLElement>('settings-master-value').textContent = `${element<HTMLInputElement>('settings-master-volume').value}%`;
+  element<HTMLElement>('settings-effects-value').textContent = `${element<HTMLInputElement>('settings-effects-volume').value}%`;
 }
 
 function syncAgentProvider(force: boolean): void {
