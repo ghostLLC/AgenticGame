@@ -18,7 +18,8 @@ describe('Public Beta B release policy', () => {
     expect(installerScript).toContain('ELECTRON_BUILDER_CACHE');
     expect(installerScript).toContain("'--win', 'nsis', '--x64'");
     expect(pkg.build.win.target).toContain('nsis');
-    expect(pkg.build.win.signAndEditExecutable).toBe(false);
+    expect(pkg.build.win.signExecutable).toBe(false);
+    expect(pkg.build.win).not.toHaveProperty('signAndEditExecutable');
     expect(pkg.build.nsis).toMatchObject({
       oneClick: false,
       perMachine: false,

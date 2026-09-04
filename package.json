@@ -61,7 +61,7 @@
     ],
     "win": {
       "target": ["portable", "nsis"],
-      "signAndEditExecutable": false
+      "signExecutable": false
     },
     "portable": {
       "artifactName": "AgenticGame-${version}-win-x64-portable.${ext}"
