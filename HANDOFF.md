@@ -2,7 +2,7 @@
 
 > 本文档面向**接手本项目的下一位 AI agent**（或协作者）。包含：
 > 完整玩法逻辑、代码架构、当前进度、已验证项、已知问题、打包指引、以及下一步路线图。
-> 所有内容截至 2026-09-02 实际完成与验证状态，请以此为准。
+> 所有内容截至 2026-09-04 实际完成与验证状态，请以此为准。
 
 ---
 
@@ -246,7 +246,8 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`public-replays/`、`replay-metadata/`、`replay-trash/`、`rooms/`、`quarantine/`、`diagnostics/`、`exports/` 分别保存档案、配置、版本说明、完整练习赛、好友公开回放、复盘笔记、七天回收站、系统加密房间恢复信息、隔离数据、脱敏检查报告和玩家主动导出文件。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
-- **质量基线**：258 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、固定 IPC、桌面导航与两个 CJS 单文件发行程序的真实资源读取；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录内的独立 Bridge 完成真实 stdio 保存/练习赛冒烟，桌面候选启动后保持响应。
+- **发布完整性清单**：`npm run release:integrity` 从当前 ZIP 与安装包读取真实字节数和 SHA-256，原子生成稳定排序的 JSON 清单与标准 `.sha256` 文件；缺失、空文件、路径越界和同版本重复刷新均有回归覆盖。清单用于发现下载损坏或发布错配，不冒充代码签名。
+- **质量基线**：261 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、发布完整性清单、固定 IPC、桌面导航与两个 CJS 单文件发行程序的真实资源读取；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录内的独立 Bridge 完成真实 stdio 保存/练习赛冒烟，桌面候选启动后保持响应。
 
 ### Public Beta B Windows 候选
 
@@ -254,6 +255,7 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，184543992 字节，SHA-256 `760623C18436849BFC3226930B53385E169BF6A2047453F41BE409E368C1AEAE`。
 - NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，126736791 字节，SHA-256 `C4A0239A7E9A39FF582726E30E814E29FF1828535FBD0143BD69152A9386198C`。
 - Agent Bridge：`release/AgenticGame-win-x64/AgenticGame-Agent.exe`，58437682 字节，SHA-256 `A8F2FAA914B7E50164E47FE8ACFD31A14CD00A07DE60E74C52740FA6E87C4667`。
+- 完整性附件：`release/AgenticGame-0.1.0-public-beta-b.sha256` 与 `release/AgenticGame-0.1.0-public-beta-b-manifest.json`，由实际 ZIP/NSIS 候选生成；发布到 GitHub Releases 时应与二进制一同上传。
 - 进程冒烟：2026-09-04 目录版以隔离用户目录启动，主进程 `Responding=True`，检查结束后只终止该候选进程。
 - 浏览器验收：1440×900 与 1100×700 完成设置保存、七项检查、脱敏导出、旧版导入与异地好友偏好继承；0 个控制台错误/警告，页面无横向溢出，未发现实际密钥或路径载荷。
 - 边界：代码与单机发布产物已达到统一验收候选。没有使用用户真实付费 API Key 做线上厂商调用；NSIS 尚未在全新 Windows 用户环境真实安装/卸载；两台真实 Windows 设备的局域网、异地网络与应用重启恢复仍待最终验收。无自有 TURN 时严格 NAT 可能失败。Ardot 同步按用户当前要求延后。

@@ -19,6 +19,7 @@
     "pack:desktop-folder": "npm run build:desktop && npm run build:agent-bridge && node scripts/pack-desktop-folder.mjs",
     "pack:desktop": "npm run build:desktop && npm run build:agent-bridge && electron-builder --win portable --x64",
     "pack:desktop-installer": "npm run build:desktop && npm run build:agent-bridge && node scripts/pack-desktop-installer.mjs",
+    "release:integrity": "node scripts/generate-release-integrity.mjs",
     "build:exe": "node scripts/pack.mjs"
   },
   "engines": {
