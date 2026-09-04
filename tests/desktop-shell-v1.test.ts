@@ -18,7 +18,7 @@ describe('桌面游戏外壳 v1', () => {
       'utf8',
     );
 
-    expect(html).toContain('<link rel="icon" href="data:,">');
+    expect(html).toContain('<link rel="icon" href="app-icon.png">');
     expect(html.match(/class="signal-field"/g)).toHaveLength(8);
     expect(html).toContain('邀请卡已准备好');
     expect(html).toContain('点击后粘贴朋友发来的内容');
@@ -209,11 +209,15 @@ describe('桌面游戏外壳 v1', () => {
       'utf8',
     );
     expect(folderPackScript).toContain("join(releaseRoot, 'AgenticGame-win-x64')");
-    expect(folderPackScript).toContain("renameSync(join(target, 'electron.exe'), join(target, 'AgenticGame.exe'))");
+    expect(folderPackScript).toContain("'--win', 'dir', '--x64'");
+    expect(folderPackScript).toContain("renameSync(builderOutput, target)");
   });
 
   it('用隔离的本地游戏窗口承载界面，而不是把 Node 权限交给渲染层', () => {
-    expect(createDesktopBrowserWindowOptionsV1('D:/AgenticGame/dist/preload.cjs')).toEqual({
+    expect(createDesktopBrowserWindowOptionsV1(
+      'D:/AgenticGame/dist/preload.cjs',
+      'D:/AgenticGame/dist/renderer/app-icon.png',
+    )).toEqual({
       width: 1440,
       height: 900,
       minWidth: 1100,
@@ -222,6 +226,7 @@ describe('桌面游戏外壳 v1', () => {
       backgroundColor: '#1a1614',
       autoHideMenuBar: true,
       title: 'AgenticGame · 坦克竞技场',
+      icon: 'D:/AgenticGame/dist/renderer/app-icon.png',
       webPreferences: {
         preload: 'D:/AgenticGame/dist/preload.cjs',
         contextIsolation: true,

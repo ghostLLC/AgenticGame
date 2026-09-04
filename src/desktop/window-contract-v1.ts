@@ -9,6 +9,7 @@ export interface DesktopBrowserWindowOptionsV1 {
   backgroundColor: string;
   autoHideMenuBar: boolean;
   title: string;
+  icon: string;
   webPreferences: {
     preload: string;
     contextIsolation: boolean;
@@ -24,7 +25,7 @@ export interface FriendRoomPlayerStatusV1 {
   tone: 'neutral' | 'waiting' | 'success' | 'danger';
 }
 
-export function createDesktopBrowserWindowOptionsV1(preload: string): DesktopBrowserWindowOptionsV1 {
+export function createDesktopBrowserWindowOptionsV1(preload: string, icon: string): DesktopBrowserWindowOptionsV1 {
   return {
     width: 1440,
     height: 900,
@@ -34,6 +35,7 @@ export function createDesktopBrowserWindowOptionsV1(preload: string): DesktopBro
     backgroundColor: '#1a1614',
     autoHideMenuBar: true,
     title: 'AgenticGame · 坦克竞技场',
+    icon,
     webPreferences: {
       preload,
       contextIsolation: true,

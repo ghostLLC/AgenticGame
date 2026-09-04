@@ -174,7 +174,10 @@ function sendIfAlive(sender: WebContents, channel: string, payload: unknown): vo
 }
 
 function createGameWindow(): BrowserWindow {
-  const window = new BrowserWindow(createDesktopBrowserWindowOptionsV1(join(__dirname, 'preload.cjs')));
+  const window = new BrowserWindow(createDesktopBrowserWindowOptionsV1(
+    join(__dirname, 'preload.cjs'),
+    join(__dirname, 'renderer', 'app-icon.png'),
+  ));
   window.setMenuBarVisibility(false);
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) void shell.openExternal(url);

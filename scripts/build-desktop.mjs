@@ -28,6 +28,7 @@ runEsbuild([
 
 cpSync('src/desktop/renderer/index.html', join(rendererOutput, 'index.html'));
 cpSync('src/desktop/renderer/styles.css', join(rendererOutput, 'styles.css'));
+cpSync('build/icon-1024.png', join(rendererOutput, 'app-icon.png'));
 cpSync('src/runtime/bot-worker.mjs', join(output, 'bot-worker.js'));
 
 console.log('桌面游戏资源已生成: dist/desktop');

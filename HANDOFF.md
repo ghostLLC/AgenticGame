@@ -2,7 +2,7 @@
 
 > 本文档面向**接手本项目的下一位 AI agent**（或协作者）。包含：
 > 完整玩法逻辑、代码架构、当前进度、已验证项、已知问题、打包指引、以及下一步路线图。
-> 所有内容截至 2026-09-04 实际完成与验证状态，请以此为准。
+> 所有内容截至 2026-09-05 实际完成与验证状态，请以此为准。
 
 ---
 
@@ -204,7 +204,7 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 
 ---
 
-## 四、当前进度（截至 2026-09-01）
+## 四、当前进度（截至 2026-09-05）
 
 ### ✅ 已完成并验证
 - **引擎**：确定性 tick 结算（移动/开火/炮弹逐子步判定/碰撞/死亡/平局/超时），17 项单元测试全过
@@ -247,18 +247,19 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
 - **发布完整性清单与元数据**：安装包声明公开维护主体 `ghostLLC`、项目主页和 Git 仓库；构建用 `signExecutable=false` 只关闭证书签名并保留 Windows 资源编辑，实测 EXE 的 ProductName、CompanyName 与 ProductVersion 已写入。`npm run release:integrity` 从当前 ZIP 与安装包读取真实字节数和 SHA-256，原子生成稳定排序的 JSON 清单与标准 `.sha256` 文件。缺失、空文件、路径越界和同版本重复刷新均有回归覆盖。清单用于发现下载损坏或发布错配，不冒充代码签名。
-- **质量基线**：261 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、发布完整性清单、固定 IPC、桌面导航与两个 CJS 单文件发行程序的真实资源读取；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录内的独立 Bridge 完成真实 stdio 保存/练习赛冒烟，桌面候选启动后保持响应。
+- **Windows 品牌图标与签名门禁**：窗口、页面图标、便携版主程序和 NSIS 安装包统一使用橙蓝坦克图标；目录版由 electron-builder 正式打包，不再重命名 Electron 默认程序。`npm run pack:desktop-signed` 只从环境变量读取 PFX/P12 证书并强制签名，先验证 `win-unpacked` 的两个 EXE 和安装包，再清除旧便携目录/ZIP并从已验证目录重建，随后复验便携目录两个 EXE，最后才生成完整性清单。没有证书、任何 Authenticode 状态不是 `Valid`、复制/压缩失败都会中止，不以自签名或哈希伪装正式签名。
+- **质量基线**：268 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、发布完整性清单、Windows 品牌资源、可信签名门禁、固定 IPC、桌面导航与两个 CJS 单文件发行程序的真实资源读取；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。最终 ZIP 已实解压并与发布目录逐文件核对两个 EXE 哈希；其中的独立 Bridge 完成真实 stdio 保存两个版本/据点练习赛/战绩回读冒烟，桌面候选在隔离用户目录启动并保持响应。
 
 ### Public Beta B Windows 候选
 
 - 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
-- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，184540616 字节，SHA-256 `D542A9168A48CA644F1B30AEA12B392EBD7145850FE3BDAD4DA8EBE42CDC513B`。
-- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，126736957 字节，SHA-256 `18412F14AE3CCEB104DC8F72FE4A8D93363A3C5F65B542F3E5727E57C223D87E`。
+- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，182691780 字节，SHA-256 `34EE53B36FD6A33ED48E78668A50DC0254A6ED95FFAD4B359611BF968967FED6`。
+- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，128128806 字节，SHA-256 `05403E927E4E33DEF249833DD92EA6DA5A03B7E0B429C834CEE764EA588F960A`。
 - Agent Bridge：`release/AgenticGame-win-x64/AgenticGame-Agent.exe`，58437682 字节，SHA-256 `A8F2FAA914B7E50164E47FE8ACFD31A14CD00A07DE60E74C52740FA6E87C4667`。
 - 完整性附件：`release/AgenticGame-0.1.0-public-beta-b.sha256` 与 `release/AgenticGame-0.1.0-public-beta-b-manifest.json`，由实际 ZIP/NSIS 候选生成；发布到 GitHub Releases 时应与二进制一同上传。
 - 进程冒烟：2026-09-04 目录版以隔离用户目录启动，主进程 `Responding=True`，检查结束后只终止该候选进程。
 - 浏览器验收：1440×900 与 1100×700 完成设置保存、七项检查、脱敏导出、旧版导入与异地好友偏好继承；0 个控制台错误/警告，页面无横向溢出，未发现实际密钥或路径载荷。
-- 边界：代码与单机发布产物已达到统一验收候选。没有使用用户真实付费 API Key 做线上厂商调用；NSIS 尚未在全新 Windows 用户环境真实安装/卸载；两台真实 Windows 设备的局域网、异地网络与应用重启恢复仍待最终验收。无自有 TURN 时严格 NAT 可能失败。Ardot 同步按用户当前要求延后。
+- 边界：代码与单机发布产物已达到统一验收候选。当前候选没有受信任代码签名，正式签名流水线已完成但必须在具有受信任证书的构建机上执行后才会产出正式签名文件。没有使用用户真实付费 API Key 做线上厂商调用；NSIS 尚未在全新 Windows 用户环境真实安装/卸载；两台真实 Windows 设备的局域网、异地网络与应用重启恢复仍待最终验收。无自有 TURN 时严格 NAT 可能失败。Ardot 同步按用户当前要求延后。
 
 ### ⚠️ 实测中发现并已修复的问题
 1. **`Math` 不可枚举**：`{...Math}` 展开得空对象（`Math.random` 等全丢）。修复为按属性名拷贝 + 覆盖 random。
@@ -305,12 +306,13 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 258 项自动化测试（含 v1/v2、好友房、回放、外部 Agent、一键接入、AI 教练与发布策略）
+npm run test          # 268 项自动化测试（含 v1/v2、好友房、回放、外部 Agent、一键接入、AI 教练与发布策略）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口
 npm run pack:desktop-folder # 生成 release/AgenticGame-win-x64/AgenticGame.exe
 npm run pack:desktop-installer # 生成当前用户 NSIS 安装包
+npm run pack:desktop-signed # 使用本机受信任证书生成并验证正式签名候选
 npm run build:agent-bridge # 单独生成外部 Agent MCP Bridge
 npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg 基座）
 ```
@@ -369,4 +371,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.10（2026-09-04）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*
+*文档版本：v1.11（2026-09-05）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*

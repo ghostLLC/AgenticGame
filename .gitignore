@@ -10,6 +10,7 @@ replays/*.json
 .playwright-mcp/
 .playwright-cli/
 .cache/
+.tmp/
 output/
 release/
 release-new/

@@ -1,25 +1,32 @@
-import { cpSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, renameSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const releaseRoot = join(root, 'release');
+const builderOutput = join(releaseRoot, 'win-unpacked');
 const target = join(releaseRoot, 'AgenticGame-win-x64');
-const appRoot = join(target, 'resources', 'app');
+const builderCache = join(root, '.cache', 'electron-builder');
+const builderCli = join(root, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
+
+mkdirSync(releaseRoot, { recursive: true });
+mkdirSync(builderCache, { recursive: true });
+const result = spawnSync(process.execPath, [builderCli, '--win', 'dir', '--x64'], {
+  cwd: root,
+  env: {
+    ...process.env,
+    ELECTRON_BUILDER_CACHE: builderCache,
+  },
+  stdio: 'inherit',
+});
+if (result.error) throw result.error;
+if (result.status !== 0) {
+  throw new Error(`桌面目录打包失败，退出码 ${result.status ?? 1}`);
+}
 
 rmSync(target, { recursive: true, force: true });
-mkdirSync(releaseRoot, { recursive: true });
-cpSync(join(root, 'node_modules', 'electron', 'dist'), target, { recursive: true });
-renameSync(join(target, 'electron.exe'), join(target, 'AgenticGame.exe'));
-rmSync(join(target, 'resources', 'default_app.asar'), { force: true });
-mkdirSync(appRoot, { recursive: true });
-cpSync(join(root, 'dist', 'desktop'), join(appRoot, 'dist', 'desktop'), { recursive: true });
-cpSync(join(root, 'dist', 'agent-bridge', 'AgenticGame-Agent.exe'), join(target, 'AgenticGame-Agent.exe'));
-writeFileSync(join(appRoot, 'package.json'), JSON.stringify({
-  name: 'agentic-game',
-  version: '0.1.0',
-  productName: 'AgenticGame',
-  main: 'dist/desktop/main.cjs',
-}, null, 2));
+renameSync(builderOutput, target);
 
 console.log(`可运行桌面版已生成: ${join(target, 'AgenticGame.exe')}`);
 console.log(`外部 Agent 接口已生成: ${join(target, 'AgenticGame-Agent.exe')}`);

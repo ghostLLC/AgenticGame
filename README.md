@@ -32,8 +32,8 @@ Public Beta B 同时提供 Windows x64 便携 ZIP 与当前用户 NSIS 安装包
 
 当前 Public Beta B Windows 候选位于 `release/AgenticGame-win-x64/AgenticGame.exe`；可直接使用
 `release/AgenticGame-0.1.0-win-x64-setup.exe` 安装，或解压
-`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip` 的完整目录后运行。安装包未签名，Windows
-可能显示 SmartScreen 提示。
+`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip` 的完整目录后运行。当前候选已有正式游戏图标，
+但没有受信任代码签名，Windows 可能显示 SmartScreen 提示。
 
 打开游戏的“AI 战术教练”，在“连接我的 AI 队友”中选择 Codex、WorkBuddy 或 Qoder，点击“一键接入”
 并重启对应 AI 工具即可。向导只增改 AgenticGame 自己的连接，保留其他连接和原配置；首次修改既有
@@ -63,6 +63,10 @@ npm run pack:desktop-folder
 
 # 生成当前用户 NSIS 安装包
 npm run pack:desktop-installer
+
+# 使用本机受信任证书生成并验证正式签名候选
+# 详见 docs/releases/windows-signing.md
+npm run pack:desktop-signed
 
 # 单独生成外部 Agent 使用的 Windows MCP Bridge
 npm run build:agent-bridge
