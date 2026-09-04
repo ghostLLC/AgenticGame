@@ -2,6 +2,12 @@
   "name": "tank-arena",
   "version": "0.1.0",
   "description": "AgenticGame #1 — 坦克竞技场：让 AI agent 编写坦克代码进行对战的本地竞技游戏",
+  "author": "ghostLLC",
+  "homepage": "https://github.com/ghostLLC/AgenticGame",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ghostLLC/AgenticGame.git"
+  },
   "type": "module",
   "main": "dist/desktop/main.cjs",
   "bin": {

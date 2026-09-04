@@ -7,6 +7,12 @@ const root = (path: string) => readFileSync(fileURLToPath(new URL(`../${path}`, 
 describe('Public Beta B release policy', () => {
   it('生成当前用户 NSIS 安装包且卸载默认保留玩家数据', () => {
     const pkg = JSON.parse(root('package.json')) as Record<string, any>;
+    expect(pkg.author).toBe('ghostLLC');
+    expect(pkg.homepage).toBe('https://github.com/ghostLLC/AgenticGame');
+    expect(pkg.repository).toEqual({
+      type: 'git',
+      url: 'https://github.com/ghostLLC/AgenticGame.git',
+    });
     expect(pkg.scripts['pack:desktop-installer']).toContain('scripts/pack-desktop-installer.mjs');
     const installerScript = root('scripts/pack-desktop-installer.mjs');
     expect(installerScript).toContain('ELECTRON_BUILDER_CACHE');
