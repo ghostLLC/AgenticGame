@@ -246,15 +246,15 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
 - **桌面数据根**：均位于 Electron `userData`；`profile/`、`builds/`、`build-metadata/`、`replays/`、`public-replays/`、`replay-metadata/`、`replay-trash/`、`rooms/`、`quarantine/`、`diagnostics/`、`exports/` 分别保存档案、配置、版本说明、完整练习赛、好友公开回放、复盘笔记、七天回收站、系统加密房间恢复信息、隔离数据、脱敏检查报告和玩家主动导出文件。
 - **排位模式封存**：原双席位令牌、`/api/rooms` 和云端权威执行保留在 `src/online`，继续跑回归测试但不接入好友房间；等账号、匹配、持久化、反作弊和公开沙盒条件具备后再恢复。
 - **兼容性状态**：v1 引擎、Bot API、CLI、旧网页控制台和旧回放播放器行为保持不变；它们仍保存和展示 Replay v1，桌面练习赛则使用 Replay v2。
-- **质量基线**：257 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、固定 IPC 和桌面导航；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录内的独立 Bridge 完成真实 stdio 保存/练习赛冒烟，桌面候选启动后保持响应。
+- **质量基线**：258 项自动化测试通过，覆盖 v1 兼容、Gameplay/Replay v2、配置历史检查/隔离、真实练习赛、好友房间 P2P、公开回放、加密恢复、局域网发现/真实 UDP 回环、脱敏连接诊断、外部 Agent 六工具工作流、一键接入的保留式配置合并/备份/幂等/损坏保护、Provider 请求边界、Anthropic 工具消息、多场 Agent 评测/取消/确认保存、回放工作室、玩家设置、旧版迁移、发布诊断、固定 IPC、桌面导航与两个 CJS 单文件发行程序的真实资源读取；TypeScript 类型检查、生产依赖 0 漏洞审计、通用构建与桌面构建通过。发行目录内的独立 Bridge 完成真实 stdio 保存/练习赛冒烟，桌面候选启动后保持响应。
 
 ### Public Beta B Windows 候选
 
 - 可运行目录：`release/AgenticGame-win-x64/AgenticGame.exe`
-- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，184544003 字节，SHA-256 `EE29D70C14FB2E49E3B5A4B5209F3567A1E2815BF22194070538F107711DD0B9`。
-- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，126736669 字节，SHA-256 `15F3E75EEE1495B4F28B0D43B87F26DAAE6A342D4217CB4783A8920407227697`。
-- Agent Bridge：`release/AgenticGame-win-x64/AgenticGame-Agent.exe`，58437713 字节，SHA-256 `AE558253567A692CB307E469882ED918D4EFBA072A9A1D4D78B1487498549003`。
-- 进程冒烟：2026-09-02 目录版以隔离用户目录启动，主进程 `Responding=True`，检查结束后只终止该候选进程。
+- 便携 ZIP：`release/AgenticGame-0.1.0-public-beta-b-win-x64.zip`，184543992 字节，SHA-256 `760623C18436849BFC3226930B53385E169BF6A2047453F41BE409E368C1AEAE`。
+- NSIS：`release/AgenticGame-0.1.0-win-x64-setup.exe`，126736791 字节，SHA-256 `C4A0239A7E9A39FF582726E30E814E29FF1828535FBD0143BD69152A9386198C`。
+- Agent Bridge：`release/AgenticGame-win-x64/AgenticGame-Agent.exe`，58437682 字节，SHA-256 `A8F2FAA914B7E50164E47FE8ACFD31A14CD00A07DE60E74C52740FA6E87C4667`。
+- 进程冒烟：2026-09-04 目录版以隔离用户目录启动，主进程 `Responding=True`，检查结束后只终止该候选进程。
 - 浏览器验收：1440×900 与 1100×700 完成设置保存、七项检查、脱敏导出、旧版导入与异地好友偏好继承；0 个控制台错误/警告，页面无横向溢出，未发现实际密钥或路径载荷。
 - 边界：代码与单机发布产物已达到统一验收候选。没有使用用户真实付费 API Key 做线上厂商调用；NSIS 尚未在全新 Windows 用户环境真实安装/卸载；两台真实 Windows 设备的局域网、异地网络与应用重启恢复仍待最终验收。无自有 TURN 时严格 NAT 可能失败。Ardot 同步按用户当前要求延后。
 
@@ -268,10 +268,11 @@ scripts/pack.mjs         打包脚本（esbuild + @yao-pkg/pkg → arena.exe）
    并增加真实 Worker 回归测试。
 7. **pkg 拒绝生成 EXE**：`--no-bytecode` 缺少公开源码参数。现已补充
    `--public --public-packages "*"` 并完成产物实测。
+8. **CJS 打包出现 `import.meta` 警告**：两个单文件入口在 CJS 构建中显式把不可用的模块 URL
+   定义为 `undefined`，继续由 `__dirname` 走虚拟文件系统；新增真实产物回归同时验证 `arena.exe`
+   地图资源和 Agent Bridge 配置输出，不以隐藏日志代替运行验证。
 
 ### 🔶 已知问题 / 待办
-- `esbuild` 打 CJS bundle 时会提示 `import.meta` 为空；打包分支实际使用 `__dirname`，EXE 已实测正常，
-  但后续可重构 `paths.ts` 或调整构建配置以消除警告。
 - `console.html` 的"复制规则书"依赖 `Clipboard API`，部分老浏览器可能要用回退逻辑（已提供）。
 - 打包版双击运行后会在 `exe 同目录`生成 `my-bots/` 和 `replays/`（可移植）。
 - 既有 5 项依赖告警均追溯到开发期 `vitest@2` / `vite` 测试栈；已定向升级至 `vitest@4.1.11`
@@ -302,7 +303,7 @@ npm run arena -- mcp                              # 外部 Agent 的 MCP stdio �
 npm run arena -- agent my-bots/my-tank.js --model <id> --base-url <URL>
 
 # 3) 开发 / 质量
-npm run test          # 257 项自动化测试（含 v1/v2、好友房、回放、外部 Agent、一键接入、AI 教练与发布策略）
+npm run test          # 258 项自动化测试（含 v1/v2、好友房、回放、外部 Agent、一键接入、AI 教练与发布策略）
 npm run typecheck     # tsc 严格检查
 npm run build         # 编译 TypeScript 到 dist/
 npm run desktop       # 构建并启动独立桌面游戏窗口
@@ -366,4 +367,4 @@ npm run build:exe     # 打包成 arena.exe（首次可能需联网下载 pkg �
 
 ---
 
-*文档版本：v1.9（2026-09-02）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*
+*文档版本：v1.10（2026-09-04）／ v1 引擎 0.1.0 ／ Gameplay v2 引擎 0.2.0 ／ v2 契约 2*

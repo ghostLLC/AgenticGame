@@ -17,6 +17,7 @@ mkdirSync(output, { recursive: true });
 const runEsbuild = (args) => execFileSync(process.execPath, [esbuild, ...args], { cwd: root, stdio: 'inherit' });
 runEsbuild([
   'src/agent/bridge-cli-v1.ts', '--bundle', '--platform=node', '--format=cjs', '--target=node22',
+  '--define:import.meta.url=undefined',
   '--outfile=dist/agent-bridge/bridge.cjs', '--log-level=warning',
 ]);
 runEsbuild([

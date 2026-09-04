@@ -13,7 +13,7 @@ mkdirSync(join(dist, 'assets'), { recursive: true });
 //    paths.ts 里的 __dirname 探测会自动生效）
 execSync(
   `npx esbuild src/cli/index.ts --bundle --platform=node --format=cjs --target=node22 ` +
-    `--outfile=dist/cli.bundle.js --log-level=warning`,
+    `--define:import.meta.url=undefined --outfile=dist/cli.bundle.js --log-level=warning`,
   { stdio: 'inherit', cwd: root },
 );
 
