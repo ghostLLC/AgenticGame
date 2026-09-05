@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,6 +36,7 @@ function changedInput(): GarageSaveInputV1 {
     weaponId: 'light-cannon',
     tacticId: 'scout',
     note: '提高侧翼机动性',
+    replaceTactic: true,
   };
 }
 
@@ -110,10 +111,47 @@ describe('GarageServiceV1', () => {
         '战车：中型坦克 → 侦察坦克',
         '主炮：中型炮 → 轻型炮',
         '战术：中线突击 → 游骑侦察',
+        '更新战术代码',
       ],
     });
     expect(unchanged.revisions).toHaveLength(2);
     expect(await noteRepository.list('commander-main')).toHaveLength(2);
+  });
+
+  it('preserves external source and equipment for ordinary edits, including note-only saves', async () => {
+    const { service, buildRepository, noteRepository } = setup();
+    await service.getSnapshot(player());
+    const first = await buildRepository.load('commander-main', 'latest');
+    const source = 'module.exports = () => ({ onTick() { return { throttle: 0, fire: true }; } });';
+    await buildRepository.save({ buildId: first.buildId, label: first.label,
+      bot: { ...first.botArtifact, source }, loadout: first.loadout });
+    const input = { label: first.label, vehicleId: 'medium' as const, weaponId: 'medium-cannon' as const,
+      tacticId: 'medium' as const, note: '只修改说明', baseRevision: 2 };
+    const result = await service.saveRevision(player(), input);
+    expect(result.currentRevision).toBe(2);
+    expect((await buildRepository.load('commander-main', 2)).botArtifact.source).toBe(source);
+    expect((await noteRepository.load('commander-main', 2)).note).toBe(input.note);
+    expect(result.revisions[1]?.sourceKind).toBe('custom');
+    await expect(service.saveRevision(player(), { ...input, baseRevision: 1 })).rejects.toThrow('其他窗口或 AI');
+    expect((await buildRepository.list('commander-main')).length).toBe(2);
+  });
+
+  it('does not publish a new build when its annotation cannot be saved', async () => {
+    const { service, buildRepository, noteRepository } = setup();
+    await service.getSnapshot(player());
+    vi.spyOn(noteRepository, 'save').mockRejectedValue(new Error('disk full'));
+    await expect(service.saveRevision(player(), changedInput())).rejects.toThrow('disk full');
+    expect((await buildRepository.list('commander-main')).length).toBe(1);
+  });
+
+  it('isolates a damaged annotation while keeping healthy notes visible', async () => {
+    const { root, service } = setup();
+    await service.getSnapshot(player());
+    await service.saveRevision(player(), changedInput());
+    writeFileSync(join(root, 'build-metadata', 'commander-main', '1.json'), '{');
+    const result = await service.getSnapshot(player());
+    expect(result.revisions[0]?.issue).toContain('说明');
+    expect(result.revisions[1]?.note).toBe('提高侧翼机动性');
   });
 
   it('derives battle counts for each participating healthy revision from verified replays', async () => {

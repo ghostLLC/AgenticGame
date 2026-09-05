@@ -164,9 +164,9 @@ describe('桌面游戏外壳 v1', () => {
     expect(html).toContain('AI 战术教练');
     expect(html).toContain('密钥仅用于本次运行');
     expect(html).toContain('保存为新版本');
-    expect(html).toContain('3 场');
-    expect(html).toContain('5 场');
-    expect(html).toContain('10 场');
+    expect(html).toContain('6 场');
+    expect(html).toContain('12 场');
+    expect(html).toContain('24 场');
     expect(html).toContain('连接我的 AI 队友');
     expect(html).toContain('不会改动其他连接');
     expect(html).toContain('重启后生效');
@@ -220,8 +220,8 @@ describe('桌面游戏外壳 v1', () => {
     )).toEqual({
       width: 1440,
       height: 900,
-      minWidth: 1100,
-      minHeight: 700,
+      minWidth: 760,
+      minHeight: 560,
       show: false,
       backgroundColor: '#1a1614',
       autoHideMenuBar: true,

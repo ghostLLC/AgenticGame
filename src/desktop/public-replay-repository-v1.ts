@@ -1,6 +1,10 @@
 import { constants } from 'node:fs';
 import { access, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { mapLimited } from '../storage/map-limited.js';
+import { writeAtomicJson } from '../storage/atomic-json.js';
+import { acquireWriteLease } from '../storage/write-lease.js';
+import { cleanAbandonedTemps } from '../storage/quarantine-journal.js';
 import { hashJson, type JsonValue } from '../core/v2/json.js';
 import { assertFriendRoomReplayV1, type FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
 import type { PublicReplayInspectionV1, PublicReplayLibraryRepositoryV1 } from './replay-library-service-v1.js';
@@ -36,29 +40,16 @@ export class PublicReplayRepositoryV1 implements PublicReplayLibraryRepositoryV1
     const record: PublicReplayRecordV1 = { version: 1, replayId, ...base };
     const path = this.filePath(replayId);
     await mkdir(this.root, { recursive: true });
+    const release = await acquireWriteLease(resolve(this.root, '.save.lock'));
+    try {
+    await cleanAbandonedTemps(this.root, /^(?:\.[0-9a-f]{64}\.tmp-\d+|[0-9a-f]{64}\.json\.tmp-[a-zA-Z0-9-]+)$/);
     if (await exists(path)) {
       await this.load(replayId);
       return { created: false, replayId };
     }
-    const temporary = resolve(this.root, `.${replayId}.tmp-${process.pid}`);
-    const handle = await open(temporary, 'wx');
-    try {
-      await handle.writeFile(`${JSON.stringify(record, null, 2)}\n`, 'utf8');
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    try {
-      await rename(temporary, path);
-    } catch (error) {
-      await unlink(temporary).catch(() => undefined);
-      if (await exists(path)) {
-        await this.load(replayId);
-        return { created: false, replayId };
-      }
-      throw error;
-    }
+    await writeAtomicJson(path, record);
     return { created: true, replayId };
+    } finally { await release(); }
   }
 
   async load(replayId: string): Promise<FriendRoomReplayV1> {
@@ -74,7 +65,7 @@ export class PublicReplayRepositoryV1 implements PublicReplayLibraryRepositoryV1
       throw error;
     }
     const ids = entries.flatMap((entry) => /^([0-9a-f]{64})\.json$/.exec(entry)?.[1] ?? []);
-    const inspected = await Promise.all(ids.map(async (replayId): Promise<PublicReplayInspectionV1> => {
+    const inspected = await mapLimited(ids, 4, async (replayId): Promise<PublicReplayInspectionV1> => {
       try {
         const record = await this.loadRecord(replayId);
         return {
@@ -90,7 +81,7 @@ export class PublicReplayRepositoryV1 implements PublicReplayLibraryRepositoryV1
       } catch {
         return { replayId, state: 'corrupt', message: '好友房回放未通过完整性校验' };
       }
-    }));
+    });
     return inspected.sort((a, b) => {
       if (a.state !== b.state) return a.state === 'corrupt' ? -1 : 1;
       if (a.state === 'healthy' && b.state === 'healthy') return b.createdAt.localeCompare(a.createdAt) || a.replayId.localeCompare(b.replayId);

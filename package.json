@@ -1,6 +1,6 @@
 {
   "name": "tank-arena",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AgenticGame #1 — 坦克竞技场：让 AI agent 编写坦克代码进行对战的本地竞技游戏",
   "author": "ghostLLC",
   "homepage": "https://github.com/ghostLLC/AgenticGame",
@@ -23,7 +23,7 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "build:agent-bridge": "node scripts/build-agent-bridge.mjs",
     "pack:desktop-folder": "npm run build:desktop && npm run build:agent-bridge && node scripts/pack-desktop-folder.mjs",
-    "pack:desktop": "npm run build:desktop && npm run build:agent-bridge && electron-builder --win portable --x64",
+    "pack:desktop": "npm run build:desktop && npm run build:agent-bridge && electron-builder --win portable --x64 --publish never",
     "pack:desktop-installer": "npm run build:desktop && npm run build:agent-bridge && node scripts/pack-desktop-installer.mjs",
     "pack:desktop-signed": "node scripts/pack-desktop-signed.mjs",
     "release:integrity": "node scripts/generate-release-integrity.mjs",
@@ -31,7 +31,7 @@
     "build:exe": "node scripts/pack.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
@@ -62,7 +62,10 @@
       }
     ],
     "win": {
-      "target": ["portable", "nsis"],
+      "target": [
+        "portable",
+        "nsis"
+      ],
       "icon": "build/icon.ico",
       "signExecutable": false
     },
@@ -82,8 +85,10 @@
     }
   },
   "dependencies": {
+    "@jitl/quickjs-wasmfile-release-sync": "0.32.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "jsonc-parser": "^3.3.1",
+    "quickjs-emscripten-core": "0.32.0",
     "smol-toml": "^1.8.0",
     "zod": "^4.4.3"
   }

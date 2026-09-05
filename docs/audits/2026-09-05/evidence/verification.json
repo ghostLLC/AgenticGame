@@ -1,0 +1,33 @@
+{
+  "auditDate": "2026-09-05",
+  "workspace": "D:\\AgenticGame",
+  "commit": "93c2002482c6c65ee0632193d9bc99fd64334f78",
+  "productVersion": "0.1.0",
+  "nodeVersion": "v22.16.0",
+  "npmVersion": "10.9.2",
+  "scope": "Audit and proposal only; no product source or existing release artifact changes",
+  "checksObservedDuringAudit": [
+    { "command": "npm test", "result": "passed", "testFiles": 61, "tests": 268 },
+    { "command": "npm run typecheck", "result": "passed" },
+    { "command": "npm run build", "result": "passed" },
+    { "command": "npm run build:desktop", "result": "build passed; output still fails module loading" },
+    { "command": "npm audit --json", "result": "0 known dependency vulnerabilities at audit time" },
+    { "command": "node scripts/acceptance/agent-bridge-smoke.mjs release/AgenticGame-win-x64/AgenticGame-Agent.exe", "result": "passed", "tools": 6, "revisions": 2, "practiceMatches": 1 },
+    { "check": "Authenticode desktop and installer", "result": "NotSigned" },
+    { "check": "Native Electron UI", "result": "diagnostic-only ESM-preferred bundle launched with isolated user data; selected tutorial, navigation, garage, practice, replay and zoom flows observed" }
+  ],
+  "notVerified": [
+    "Original installed directory: not present at the screenshot path during this audit",
+    "Clean Windows install, upgrade and uninstall",
+    "Real two-device LAN and WAN matches and restart recovery",
+    "Real paid model provider calls and actual external client config mutations",
+    "Long-running soak, scale performance and novice usability study",
+    "Complete Windows DPI matrix and audio listening acceptance"
+  ],
+  "probeEvidence": [
+    "artifact-results.jsonl",
+    "sandbox-results.jsonl",
+    "behavior-results.json",
+    "mechanics-results.json"
+  ]
+}

@@ -1,6 +1,6 @@
 # Gameplay v2 Vertical Slice Specification
 
-**Status:** Approved for implementation  
+**Status:** Implemented in desktop; updated for ruleset 2.1.0 on 2026-09-05
 **Date:** 2026-08-24  
 **Owner:** AgenticGame
 
@@ -13,7 +13,7 @@ Turn the existing v2 data contracts into a real deterministic game that proves t
 - The v1 engine, `runMatch`, Bot API, CLI, Replay v1, browser console, and viewer remain source-compatible.
 - Gameplay v2 is a parallel engine and runner exposed as `GameplayEngineV2` and `runMatchV2`.
 - The vertical slice supports exactly two teams with one vehicle and one weapon per team. The persisted contracts remain array-based so later multi-vehicle modes do not require a replay-envelope rewrite.
-- No user-interface code changes in this phase. A UI entry point remains gated by an accepted Ardot design.
+- The original vertical slice is now connected to the desktop garage, practice lab and friend rooms. The historical phase plan is not the current UI status.
 
 ## 3. Official v2 content
 
@@ -51,12 +51,12 @@ Terrain overlap is resolved by paint order `open → forest → mud → wall`, s
 1. Decrease reload and turn cooldowns.
 2. Apply body and turret turns whose cooldown is zero; successful turns reset the relevant vehicle cadence.
 3. Update signed velocity from throttle using acceleration, deceleration, and the vehicle maximum.
-4. Add absolute velocity to movement progress. A vehicle attempts at most one cell per tick when progress meets the destination terrain movement cost; blocked movement resets progress.
+4. Add absolute velocity to movement progress. A vehicle attempts at most one cell per tick when progress meets destination terrain cost. In ruleset 2.1.0, collect intents before applying moves; shared destinations and any initially occupied destination are blocked, including swaps. Blocked movement resets progress. Historical 2.0.0 retains its original resolution.
 5. Advance projectiles by integer substeps. Wall/edge and range expiry remove a projectile.
 6. On hit, classify the impact zone from projectile travel direction versus victim body direction, apply armor, emit the full damage explanation, and remove the projectile.
 7. Fire after movement when reload is zero and ammunition is positive. Firing consumes one round and creates a projectile that moves next tick. Empty-ammo attempts emit `dry-fire`.
 8. Resolve deaths. In capture mode, update continuous uncontested occupancy and end immediately at the configured target.
-9. Increment the tick and at `maxTicks` compare remaining HP.
+9. Increment the tick. At `maxTicks`, 2.1.0 duel draws; capture only awards a team with uncontested positive objective progress, otherwise draws. Historical 2.0.0 compares raw remaining HP. New damage clamps HP to zero.
 
 For a projectile, source direction is `(travelDirection + 4) mod 8`. Relative source directions within 45° of the body front are `front`, exactly 90° is `side`, and directions within 45° of the rear are `rear`.
 
@@ -99,4 +99,4 @@ An untouched result must pass `verifyMatchBundleV2`. Same timestamp, seed, confi
 - Heavy body/turret rotation cadence is slower than scout cadence.
 - A real sandboxed v2 match emits a verified deterministic MatchBundleV2 whose checkpoints include mobility, ammo, visibility-independent authoritative state, and result.
 - A single uncontested team wins capture mode after 30 continuous ticks; contesting or leaving resets progress, and objective events remain visible in Replay Studio.
-- All 92 tests, typecheck, build, and `git diff --check` pass.
+- Original slice gate was 92 tests. Current candidate gates are recorded in `docs/releases/0.1.1-quality-repair.md`.

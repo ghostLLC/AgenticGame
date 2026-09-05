@@ -41,7 +41,7 @@ describe('PlayerProfileRepositoryV1', () => {
 
     await expect(repo.load()).resolves.toEqual(updated);
     const profileDir = join(root, 'profile');
-    expect(readdirSync(profileDir)).toEqual(['player-profile-v1.json']);
+    expect(readdirSync(profileDir)).toEqual(['player-profile-v1.json', 'player-profile-v1.json.last-good']);
     expect(JSON.parse(readFileSync(join(profileDir, 'player-profile-v1.json'), 'utf8'))).toEqual(updated);
   });
 
@@ -55,12 +55,34 @@ describe('PlayerProfileRepositoryV1', () => {
     const profilePath = join(profileDir, 'player-profile-v1.json');
     writeFileSync(profilePath, content, 'utf8');
 
-    await expect(repo.load()).rejects.toThrow('玩家档案已损坏，已移入隔离区');
+    await expect(repo.load()).resolves.toBeUndefined();
+    expect(repo.takeRecoveryNotice()).toContain('请重新设置昵称');
 
     expect(existsSync(profilePath)).toBe(false);
     const entries = await repo.quarantineEntries();
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatch(/^player-profile-v1\.\d{8}T\d{6}\d{3}Z\.[0-9a-f-]+\.invalid\.json$/);
     expect(readFileSync(join(root, 'quarantine', entries[0]!), 'utf8')).toBe(content);
+    const reopened = new PlayerProfileRepositoryV1(root);
+    expect(await reopened.load()).toBeUndefined();
+    expect(reopened.takeRecoveryNotice()).toContain('请重新设置昵称');
+  });
+
+  it('restores the last good profile and keeps the damaged bytes for recovery', async () => {
+    const { root, repository: repo } = await repository();
+    await repo.save(profile());
+    writeFileSync(join(root, 'profile', 'player-profile-v1.json'), '{');
+    expect(await repo.load()).toEqual(profile());
+    expect(repo.takeRecoveryNotice()).toContain('备份恢复');
+    expect(await repo.quarantineEntries()).toHaveLength(1);
+  });
+
+  it('recovers when startup was interrupted between quarantine and backup restoration', async () => {
+    const { root, repository: repo } = await repository();
+    await repo.save(profile());
+    rmSync(join(root, 'profile', 'player-profile-v1.json'));
+    const reopened = new PlayerProfileRepositoryV1(root);
+    expect(await reopened.load()).toEqual(profile());
+    expect(reopened.takeRecoveryNotice()).toContain('备份恢复');
   });
 });

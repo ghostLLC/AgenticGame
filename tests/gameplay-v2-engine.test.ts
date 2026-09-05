@@ -79,6 +79,35 @@ function captureMap(
 }
 
 describe('GameplayEngineV2 creation and mobility', () => {
+  it('blocks both contenders for a shared cell in 2.1, while retaining the 2.0 result', () => {
+    const map = mapFixture([
+      { id: 'a', x: 2, y: 2, bodyDirection: 2, turretDirection: 2 },
+      { id: 'b', x: 4, y: 2, bodyDirection: 6, turretDirection: 6 },
+    ]);
+    const configNew = config('scout', 'scout'); configNew.ruleset.version = '2.1.0';
+    const modern = new GameplayEngineV2(configNew, contentFixture(), map);
+    const legacy = new GameplayEngineV2(config('scout', 'scout'), contentFixture(), map);
+    for (const engine of [modern, legacy]) {
+      engine.state.tanks.forEach((tank) => { tank.velocityPermille = 1000; });
+      engine.step([act({ throttle: 1 }), act({ throttle: 1 })]);
+    }
+    expect(modern.state.tanks.map((tank) => tank.x)).toEqual([2, 4]);
+    expect(legacy.state.tanks.map((tank) => tank.x)).toEqual([3, 4]);
+    const reverseConfig = structuredClone(configNew); reverseConfig.teams.reverse();
+    const reverseMap = structuredClone(map); reverseMap.spawnPoints.reverse();
+    const reversed = new GameplayEngineV2(reverseConfig, contentFixture(), reverseMap);
+    reversed.state.tanks.forEach((tank) => { tank.velocityPermille = 1000; });
+    reversed.step([act({ throttle: 1 }), act({ throttle: 1 })]);
+    expect(reversed.state.tanks.map((tank) => tank.x)).toEqual([4, 2]);
+  });
+
+  it('draws a 2.1 duel at the time limit even when starting hull durability differs', () => {
+    const current = config('scout', 'heavy', 1); current.ruleset.version = '2.1.0';
+    const engine = new GameplayEngineV2(current, contentFixture(), mapFixture());
+    engine.step([idle, idle]);
+    expect(engine.state.winningTeamIds).toEqual([]);
+    expect(engine.state.endReason).toBe('time-limit-draw');
+  });
   it('rejects a loadout whose vehicle is absent from the content snapshot', () => {
     expect(() => new GameplayEngineV2(config('missing'), contentFixture(), mapFixture()))
       .toThrow('未知车辆引用: missing');

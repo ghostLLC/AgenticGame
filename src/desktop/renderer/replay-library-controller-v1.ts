@@ -16,12 +16,16 @@ export interface ReplayLibraryControllerSnapshotV1 {
   cards: ReplayCardV1[];
   counts: ReplayLibrarySnapshotV1['counts'];
   trash: ReplayTrashCardV1[];
+  totalFiltered?: number;
+  hasMore?: boolean;
+  recoveryNotice?: string;
   message?: string;
 }
 
 const EMPTY_COUNTS = { all: 0, practice: 0, friendPublic: 0, damaged: 0, trash: 0 };
 
 export class ReplayLibraryControllerV1 {
+  private refreshSequence = 0;
   private readonly api: ReplayApiV1;
   private snapshot: ReplayLibraryControllerSnapshotV1 = {
     status: 'idle', busy: false, filter: {}, cards: [], counts: EMPTY_COUNTS, trash: [],
@@ -37,16 +41,28 @@ export class ReplayLibraryControllerV1 {
   }
 
   async refresh(): Promise<void> {
+    const sequence = ++this.refreshSequence;
     try {
       const [library, trash] = await Promise.all([this.api.list(this.snapshot.filter), this.api.listTrash()]);
-      this.snapshot = { ...this.snapshot, status: 'ready', cards: library.cards, counts: library.counts, trash, message: undefined };
+      if (sequence !== this.refreshSequence) return;
+      this.snapshot = { ...this.snapshot, status: 'ready', cards: library.cards, counts: library.counts, trash,
+        totalFiltered: library.totalFiltered ?? library.cards.length, hasMore: library.hasMore ?? false,
+        recoveryNotice: library.recoveryNotice, message: undefined };
     } catch {
+      if (sequence !== this.refreshSequence) return;
       this.snapshot = { ...this.snapshot, status: 'error', message: '回放列表暂时无法刷新。' };
     }
   }
 
   async setFilter(filter: ReplayLibraryFilterV1): Promise<void> {
-    this.snapshot.filter = structuredClone(filter);
+    this.snapshot.filter = { ...structuredClone(filter), offset: 0 };
+    await this.refresh();
+  }
+
+  async changePage(direction: -1 | 1): Promise<void> {
+    if (direction === 1 && !this.snapshot.hasMore) return;
+    const limit = this.snapshot.filter.limit ?? 40;
+    this.snapshot.filter.offset = Math.max(0, (this.snapshot.filter.offset ?? 0) + direction * limit);
     await this.refresh();
   }
 

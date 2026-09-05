@@ -105,6 +105,9 @@ export class GameplayEngineV2 {
     readonly map: MapSnapshotV2,
   ) {
     assertMatchConfigV2(config);
+    if (config.ruleset.id !== 'gameplay-v2' || !['2.0.0', '2.1.0'].includes(config.ruleset.version)) {
+      throw new Error('不支持此比赛规则版本');
+    }
     if (config.teams.length !== 2) throw new Error('Gameplay v2 首期仅支持恰好两个队伍');
     if (config.mapId !== map.id) throw new Error(`地图引用不匹配: ${config.mapId} != ${map.id}`);
     const mode = content.modes.find((item) => item.id === config.modeId);
@@ -197,6 +200,9 @@ export class GameplayEngineV2 {
       }
     });
 
+    const simultaneous = this.config.ruleset.version === '2.1.0';
+    const origins = this.state.tanks.map((tank) => ({ teamId: tank.teamId, x: tank.x, y: tank.y, alive: tank.alive }));
+    const moves: Array<{ tank: GameplayTankStateV2; x: number; y: number; cost: number; terrainId: string }> = [];
     this.state.tanks.forEach((tank, index) => {
       if (!tank.alive) return;
       const action = actions[index]!;
@@ -217,10 +223,14 @@ export class GameplayEngineV2 {
       const destination = this.inBounds(x, y) ? this.terrainAt(x, y) : null;
       const movementCost = destination?.movementCostPermille ?? 1000;
       if (tank.movementProgressPermille < movementCost) return;
-      if (!destination || destination.blocksMovement || this.isOccupied(x, y, tank.teamId)) {
+      if (!destination || destination.blocksMovement || (!simultaneous && this.isOccupied(x, y, tank.teamId))) {
         tank.velocityPermille = 0;
         tank.movementProgressPermille = 0;
         events.push({ type: 'move-blocked', tick, teamId: tank.teamId, x, y });
+        return;
+      }
+      if (simultaneous) {
+        moves.push({ tank, x, y, cost: movementCost, terrainId: destination.id });
         return;
       }
       tank.x = x;
@@ -228,6 +238,19 @@ export class GameplayEngineV2 {
       tank.movementProgressPermille -= movementCost;
       events.push({ type: 'move', tick, teamId: tank.teamId, x, y, terrainId: destination.id });
     });
+    for (const move of moves) {
+      const { tank, x, y } = move;
+      // Occupied starting cells, swaps and shared destinations block every contender.
+      const blocked = origins.some((origin) => origin.alive && origin.teamId !== tank.teamId && origin.x === x && origin.y === y)
+        || moves.some((other) => other.tank !== tank && other.x === x && other.y === y);
+      if (blocked) {
+        tank.velocityPermille = 0; tank.movementProgressPermille = 0;
+        events.push({ type: 'move-blocked', tick, teamId: tank.teamId, x, y });
+      } else {
+        tank.x = x; tank.y = y; tank.movementProgressPermille -= move.cost;
+        events.push({ type: 'move', tick, teamId: tank.teamId, x, y, terrainId: move.terrainId });
+      }
+    }
 
     const flying: GameplayProjectileStateV2[] = [];
     for (const projectile of this.state.projectiles) {
@@ -256,6 +279,7 @@ export class GameplayEngineV2 {
           const armor = vehicle.armor[impactZone];
           const damage = Math.max(1, weapon.damage - Math.max(0, armor - weapon.penetration));
           victim.hp -= damage;
+          if (this.config.ruleset.version === '2.1.0') victim.hp = Math.max(0, victim.hp);
           events.push({
             type: 'hit', tick, projectileId: projectile.id, shooterTeamId: projectile.ownerTeamId,
             victimTeamId: victim.teamId, x: projectile.x, y: projectile.y, impactZone, armor,
@@ -315,9 +339,15 @@ export class GameplayEngineV2 {
 
     this.state.tick += 1;
     if (!this.state.finished && this.state.tick >= this.config.maxTicks) {
-      const [a, b] = this.state.tanks;
-      const winningTeamIds = a.hp === b.hp ? [] : [a.hp > b.hp ? a.teamId : b.teamId];
-      this.endMatch(events, winningTeamIds, 'max-ticks');
+      if (this.config.ruleset.version === '2.0.0') {
+        const [a, b] = this.state.tanks;
+        const winningTeamIds = a.hp === b.hp ? [] : [a.hp > b.hp ? a.teamId : b.teamId];
+        this.endMatch(events, winningTeamIds, 'max-ticks');
+      } else {
+        const objective = this.state.objective;
+        const leader = objective && !objective.contested && objective.progress > 0 ? objective.capturingTeamId : null;
+        this.endMatch(events, leader ? [leader] : [], leader ? 'time-limit-objective' : 'time-limit-draw');
+      }
     }
     return events;
   }

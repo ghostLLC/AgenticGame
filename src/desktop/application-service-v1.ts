@@ -35,6 +35,7 @@ import type {
 export interface DesktopBootstrapV1 {
   needsOnboarding: boolean;
   profile?: PlayerProfileV1;
+  recoveryNotice?: string;
 }
 
 export interface DesktopApplicationServiceOptionsV1 {
@@ -77,8 +78,10 @@ export class DesktopApplicationServiceV1 {
 
   async bootstrap(): Promise<DesktopBootstrapV1> {
     const profile = await this.repository.load();
-    if (!profile) return { needsOnboarding: true };
-    return { needsOnboarding: profile.tutorialStage !== 'complete', profile };
+    const recoveryNotice = this.repository.takeRecoveryNotice();
+    if (!profile) return { needsOnboarding: true, ...(recoveryNotice ? { recoveryNotice } : {}) };
+    if (profile.tutorialStage === 'complete') await this.garageService?.initialize(profile);
+    return { needsOnboarding: profile.tutorialStage !== 'complete', profile, ...(recoveryNotice ? { recoveryNotice } : {}) };
   }
 
   async createProfile(input: { displayName: string; doctrine: PlayerDoctrineV1 }): Promise<PlayerProfileV1> {
@@ -110,6 +113,7 @@ export class DesktopApplicationServiceV1 {
         ? 'complete'
         : null;
     if (stage !== expected) throw new Error('教程进度无效');
+    if (stage === 'complete') await this.garageService?.getSnapshot(profile);
     return this.saveUpdated({ ...profile, tutorialStage: stage, lastOpenedAt: this.now() });
   }
 
@@ -143,6 +147,11 @@ export class DesktopApplicationServiceV1 {
     return this.requirePracticeService().run(input);
   }
 
+  async cancelPractice(): Promise<void> {
+    await this.requireCompletedProfile();
+    this.requirePracticeService().cancel();
+  }
+
   async listReplays(filter: ReplayLibraryFilterV1): Promise<ReplayLibrarySnapshotV1> {
     await this.requireCompletedProfile();
     return this.requireReplayService().list(filter);
@@ -161,6 +170,16 @@ export class DesktopApplicationServiceV1 {
   async exportReplay(replayId: string, source: ReplaySourceV1): Promise<string> {
     await this.requireCompletedProfile();
     return this.requireReplayService().export(replayId, source);
+  }
+
+  async backupReplay(replayId: string, source: ReplaySourceV1): Promise<string> {
+    await this.requireCompletedProfile(); return this.requireReplayService().export(replayId, source, true);
+  }
+  async importReplay(): Promise<string> {
+    await this.requireCompletedProfile(); return this.requireReplayService().importFile();
+  }
+  async revealReplayExport(): Promise<void> {
+    await this.requireCompletedProfile(); await this.requireReplayService().revealLastExport();
   }
 
   async moveReplayToTrash(replayId: string, source: ReplaySourceV1) {
@@ -189,8 +208,14 @@ export class DesktopApplicationServiceV1 {
   }
 
   async getAgentCenter(): Promise<AgentCenterSnapshotV1> {
-    await this.requireCompletedProfile();
+    const profile = await this.requireCompletedProfile();
+    await this.garageService?.getSnapshot(profile);
     return this.requireAgentCenterService().getSnapshot();
+  }
+
+  async getAgentProgress() {
+    await this.requireCompletedProfile();
+    return this.requireAgentCenterService().getProgress();
   }
 
   async runAgentCenter(input: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1> {

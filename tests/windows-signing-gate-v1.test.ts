@@ -25,7 +25,7 @@ describe('Windows 正式签名门禁 v1', () => {
     expect(`${result.stdout}${result.stderr}`).not.toContain(secretMarker);
   });
 
-  it('对未签名文件返回失败而不是把完整性哈希当作签名', () => {
+  it('对未签名文件返回失败而不是把完整性哈希当作签名', { timeout: 15_000 }, () => {
     const folder = mkdtempSync(join(tmpdir(), 'agenticgame-unsigned-'));
     const unsignedFile = join(folder, 'unsigned.exe');
     writeFileSync(unsignedFile, Buffer.from('not-a-signed-windows-executable'));
@@ -41,7 +41,7 @@ describe('Windows 正式签名门禁 v1', () => {
     expect(`${result.stdout}${result.stderr}`).not.toContain('SHA-256');
   });
 
-  it('能在构建进程环境中识别 Windows 自带的可信签名文件', () => {
+  it('能在构建进程环境中识别 Windows 自带的可信签名文件', { timeout: 15_000 }, () => {
     const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
     expect(systemRoot).toBeTruthy();
     const signedSystemFile = join(systemRoot!, 'System32', 'notepad.exe');

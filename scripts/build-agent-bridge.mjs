@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildBotWorker } from './build-bot-worker.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = join(root, 'dist', 'agent-bridge');
@@ -20,14 +21,11 @@ runEsbuild([
   '--define:import.meta.url=undefined',
   '--outfile=dist/agent-bridge/bridge.cjs', '--log-level=warning',
 ]);
-runEsbuild([
-  'src/runtime/bot-worker.mjs', '--bundle', '--platform=node', '--format=cjs', '--target=node22',
-  '--outfile=dist/agent-bridge/bot-worker.js', '--log-level=warning',
-]);
+await buildBotWorker(join(output, 'bot-worker.js'));
 
 writeFileSync(pkgConfig, JSON.stringify({
   name: 'agentic-game-agent-bridge',
-  version: '0.1.0',
+  version: JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version,
   pkg: { assets: ['bot-worker.js'], outputPath: '.' },
 }, null, 2));
 
@@ -40,6 +38,7 @@ execFileSync(process.execPath, [
   '--no-bytecode',
   '--public',
   '--public-packages', '*',
+  '--options', 'max-old-space-size=128,stack-size=1024',
 ], { cwd: root, stdio: 'inherit' });
 
 console.log(`Agent Bridge 已生成: ${bridgeExe}`);

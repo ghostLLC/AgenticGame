@@ -1,0 +1,90 @@
+{
+  "version": "0.1.1",
+  "date": "2026-09-05",
+  "baseline": "93c2002482c6c65ee0632193d9bc99fd64334f78",
+  "tests": {
+    "files": 66,
+    "passed": 312
+  },
+  "typecheck": "passed",
+  "productionAudit": {
+    "vulnerabilities": 0
+  },
+  "genericBuild": "passed",
+  "desktopBuild": "passed",
+  "agentBridgeBuild": "passed",
+  "artifactSmoke": [
+    {
+      "artifact": "directory EXE",
+      "packaged": true,
+      "trustedRendererBootstrap": true,
+      "tutorialFrames": 23
+    },
+    {
+      "artifact": "NSIS extracted EXE",
+      "packaged": true,
+      "trustedRendererBootstrap": true,
+      "tutorialFrames": 23
+    },
+    {
+      "artifact": "ZIP extracted EXE",
+      "packaged": true,
+      "trustedRendererBootstrap": true,
+      "tutorialFrames": 23
+    }
+  ],
+  "bridgeSmoke": {
+    "tools": 6,
+    "revisions": 2,
+    "practiceMatches": 1
+  },
+  "zipIntegrity": {
+    "files": 73,
+    "status": "passed",
+    "validation": "CRC-checked extraction and actual extracted EXE smoke"
+  },
+  "asarSha256": "CE119A0CB3DC81EBBB8DEEA7E4D533739B156584D564251CEBF9909126C6ADB4",
+  "bridgeSha256": "CA98BAD1D5251ACD3E83C3D766E76807617D40B69F766E2739A3D5A120D6907B",
+  "signature": "NotSigned",
+  "gui": {
+    "isolatedProfile": true,
+    "zoomNavigation": "seven entries visible; last entry opened",
+    "replayMoment": {
+      "tick": 18,
+      "hp": 80,
+      "maxHp": 110
+    },
+    "sourceNote": "Screenshots from the prior 0.1.1 UI; later runtime/build-only corrections did not change UI code"
+  },
+  "notVerified": [
+    "Clean Windows installation, upgrade, uninstall",
+    "Real two-device LAN/WAN and restart recovery",
+    "Actual host config and paid provider use",
+    "Novice study, full DPI matrix, audio listening and soak",
+    "Trusted CA signing"
+  ],
+  "ardot": "NO_ADAPTER; not written",
+  "sourceCommit": "73f624536e46b0b7e02a592fe0033959ff2b0f6e",
+  "ci": {
+    "push": {
+      "runId": 33972020657,
+      "conclusion": "success"
+    },
+    "pullRequest": {
+      "runId": 33972022617,
+      "conclusion": "success",
+      "artifactId": 9971241986
+    }
+  },
+  "presets": {
+    "styles": [
+      "scout",
+      "medium",
+      "heavy"
+    ],
+    "map": "frontier-v2",
+    "maxTicks": 80,
+    "tickCpuBudgetMs": 100,
+    "violations": 0
+  }
+}

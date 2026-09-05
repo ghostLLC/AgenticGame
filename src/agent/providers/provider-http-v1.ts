@@ -64,11 +64,33 @@ export async function requestProviderJsonV1(input: ProviderJsonRequestV1): Promi
     }
     const declaredLength = Number(response.headers.get('content-length'));
     if (Number.isFinite(declaredLength) && declaredLength > limits.maxResponseBytes) {
+      await response.body?.cancel();
       throw new Error(`${input.label} response was too large`);
     }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > limits.maxResponseBytes) throw new Error(`${input.label} response was too large`);
-    const text = new TextDecoder().decode(bytes);
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let bytesRead = 0;
+    let text = '';
+    const cancelReader = () => { void reader?.cancel(controller.signal.reason).catch(() => undefined); };
+    controller.signal.addEventListener('abort', cancelReader, { once: true });
+    try {
+      controller.signal.throwIfAborted();
+      if (reader) while (true) {
+        const { done, value } = await reader.read();
+        controller.signal.throwIfAborted();
+        if (done) break;
+        bytesRead += value.byteLength;
+        if (bytesRead > limits.maxResponseBytes) {
+          await reader.cancel();
+          throw new Error(`${input.label} response was too large`);
+        }
+        text += decoder.decode(value, { stream: true });
+      }
+      text += decoder.decode();
+    } finally {
+      controller.signal.removeEventListener('abort', cancelReader);
+      reader?.releaseLock();
+    }
     if (!response.ok) {
       throw new Error(`${input.label} request failed (${response.status}): ${redactProviderTextV1(text.slice(0, 500), input.secret)}`);
     }
@@ -77,6 +99,9 @@ export async function requestProviderJsonV1(input: ProviderJsonRequestV1): Promi
     } catch {
       throw new Error(`${input.label} response was not valid JSON`);
     }
+  } catch (error) {
+    if (timedOut) throw new Error(`${input.label} request timed out`);
+    throw redactProviderErrorV1(error, input.secret);
   } finally {
     clearTimeout(timer);
     input.signal?.removeEventListener('abort', forwardAbort);

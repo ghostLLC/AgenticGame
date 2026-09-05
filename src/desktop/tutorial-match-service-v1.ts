@@ -1,7 +1,7 @@
 import {
   GAMEPLAY_CONTENT_V2,
-  GAMEPLAY_MAP_FRONTIER_V2,
 } from '../core/v2/gameplay-content.js';
+import type { MapSnapshotV2 } from '../core/v2/content.js';
 import { runPracticeMatchV2 } from '../practice/run-practice-match-v2.js';
 import { createFriendRoomReplayV1, type FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
 import type { ReplayStudioMomentV2 } from '../replay/studio-v2.js';
@@ -24,6 +24,15 @@ export interface TutorialMatchResultV1 {
   lessons: TutorialLessonV1[];
 }
 
+const TUTORIAL_MAP: MapSnapshotV2 = {
+  id: 'training-ground-v2', version: '1.0.0', width: 12, height: 9,
+  terrainCells: Array.from({ length: 108 }, (_, index) => ({ x: index % 12, y: Math.floor(index / 12), terrainId: 'open-ground' })),
+  spawnPoints: [
+    { id: 'west', x: 2, y: 2, bodyDirection: 2, turretDirection: 2 },
+    { id: 'east', x: 9, y: 6, bodyDirection: 6, turretDirection: 6 },
+  ],
+};
+
 export async function runTutorialMatchV1(input: TutorialMatchInputV1): Promise<TutorialMatchResultV1> {
   const now = input.now ?? new Date().toISOString();
   const current = createPresetBuildV1(input.doctrine, now, input.displayName);
@@ -32,9 +41,9 @@ export async function runTutorialMatchV1(input: TutorialMatchInputV1): Promise<T
     current,
     opponent,
     contentSnapshot: GAMEPLAY_CONTENT_V2,
-    mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2,
+    mapSnapshot: TUTORIAL_MAP,
     seed: 314159,
-    maxTicks: 40,
+    maxTicks: 80,
     createdAt: now,
     tickBudgetMs: 100,
     collectLogs: false,

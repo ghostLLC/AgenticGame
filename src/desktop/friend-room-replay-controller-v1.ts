@@ -1,4 +1,12 @@
 import type { FriendRoomReplayFrameV1, FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
+import type { ReplayStudioMomentV2 } from '../replay/studio-v2.js';
+
+/** Engine events describe the transition at tick N; its outcome is checkpoint N + 1. */
+export function replayMomentTickV1(replay: FriendRoomReplayV1, moment: ReplayStudioMomentV2): number {
+  if (moment.kind === 'start') return replay.frames[0]?.tick ?? 0;
+  if (moment.kind === 'result') return replay.frames.at(-1)?.tick ?? 0;
+  return (replay.frames.find((frame) => frame.tick > moment.tick) ?? replay.frames.at(-1))?.tick ?? 0;
+}
 
 export interface FriendRoomReplayControllerSnapshotV1 {
   open: boolean;

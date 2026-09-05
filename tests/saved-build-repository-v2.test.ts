@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SavedBuildRepositoryV2 } from '../src/config/saved-build-repository-v2.js';
@@ -39,6 +39,33 @@ function draft(sourceSuffix: string, version: string): SavedBuildDraftV2 {
 }
 
 describe('SavedBuildRepositoryV2', () => {
+  it.each([0, 1, 2])('finishes a quarantine interrupted after %i moves on the next repository open', async (completed) => {
+    const { root, repository: repo } = repository();
+    for (let revision = 1; revision <= 3; revision++) await repo.save(draft(`const phase = ${revision}`, `1.0.${revision}`));
+    const source = join(root, 'history-scout');
+    writeFileSync(join(source, '2.json'), '{damaged bytes');
+    const quarantineId = '2026-09-01T01-02-03-000Z';
+    const destination = join(root, 'quarantine', 'builds', 'history-scout', quarantineId);
+    mkdirSync(destination, { recursive: true });
+    writeFileSync(join(source, '.quarantine-pending'), JSON.stringify({ version: 1, destinationId: quarantineId, files: ['2.json', '3.json'] }));
+    for (let index = 0; index < completed; index++) renameSync(join(source, `${index + 2}.json`), join(destination, `${index + 2}.json`));
+    const reopened = new SavedBuildRepositoryV2(root, { quarantineRoot: join(root, 'quarantine') });
+    expect((await reopened.inspect('history-scout')).latestHealthy?.revision).toBe(1);
+    expect(readdirSync(source)).toEqual(['1.json']);
+    expect(readFileSync(join(destination, '2.json'), 'utf8')).toBe('{damaged bytes');
+    expect(readdirSync(destination)).toEqual(['2.json', '3.json']);
+    expect((await reopened.save(draft('const replacement = true', '2.0.0'))).record.revision).toBe(2);
+  });
+
+  it('cleans abandoned write bodies under the lease without removing unrelated files', async () => {
+    const { root, repository: repo } = repository();
+    await repo.save(draft('', '1.0.0'));
+    const directory = join(root, 'history-scout');
+    writeFileSync(join(directory, '.2.json.tmp-999-1'), '{partial');
+    writeFileSync(join(directory, 'my-backup.tmp'), 'keep');
+    await repo.save(draft('const next = 1', '1.0.1'));
+    expect(readdirSync(directory).sort()).toEqual(['1.json', '2.json', 'my-backup.tmp']);
+  });
   it('persists an immutable revision chain and does not duplicate unchanged latest content', async () => {
     const { root, repository: repo } = repository();
     const first = await repo.save(draft('const phase = 1', '1.0.0'), '2026-08-24T00:00:00.000Z');

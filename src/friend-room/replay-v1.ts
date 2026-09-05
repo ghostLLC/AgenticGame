@@ -70,7 +70,9 @@ export function createFriendRoomReplayV1(bundle: MatchBundleV2): FriendRoomRepla
   const studio = createReplayStudioViewV2(bundle);
   const teams = new Map(bundle.config.teams.map((team) => [team.teamId, team]));
   const vehicles = new Map(bundle.contentSnapshot.vehicles.map((vehicle) => [vehicle.id, vehicle]));
-  const frames = bundle.checkpoints.map((checkpoint) => {
+  // Old runners emitted before/after checkpoints at the same tick on failure.
+  // Keep the final state of consecutive duplicates, after verifying integrity.
+  const frames = bundle.checkpoints.filter((checkpoint, index, all) => all[index + 1]?.tick !== checkpoint.tick).map((checkpoint) => {
     const state = record(checkpoint.state, 'checkpoint state');
     const tanks = array(state.tanks, 'checkpoint tanks').map((value) => {
       const tank = record(value, 'checkpoint tank');
@@ -85,7 +87,7 @@ export function createFriendRoomReplayV1(bundle: MatchBundleV2): FriendRoomRepla
         vehicleName: vehicle.displayName,
         x: integer(tank.x, 'tank x'),
         y: integer(tank.y, 'tank y'),
-        hp: integer(tank.hp, 'tank hp'),
+        hp: Math.max(0, integer(tank.hp, 'tank hp')),
         maxHp: vehicle.maxHp,
         bodyDirection: direction(tank.bodyDirection, 'tank bodyDirection'),
         turretDirection: direction(tank.turretDirection, 'tank turretDirection'),

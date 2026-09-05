@@ -1,4 +1,4 @@
-import { GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../core/v2/gameplay-content.js';
+import { CURRENT_GAMEPLAY_RULESET_V2, GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../core/v2/gameplay-content.js';
 import type { MatchConfigV2 } from '../core/v2/match-config.js';
 import { verifyMatchBundleV2 } from '../replay/v2.js';
 import { runMatchV2 } from '../runner/match-v2.js';
@@ -31,7 +31,7 @@ export function createGameToolsV1(options: GameToolsOptionsV1 = {}): AgentToolV1
         return {
           schemaVersion: 1,
           game: 'AgenticGame: Tank Arena',
-          ruleset: { id: 'gameplay-v2', version: '2.0.0' },
+          ruleset: { ...CURRENT_GAMEPLAY_RULESET_V2 },
           vehicles: GAMEPLAY_CONTENT_V2.vehicles.map((vehicle) => ({
             id: vehicle.id, name: vehicle.displayName, role: vehicle.role,
             hp: vehicle.maxHp, armor: { ...vehicle.armor }, mobility: { ...vehicle.mobility },
@@ -70,14 +70,14 @@ export function createGameToolsV1(options: GameToolsOptionsV1 = {}): AgentToolV1
         required: ['source'],
         additionalProperties: false,
       },
-      async execute(rawInput) {
+      async execute(rawInput, context) {
         const input = parseEvaluationInput(rawInput);
         const candidateHash = fullCodeHash(input.source);
         const baselineHash = fullCodeHash(BASELINE_BOT_SOURCE);
         const config: MatchConfigV2 = {
           schemaVersion: 2,
           matchId: `agent-eval-${candidateHash.slice(0, 12)}`,
-          ruleset: { id: 'gameplay-v2', version: '2.0.0' },
+          ruleset: { ...CURRENT_GAMEPLAY_RULESET_V2 },
           modeId: input.modeId,
           mapId: GAMEPLAY_MAP_FRONTIER_V2.id,
           seed: input.seed,
@@ -103,6 +103,7 @@ export function createGameToolsV1(options: GameToolsOptionsV1 = {}): AgentToolV1
           createdAt: options.createdAt?.() ?? new Date().toISOString(),
           tickBudgetMs: 100,
           collectLogs: false,
+          signal: context?.signal,
         });
         const verification = verifyMatchBundleV2(output.bundle);
         if (!verification.ok) throw new Error('Generated match bundle failed integrity verification');

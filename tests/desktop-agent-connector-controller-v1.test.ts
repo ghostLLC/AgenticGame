@@ -18,7 +18,7 @@ describe('AgentConnectorControllerV1', () => {
     const api: DesktopApiV1['agentConnector'] = {
       inspect: async () => connected ? {
         ...initial,
-        hosts: initial.hosts.map((host) => host.id === 'codex' ? { ...host, state: 'connected' as const } : host),
+        hosts: initial.hosts.map((host) => host.id === 'codex' ? { ...host, state: 'configured' as const } : host),
       } : initial,
       connect: async () => {
         connected = true;
@@ -35,7 +35,7 @@ describe('AgentConnectorControllerV1', () => {
       notice: '已接入 Codex，请重启。',
     });
     expect(controller.getSnapshot().connector?.hosts).toContainEqual(
-      expect.objectContaining({ id: 'codex', state: 'connected' }),
+      expect.objectContaining({ id: 'codex', state: 'configured' }),
     );
   });
 

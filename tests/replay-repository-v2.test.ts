@@ -91,11 +91,15 @@ describe('ReplayRepositoryV2', () => {
       tickBudgetMs: 100,
     });
     await repo.save(output.bundle);
+    const cached = await repo.list();
+    cached[0]!.teams[0]!.displayName = 'Caller mutation';
+    expect((await repo.list())[0]!.teams[0]!.displayName).toBe('Current Build');
     const file = join(root, `${output.bundle.integrity.bundleHash}.json`);
     writeFileSync(file, readFileSync(file, 'utf8').replace('Current Build', 'Tampered Build'), 'utf8');
 
     await expect(repo.load(output.bundle.integrity.bundleHash)).rejects.toThrow('Invalid MatchBundleV2');
     await expect(repo.list()).rejects.toThrow('Invalid MatchBundleV2');
+    expect(await repo.inspect()).toMatchObject([{ state: 'corrupt' }]);
   });
 
   it('rejects invalid bundle hashes before touching the filesystem', async () => {

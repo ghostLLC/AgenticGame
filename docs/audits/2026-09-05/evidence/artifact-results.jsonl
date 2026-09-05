@@ -1,0 +1,4 @@
+{"path":"release/AgenticGame-win-x64/resources/app.asar","mainSha256":"4182879dcefde09c692ddf472d11a10950de69918eeaf5031d91b6a5103709e9","sameAsDist":true,"startupError":"Cannot find module './impl/format'\nRequire stack:\n- D:\\AgenticGame\\dist\\desktop\\main.cjs","jsoncFiles":21}
+{"path":"release/win-unpacked/resources/app.asar","mainSha256":"4182879dcefde09c692ddf472d11a10950de69918eeaf5031d91b6a5103709e9","sameAsDist":true,"startupError":"Cannot find module './impl/format'\nRequire stack:\n- D:\\AgenticGame\\dist\\desktop\\main.cjs","jsoncFiles":21}
+{"path":"release/AgenticGame-0.1.0-win-x64-setup.exe","sha256":"05403e927e4e33def249833dd92ea6da5a03b7e0b429c834cee764ea588f960a"}
+{"path":"release/AgenticGame-0.1.0-public-beta-b-win-x64.zip","sha256":"34ee53b36fd6a33ed48e78668a50dc0254a6ed95ffad4b359611bf968967fed6"}

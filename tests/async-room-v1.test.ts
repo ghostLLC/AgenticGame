@@ -104,7 +104,7 @@ describe('AsyncRoomServiceV1', () => {
     const complete = await service.waitForSettlement(host.room.code, host.participantToken);
     expect(matchStarts).toBe(1);
     expect(complete.status).toBe('complete');
-    expect(complete.result).toMatchObject({ reason: 'max-ticks', ticks: 4 });
+    expect(complete.result).toMatchObject({ reason: 'time-limit-draw', ticks: 4 });
     expect(complete.result?.bundleHash).toMatch(/^[0-9a-f]{64}$/);
     expect(producedBundle).toBeDefined();
     expect(verifyMatchBundleV2(producedBundle!)).toEqual({ ok: true, issues: [] });

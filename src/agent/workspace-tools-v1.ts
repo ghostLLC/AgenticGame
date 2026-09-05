@@ -9,6 +9,7 @@ import { ReplayRepositoryV2 } from '../replay/repository-v2.js';
 import { createReplayStudioViewV2 } from '../replay/studio-v2.js';
 import type { AgentToolV1 } from './harness-v1.js';
 import { createGameToolsV1 } from './game-tools-v1.js';
+import { mapLimited } from '../storage/map-limited.js';
 
 export interface AgentWorkspaceToolsOptionsV1 {
   dataRoot: string;
@@ -92,7 +93,7 @@ export function createAgentWorkspaceToolsV1(options: AgentWorkspaceToolsOptionsV
         additionalProperties: false,
       },
       annotations: WRITE_IDEMPOTENT,
-      async execute(rawInput) {
+      async execute(rawInput, context) {
         const input = parseSaveInput(rawInput);
         const inspection = await builds.inspect(COMMANDER_BUILD_ID_V1);
         if (inspection.revisions.some((revision) => revision.state !== 'healthy')) {
@@ -105,7 +106,7 @@ export function createAgentWorkspaceToolsV1(options: AgentWorkspaceToolsOptionsV
           modeId: 'duel',
           seed: 42,
           maxTicks: 240,
-        }) as Record<string, unknown>;
+        }, context) as Record<string, unknown>;
         if (evaluation.verified !== true) throw new Error('候选未通过真实沙盒验证。');
         const latest = inspection.latestHealthy;
         const draft: SavedBuildDraftV2 = {
@@ -121,17 +122,18 @@ export function createAgentWorkspaceToolsV1(options: AgentWorkspaceToolsOptionsV
           loadout: { vehicleId: input.vehicleId, weaponId: input.weaponId, equipmentIds: [] },
         };
         const createdAt = now();
-        const saved = await builds.save(draft, createdAt);
-        if (saved.created) {
-          await notes.save({
+        context?.signal?.throwIfAborted();
+        const saved = await builds.save(draft, createdAt, {
+          expectedRevision: latest?.revision ?? 0,
+          beforePublish: async (record) => { await notes.save({
             version: 1,
             buildId: COMMANDER_BUILD_ID_V1,
-            revision: saved.record.revision,
+            revision: record.revision,
             tacticId: input.doctrine,
             note: input.note,
-            createdAt,
-          });
-        }
+            createdAt: record.createdAt,
+          }, { replace: true }); },
+        });
         return {
           schemaVersion: 1,
           created: saved.created,
@@ -157,8 +159,8 @@ export function createAgentWorkspaceToolsV1(options: AgentWorkspaceToolsOptionsV
         additionalProperties: false,
       },
       annotations: WRITE_NEW_RECORD,
-      async execute(input) {
-        return await practice.run(input as unknown as Parameters<PracticeMatchServiceV1['run']>[0]) as unknown as Record<string, unknown>;
+      async execute(input, context) {
+        return await practice.run(input as unknown as Parameters<PracticeMatchServiceV1['run']>[0], context?.signal) as unknown as Record<string, unknown>;
       },
     },
     {
@@ -176,10 +178,8 @@ export function createAgentWorkspaceToolsV1(options: AgentWorkspaceToolsOptionsV
           throw new Error('limit 必须是 1 到 50 的整数。');
         }
         const inspections = await replays.inspect();
-        const battles = (await Promise.all(inspections.flatMap((inspection) => inspection.state === 'healthy'
-          ? [toBattleCard(replays, inspection.bundleHash)] : [])))
-          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-          .slice(0, limit as number);
+        const selected = inspections.filter((inspection) => inspection.state === 'healthy').slice(0, limit as number);
+        const battles = await mapLimited(selected, 4, (inspection) => toBattleCard(replays, inspection.bundleHash));
         return { schemaVersion: 1, count: battles.length, battles };
       },
     },

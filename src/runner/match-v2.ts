@@ -16,8 +16,10 @@ import { BotRunner, getWorkerPath } from '../runtime/sandbox.js';
 import { fullCodeHash } from './v2-adapter.js';
 import { validateAction } from '../core/engine.js';
 
-const ENGINE_VERSION = '0.2.0';
-const DEFAULT_TICK_BUDGET_MS = 30;
+const ENGINE_VERSION = '0.2.1';
+// QuickJS/WASM needs a budget calibrated for the full-map presets, including
+// interpreter overhead. Keep a separate bounded IPC/wall watchdog in BotRunner.
+const DEFAULT_TICK_BUDGET_MS = 100;
 const DEFAULT_MAX_VIOLATIONS = 30;
 const CRASH_SILENCE_TICKS = 5;
 
@@ -35,6 +37,7 @@ export interface GameplayMatchConfigV2 {
   tickBudgetMs?: number;
   maxViolations?: number;
   collectLogs?: boolean;
+  signal?: AbortSignal;
   onProgress?: (tick: number, maxTicks: number) => void;
   onBundle?: (bundle: MatchBundleV2) => void | Promise<void>;
 }
@@ -54,6 +57,7 @@ export interface GameplayMatchOutputV2 {
 }
 
 export async function runMatchV2(input: GameplayMatchConfigV2): Promise<GameplayMatchOutputV2> {
+  input.signal?.throwIfAborted();
   const matchConfig = assertMatchConfigV2(input.matchConfig);
   if (matchConfig.teams.length !== 2) throw new Error('runMatchV2 首期仅支持恰好两个队伍');
   const createdAt = input.createdAt ?? new Date().toISOString();
@@ -63,17 +67,20 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
   const artifacts = createArtifacts(matchConfig, input.bots);
   const engine = new GameplayEngineV2(matchConfig, input.contentSnapshot, input.mapSnapshot);
 
-  const runners = ([0, 1] as const).map((index) => {
+  const spawned: BotRunner[] = [];
+  let runners: [BotRunner, BotRunner];
+  try { runners = ([0, 1] as const).map((index) => {
     const team = matchConfig.teams[index]!;
     const tank = engine.state.tanks[index];
     const vehicle = input.contentSnapshot.vehicles.find((item) => item.id === tank.vehicleId)!;
     const weapon = input.contentSnapshot.weapons.find((item) => item.id === tank.weaponId)!;
-    return BotRunner.create({
+    const runner = BotRunner.create({
       code: input.bots[index].code,
       botIndex: index,
       seed: hashSeed(matchConfig.seed, index),
       ctx: {
         schemaVersion: 2,
+        modeId: matchConfig.modeId,
         teamId: team.teamId,
         field: { width: input.mapSnapshot.width, height: input.mapSnapshot.height },
         terrainCells: input.mapSnapshot.terrainCells,
@@ -84,7 +91,18 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
       },
       workerUrl: pathToFileURL(getWorkerPath()),
     });
-  }) as [BotRunner, BotRunner];
+    spawned.push(runner);
+    return runner;
+  }) as [BotRunner, BotRunner]; } catch (error) {
+    spawned.forEach((runner) => runner.terminate()); throw error;
+  }
+  const controller = new AbortController();
+  const terminate = () => runners.forEach((runner) => runner.terminate());
+  const forwardAbort = () => controller.abort(input.signal?.reason);
+  controller.signal.addEventListener('abort', terminate, { once: true });
+  input.signal?.addEventListener('abort', forwardAbort, { once: true });
+  if (input.signal?.aborted) forwardAbort();
+  const deadline = setTimeout(() => controller.abort(new Error('比赛执行超过一分钟，请检查战术。')), 60_000);
 
   const actions: ActionRecordV2[] = [];
   const events: EventRecordV2[] = [];
@@ -94,6 +112,7 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
 
   try {
     const initResults = await Promise.all([runners[0].init(5000), runners[1].init(5000)]);
+    controller.signal.throwIfAborted();
     const failedIndex = initResults.findIndex((result) => !result.ok);
     if (failedIndex >= 0) {
       const loser = failedIndex as 0 | 1;
@@ -107,18 +126,20 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
           message: result.ok ? 'unknown' : result.error.slice(0, 200),
         },
       });
-      appendEngineEvents(events, engine.forceFinish([matchConfig.teams[winner]!.teamId], 'load-failure'));
+      appendEngineEvents(events, engine.forceFinish(initResults[winner]!.ok ? [matchConfig.teams[winner]!.teamId] : [], 'load-failure'));
       checkpoints[0] = { tick: engine.state.tick, state: engine.snapshot() };
       return await finalize();
     }
 
     while (!engine.state.finished) {
+      controller.signal.throwIfAborted();
       const tick = engine.state.tick;
       input.onProgress?.(tick, matchConfig.maxTicks);
       const outcomes = await Promise.all([
         runners[0].tick(tick, engine.viewFor(0), tickBudgetMs),
         runners[1].tick(tick, engine.viewFor(1), tickBudgetMs),
       ]);
+      controller.signal.throwIfAborted();
       const applied: [TankAction, TankAction] = [{ ...IDLE_ACTION }, { ...IDLE_ACTION }];
       const violated: [boolean, boolean] = [false, false];
 
@@ -155,7 +176,7 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
       }
 
       const crashed = ([0, 1] as const).map((index) =>
-        !runners[index].isTerminated && tick - runners[index].aliveTick > CRASH_SILENCE_TICKS,
+        runners[index].isTerminated || tick - runners[index].aliveTick > CRASH_SILENCE_TICKS,
       ) as [boolean, boolean];
       if (crashed[0] || crashed[1]) {
         for (const index of [0, 1] as const) if (crashed[index]) runners[index].terminate();
@@ -176,15 +197,23 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
           appendEngineEvents(events, engine.step(applied));
         }
       }
-      checkpoints.push({ tick: engine.state.tick, state: engine.snapshot() });
+      const checkpoint = { tick: engine.state.tick, state: engine.snapshot() };
+      // forceFinish does not advance the engine clock: retain its final state
+      // at the existing tick instead of producing a duplicate playback frame.
+      if (checkpoints.at(-1)?.tick === checkpoint.tick) checkpoints[checkpoints.length - 1] = checkpoint;
+      else checkpoints.push(checkpoint);
     }
     return await finalize();
   } finally {
+    clearTimeout(deadline);
+    input.signal?.removeEventListener('abort', forwardAbort);
+    controller.signal.removeEventListener('abort', terminate);
     runners[0].terminate();
     runners[1].terminate();
   }
 
   async function finalize(): Promise<GameplayMatchOutputV2> {
+    controller.signal.throwIfAborted();
     const [a, b] = engine.state.tanks;
     const summary: GameplayMatchSummaryV2 = {
       winningTeamIds: [...engine.state.winningTeamIds],

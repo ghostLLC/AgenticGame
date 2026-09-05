@@ -30,6 +30,7 @@ export interface PracticeMatchServiceOptionsV1 {
 }
 
 export class PracticeMatchServiceV1 {
+  private active?: AbortController;
   private readonly buildRepository: SavedBuildRepositoryV2;
   private readonly replayRepository: ReplayRepositoryV2;
   private readonly now: () => string;
@@ -40,8 +41,18 @@ export class PracticeMatchServiceV1 {
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
-  async run(input: PracticeRunInputV1): Promise<PracticeResultViewV1> {
+  cancel(): void { this.active?.abort(new Error('练习已取消，未完成的比赛不会保存。')); }
+
+  async run(input: PracticeRunInputV1, signal?: AbortSignal): Promise<PracticeResultViewV1> {
     const normalized = validateInput(input);
+    if (this.active) throw new Error('练习赛正在进行，请等待完成或取消。');
+    const controller = new AbortController();
+    this.active = controller;
+    const cancel = () => controller.abort(signal?.reason ?? new Error('练习已取消。'));
+    signal?.addEventListener('abort', cancel, { once: true });
+    if (signal?.aborted) cancel();
+    try {
+    controller.signal.throwIfAborted();
     const inspection = await this.buildRepository.inspect(COMMANDER_BUILD_ID_V1);
     const current = healthyRevision(inspection.revisions, normalized.currentRevision);
     const opponent = healthyRevision(inspection.revisions, normalized.opponentRevision);
@@ -57,7 +68,9 @@ export class PracticeMatchServiceV1 {
       createdAt,
       tickBudgetMs: 100,
       collectLogs: false,
+      signal: controller.signal,
     });
+    controller.signal.throwIfAborted();
     const saved = await this.replayRepository.save(output.bundle);
     const studio = createReplayStudioViewV2(saved.bundle);
     const currentParticipant = studio.participants.find((participant) => participant.teamId === 'current');
@@ -75,6 +88,7 @@ export class PracticeMatchServiceV1 {
       ticks: studio.result.ticks,
       moments: selectMoments(studio.moments).map(({ tick, title, summary }) => ({ tick, title, summary })),
     };
+    } finally { signal?.removeEventListener('abort', cancel); this.active = undefined; }
   }
 }
 

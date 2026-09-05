@@ -7,6 +7,7 @@ import { verifyMatchBundleV2 } from '../src/replay/v2.js';
 import { SavedBuildRepositoryV2 } from '../src/config/saved-build-repository-v2.js';
 import type { SavedBuildDraftV2 } from '../src/config/saved-build-v2.js';
 import { runPracticeMatchV2 } from '../src/practice/run-practice-match-v2.js';
+import { createPresetBuildV1 } from '../src/desktop/preset-builds-v1.js';
 
 const roots: string[] = [];
 
@@ -42,6 +43,17 @@ function draft(source: string, version: string): SavedBuildDraftV2 {
 }
 
 describe('runPracticeMatchV2', () => {
+  it.each(['scout', 'medium', 'heavy'] as const)('runs the %s preset on the full map within the default execution budget', async (style) => {
+    const current = createPresetBuildV1(style, '2026-09-05T00:00:00.000Z');
+    const output = await runPracticeMatchV2({
+      current, opponent:current, contentSnapshot:GAMEPLAY_CONTENT_V2,
+      mapSnapshot:GAMEPLAY_MAP_FRONTIER_V2, seed:4, maxTicks:80,
+    });
+    expect(output.summary.violations).toEqual([0,0]);
+    expect(['crash','load-failure','violations']).not.toContain(output.summary.reason);
+    expect(output.summary.ticks).toBeGreaterThan(2);
+  });
+
   it('runs a new saved revision against its old revision through the real sandbox and bundle path', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agentic-game-practice-'));
     roots.push(root);

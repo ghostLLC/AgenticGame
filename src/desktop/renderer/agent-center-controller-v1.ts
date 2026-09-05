@@ -11,6 +11,7 @@ export interface AgentCenterControllerSnapshotV1 {
   result?: AgentCenterRunResultV1;
   saved?: { revision: number; label: string };
   error?: string;
+  progress?: import('../agent-center-service-v1.js').AgentCenterProgressV1;
 }
 
 export class AgentCenterControllerV1 {
@@ -26,10 +27,11 @@ export class AgentCenterControllerV1 {
   }
 
   async load(): Promise<void> {
-    if (this.snapshot.status === 'loading') return;
-    this.update({ status: 'loading', ...(this.snapshot.center ? { center: this.snapshot.center } : {}) });
+    if (['loading', 'running', 'cancelling', 'saving'].includes(this.snapshot.status)) return;
+    const previous = this.snapshot;
+    this.update({ ...previous, status: 'loading' });
     try {
-      this.update({ status: 'ready', center: await this.api.get() });
+      this.update({ ...previous, status: previous.saved ? 'saved' : previous.result ? 'result' : 'ready', center: await this.api.get(), error: undefined });
     } catch (error) {
       this.update({ status: 'error', error: playerError(error, 'AI 战术教练暂时无法进入，请重试。') });
     }
@@ -40,18 +42,29 @@ export class AgentCenterControllerV1 {
     if (this.snapshot.status === 'running' || this.snapshot.status === 'cancelling') return;
     const center = this.snapshot.center;
     this.update({ status: 'running', center });
+    let polling = false;
+    const timer = setInterval(async () => {
+      if (!this.api.progress || polling) return;
+      polling = true;
+      try {
+        const progress = await this.api.progress();
+        if (['running', 'cancelling'].includes(this.snapshot.status)) this.update({ ...this.snapshot, progress });
+      } catch { /* the run response remains authoritative */ } finally { polling = false; }
+    }, 500);
     try {
       const result = await this.api.run(input);
       this.update({ status: 'result', center, result });
     } catch (error) {
       this.update({ status: 'error', center, error: playerError(error, '本次战术调整没有完成，请检查连接后重试。') });
-    }
+    } finally { clearInterval(timer); }
   }
 
   async cancel(): Promise<void> {
     if (this.snapshot.status !== 'running' || !this.snapshot.center) return;
     this.update({ status: 'cancelling', center: this.snapshot.center });
-    await this.api.cancel();
+    try { await this.api.cancel(); } catch (error) {
+      this.update({ ...this.snapshot, status: 'running', error: playerError(error, '取消请求没有送达，请重试。') });
+    }
   }
 
   async save(input: { label: string; note: string }): Promise<void> {

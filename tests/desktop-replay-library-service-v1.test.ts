@@ -15,6 +15,8 @@ import { ReplayMetadataRepositoryV1 } from '../src/desktop/replay-metadata-repos
 import { ReplayTrashRepositoryV1 } from '../src/desktop/replay-trash-repository-v1.js';
 import { createFriendRoomReplayV1, type FriendRoomReplayV1 } from '../src/friend-room/replay-v1.js';
 import { ReplayRepositoryV2 } from '../src/replay/repository-v2.js';
+import { PublicReplayRepositoryV1 } from '../src/desktop/public-replay-repository-v1.js';
+import { createMatchBundleV2 } from '../src/replay/v2.js';
 
 const roots: string[] = [];
 
@@ -108,6 +110,47 @@ async function setup() {
 }
 
 describe('ReplayLibraryServiceV1', () => {
+  it('paginates after filtering while reporting complete counts', async () => {
+    const context = await setup();
+    const original = await context.replayRepository.load(context.duel.replayHash);
+    for (let index = 0; index < 6; index++) {
+      await context.replayRepository.save(createMatchBundleV2({ ...original, config: { ...original.config, matchId: `pagination-${index}` },
+        createdAt: new Date(Date.parse('2026-09-02T00:00:00.000Z') + index * 1000).toISOString() }));
+    }
+    const first = await context.service.list({ source: 'practice', limit: 5 });
+    const next = await context.service.list({ source: 'practice', offset: 5, limit: 5 });
+    expect(first.cards).toHaveLength(5);
+    expect(first).toMatchObject({ hasMore: true, totalFiltered: 8, counts: { all: 9 } });
+    expect(next.cards).toHaveLength(3);
+    expect(next.hasMore).toBe(false);
+    expect(new Set([...first.cards, ...next.cards].map((card) => card.replayId)).size).toBe(8);
+    await expect(context.service.list({ limit: 101 })).rejects.toThrow('100');
+  }, 15_000); // Includes two real worker matches and durable fixture writes under suite contention.
+  it('round-trips public files and explicit private backups, deduplicates imports and rejects tampering', async () => {
+    const context = await setup();
+    const publicName = await context.service.export(context.duel.replayHash, 'practice');
+    const backupName = await context.service.export(context.duel.replayHash, 'practice', true);
+    expect(readFileSync(join(context.root, 'exports', publicName), 'utf8')).not.toContain('module.exports');
+    expect(readFileSync(join(context.root, 'exports', backupName), 'utf8')).toContain('module.exports');
+    let selected = join(context.root, 'exports', publicName);
+    const receiver = new ReplayLibraryServiceV1({
+      replayRepository: new ReplayRepositoryV2(join(context.root, 'receiver-private')),
+      publicRepository: new PublicReplayRepositoryV1(join(context.root, 'receiver-public')),
+      metadataRepository: new ReplayMetadataRepositoryV1(join(context.root, 'receiver-notes')),
+      trashRepository: new ReplayTrashRepositoryV1(join(context.root, 'receiver-trash')),
+      exportsRoot: join(context.root, 'receiver-exports'), chooseImportPath: async () => selected,
+      chooseExportPath: async () => undefined,
+    });
+    await receiver.importFile(); await receiver.importFile();
+    expect((await receiver.list({})).counts).toMatchObject({ all: 1, friendPublic: 1 });
+    selected = join(context.root, 'exports', backupName); await receiver.importFile();
+    expect((await receiver.list({})).counts).toMatchObject({ all: 2, practice: 1 });
+    expect(await receiver.export(context.duel.replayHash, 'practice')).toBe('');
+    selected = join(context.root, 'exports', publicName);
+    const corrupted = JSON.parse(readFileSync(selected, 'utf8')); corrupted.payload.createdAt = '2020-01-01T00:00:00.000Z';
+    writeFileSync(selected, JSON.stringify(corrupted));
+    await expect(receiver.importFile()).rejects.toThrow('校验失败');
+  });
   it('lists real local and public replays, isolates damage and applies player-facing filters', async () => {
     const context = await setup();
     const corruptId = context.capture.replayHash;
@@ -140,6 +183,7 @@ describe('ReplayLibraryServiceV1', () => {
     const exported = await context.service.export(context.duel.replayHash, 'practice');
     expect(exported).toMatch(/^练习赛回放-\d{8}-[0-9a-f]{8}\.agentic-replay$/);
     expect(existsSync(join(context.root, 'exports', exported))).toBe(true);
+    expect(readFileSync(join(context.root, 'exports', exported), 'utf8')).not.toMatch(/module\.exports|botArtifacts|actions|logs|codeHash|bundleHash|seed/);
 
     const entry = await context.service.moveToTrash(context.duel.replayHash, 'practice');
     expect((await context.service.list({})).counts.trash).toBe(1);
@@ -149,5 +193,19 @@ describe('ReplayLibraryServiceV1', () => {
     await context.service.restore(entry.entryId);
     expect((await context.service.list({ query: '第一轮' })).cards).toHaveLength(1);
     await expect(context.service.emptyTrash(false)).rejects.toThrow('需要明确确认');
+  });
+
+  it('isolates corrupt notes in both the library and trash, and preserves the bad file when repairing', async () => {
+    const context = await setup();
+    const notesRoot = join(context.root, 'replay-notes'); mkdirSync(notesRoot, { recursive: true });
+    writeFileSync(join(notesRoot, `${context.duel.replayHash}.json`), '{');
+    const cards = (await context.service.list({})).cards;
+    expect(cards).toHaveLength(3);
+    expect(cards.find((card) => card.replayId === context.duel.replayHash)).toMatchObject({ playable: true, noteIssue: expect.any(String) });
+    const entry = await context.service.moveToTrash(context.duel.replayHash, 'practice');
+    expect((await context.service.listTrash())[0]).toMatchObject({ entryId: entry.entryId, noteIssue: expect.any(String) });
+    await context.service.restore(entry.entryId);
+    await context.service.updateNote(context.duel.replayHash, 'practice', '修复后的说明');
+    expect((await context.service.list({ query: '修复后的说明' })).cards).toHaveLength(1);
   });
 });

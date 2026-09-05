@@ -1,0 +1,104 @@
+[
+  {
+    "probe": "simultaneous-cell-collision",
+    "reverseArray": false,
+    "centerOccupant": "a",
+    "positions": [
+      {
+        "id": "a",
+        "x": 2
+      },
+      {
+        "id": "b",
+        "x": 3
+      }
+    ]
+  },
+  {
+    "probe": "simultaneous-cell-collision",
+    "reverseArray": true,
+    "centerOccupant": "b",
+    "positions": [
+      {
+        "id": "b",
+        "x": 2
+      },
+      {
+        "id": "a",
+        "x": 1
+      }
+    ]
+  },
+  {
+    "probe": "tutorial-learning",
+    "doctrine": "scout",
+    "ticks": 40,
+    "reason": "max-ticks",
+    "winners": [
+      "historical"
+    ],
+    "initialHp": [
+      80,
+      150
+    ],
+    "finalHp": [
+      80,
+      150
+    ],
+    "lessons": [
+      {
+        "title": "复盘胜负原因",
+        "detail": "训练对手 · 钢铁堡垒队 r1 获胜"
+      }
+    ]
+  },
+  {
+    "probe": "tutorial-learning",
+    "doctrine": "medium",
+    "ticks": 40,
+    "reason": "max-ticks",
+    "winners": [
+      "historical"
+    ],
+    "initialHp": [
+      110,
+      150
+    ],
+    "finalHp": [
+      110,
+      150
+    ],
+    "lessons": [
+      {
+        "title": "复盘胜负原因",
+        "detail": "训练对手 · 钢铁堡垒队 r1 获胜"
+      }
+    ]
+  },
+  {
+    "probe": "tutorial-learning",
+    "doctrine": "heavy",
+    "ticks": 40,
+    "reason": "max-ticks",
+    "winners": [],
+    "initialHp": [
+      150,
+      150
+    ],
+    "finalHp": [
+      150,
+      150
+    ],
+    "lessons": [
+      {
+        "title": "复盘胜负原因",
+        "detail": "双方战成平局"
+      }
+    ]
+  },
+  {
+    "probe": "partial-peer-frames-after-close",
+    "pendingMessages": 3,
+    "allocatedChunkSlots": 196608
+  }
+]

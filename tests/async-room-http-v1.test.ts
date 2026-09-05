@@ -84,7 +84,8 @@ describe('async room HTTP v1', () => {
     }
 
     let room: Record<string, any> | undefined;
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
       const response = await fetch(`${baseUrl}/api/rooms/A7K9MQ`, { headers: { authorization: 'Bearer host-secret' } });
       room = await json(response);
       if (room.status === 'complete') break;
@@ -113,4 +114,3 @@ describe('async room HTTP v1', () => {
     expect(await json(full)).toEqual({ error: 'Room is full' });
   });
 });
-

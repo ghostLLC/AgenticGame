@@ -1,0 +1,43 @@
+[
+  {
+    "probe": "one-revision-ui-mirror",
+    "revisions": 1,
+    "error": "Error: 至少需要两个可用版本才能开始版本对战"
+  },
+  {
+    "probe": "one-revision-service-mirror",
+    "outcome": "draw",
+    "ticks": 120
+  },
+  {
+    "probe": "garage-renaming-custom-source",
+    "revision": 3,
+    "customSourcePreserved": false,
+    "replacedWithOriginalPreset": true
+  },
+  {
+    "probe": "garage-note-only-save",
+    "revision": 3,
+    "note": "rename only"
+  },
+  {
+    "probe": "replay-library-before-damage",
+    "count": 2
+  },
+  {
+    "probe": "default-practice-export",
+    "containsBotSource": true,
+    "containsActions": true,
+    "containsBotArtifacts": true
+  },
+  {
+    "probe": "one-corrupt-note",
+    "error": "Error: Invalid ReplayMetadataV1: e6d7f79ca52cab43528fe29f987bc3a0660443ad7e00a45d028b274dbdd96112",
+    "healthyReplayStillOnDisk": true
+  },
+  {
+    "probe": "orphan-save-lock",
+    "error": "Error: Saved Build is busy: commander-main",
+    "lockStillExists": true
+  }
+]

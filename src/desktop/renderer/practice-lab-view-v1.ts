@@ -3,7 +3,7 @@ import type { PracticeLabSnapshotV1 } from './practice-lab-controller-v1.js';
 
 export function renderPracticeLabV1(snapshot: PracticeLabSnapshotV1, garage?: GarageSnapshotV1): void {
   const available = snapshot.availableRevisions;
-  const ready = available.length >= 2;
+  const ready = available.length >= 1;
   element<HTMLElement>('practice-empty').hidden = ready;
   element<HTMLElement>('practice-arena').hidden = !ready;
   const error = element<HTMLElement>('practice-error');
@@ -60,7 +60,7 @@ function renderRevisionOptions(revisions: number[], garage?: GarageSnapshotV1): 
   current.replaceChildren(...makeOptions());
   opponent.replaceChildren(...makeOptions());
   current.value = String(descending[0]);
-  opponent.value = String(descending[1]);
+  opponent.value = String(descending[1] ?? descending[0]);
   current.dataset.revisions = key;
   opponent.dataset.revisions = key;
 }

@@ -62,6 +62,7 @@ export function registerDesktopApplicationIpcV1(
   registrar.handle('garage:quarantine', async () => service.quarantineGarageHistory());
   registrar.handle('garage:export-diagnostic', async () => service.exportGarageDiagnostic());
   registrar.handle('practice:run', async (_event, input) => service.runPractice(assertPracticeInput(input)));
+  registrar.handle('practice:cancel', async () => service.cancelPractice());
   registrar.handle('replays:list', async (_event, input) => service.listReplays(assertReplayFilter(input)));
   registrar.handle('replays:open', async (_event, input) => {
     const action = assertReplayAction(input);
@@ -79,6 +80,12 @@ export function registerDesktopApplicationIpcV1(
     const action = assertReplayAction(input);
     return service.exportReplay(action.replayId, action.source);
   });
+  registrar.handle('replays:backup', async (_event, input) => {
+    const action = assertReplayAction(input);
+    return service.backupReplay(action.replayId, action.source);
+  });
+  registrar.handle('replays:import', async () => service.importReplay());
+  registrar.handle('replays:reveal-export', async () => service.revealReplayExport());
   registrar.handle('replays:move-to-trash', async (_event, input) => {
     const action = assertReplayAction(input);
     return service.moveReplayToTrash(action.replayId, action.source);
@@ -94,6 +101,7 @@ export function registerDesktopApplicationIpcV1(
   });
   registrar.handle('replays:export-diagnostic', async () => service.exportReplayDiagnostic());
   registrar.handle('agent-center:get', async () => service.getAgentCenter());
+  registrar.handle('agent-center:progress', async () => service.getAgentProgress());
   registrar.handle('agent-center:run', async (_event, input) => service.runAgentCenter(assertAgentRunInput(input)));
   registrar.handle('agent-center:cancel', async () => service.cancelAgentCenter());
   registrar.handle('agent-center:save', async (_event, input) => service.saveAgentCandidate(assertAgentSaveInput(input)));
@@ -115,7 +123,8 @@ export function registerDesktopApplicationIpcV1(
 }
 
 function assertAgentRunInput(input: unknown): AgentCenterRunInputV1 {
-  if (!isRecord(input) || !hasExactKeys(input, ['revision', 'provider', 'goal', 'depth'])
+  if (!isRecord(input) || !hasOnlyKeys(input, ['revision', 'provider', 'goal', 'depth', 'evaluationMode'])
+    || (input.evaluationMode !== undefined && !['duel', 'capture', 'mixed'].includes(input.evaluationMode as string))
     || !validRevision(input.revision)
     || (input.depth !== 'quick' && input.depth !== 'standard' && input.depth !== 'deep')
     || typeof input.goal !== 'string' || input.goal.trim() !== input.goal || [...input.goal].length < 1 || [...input.goal].length > 500
@@ -137,6 +146,7 @@ function assertAgentRunInput(input: unknown): AgentCenterRunInputV1 {
     },
     goal: input.goal as string,
     depth: input.depth as AgentCenterRunInputV1['depth'],
+    ...(input.evaluationMode === undefined ? {} : { evaluationMode: input.evaluationMode as AgentCenterRunInputV1['evaluationMode'] }),
   };
 }
 
@@ -182,8 +192,10 @@ function assertReplayAction(input: unknown): { replayId: string; source: ReplayS
 
 function assertReplayFilter(input: unknown): ReplayLibraryFilterV1 {
   if (!isRecord(input) || !Object.keys(input).every((key) => [
-    'source', 'modeId', 'outcome', 'buildRevision', 'query', 'dateFrom', 'dateTo',
+    'source', 'modeId', 'outcome', 'buildRevision', 'query', 'dateFrom', 'dateTo', 'offset', 'limit',
   ].includes(key))) throw new Error('回放筛选条件无效');
+  if (input.offset !== undefined && (!Number.isSafeInteger(input.offset) || Number(input.offset) < 0)) throw new Error('回放页码无效');
+  if (input.limit !== undefined && (!Number.isSafeInteger(input.limit) || Number(input.limit) < 1 || Number(input.limit) > 100)) throw new Error('每页最多显示 100 场回放');
   if (input.source !== undefined && input.source !== 'practice' && input.source !== 'friend-public') throw new Error('回放筛选条件无效');
   if (input.modeId !== undefined && input.modeId !== 'duel' && input.modeId !== 'capture') throw new Error('回放筛选条件无效');
   if (input.outcome !== undefined && input.outcome !== 'victory' && input.outcome !== 'defeat' && input.outcome !== 'draw') throw new Error('回放筛选条件无效');
@@ -194,7 +206,9 @@ function assertReplayFilter(input: unknown): ReplayLibraryFilterV1 {
 }
 
 function assertGarageInput(input: unknown): GarageSaveInputV1 {
-  if (!isRecord(input) || !hasExactKeys(input, ['label', 'vehicleId', 'weaponId', 'tacticId', 'note'])) {
+  if (!isRecord(input) || !hasOnlyKeys(input, ['label', 'vehicleId', 'weaponId', 'tacticId', 'note', 'baseRevision', 'replaceTactic'])
+    || (input.baseRevision !== undefined && !validRevision(input.baseRevision))
+    || (input.replaceTactic !== undefined && typeof input.replaceTactic !== 'boolean')) {
     throw new Error('车库配置无效');
   }
   const label = typeof input.label === 'string' ? input.label : '';
@@ -215,6 +229,8 @@ function assertGarageInput(input: unknown): GarageSaveInputV1 {
     weaponId: weaponId as GarageSaveInputV1['weaponId'],
     tacticId: tacticId as GarageTacticIdV1,
     note,
+    ...(input.baseRevision === undefined ? {} : { baseRevision: input.baseRevision as number }),
+    ...(input.replaceTactic === undefined ? {} : { replaceTactic: input.replaceTactic as boolean }),
   };
 }
 

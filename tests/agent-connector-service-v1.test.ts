@@ -23,6 +23,25 @@ async function fixture() {
 }
 
 describe('AgentConnectorServiceV1', () => {
+  it('understands quoted TOML tables and checks that unrelated parsed values stay identical', async () => {
+    const { home, service } = await fixture();
+    await mkdir(join(home, '.codex'), { recursive: true });
+    const path = join(home, '.codex', 'config.toml');
+    await writeFile(path, `["mcp_servers" . 'agentic_game']\ncommand = 'old.exe'\nargs = ['mcp']\n[mcp_servers.agentic_game.env]\nOLD = 'value'\n[mcp_servers.other]\ncommand = 'keep.exe'\n`);
+    await service.connect('codex');
+    expect(await readFile(path, 'utf8')).toContain("command = 'keep.exe'");
+    expect((await service.inspect()).hosts.find((host) => host.id === 'codex')?.state).toBe('configured');
+  });
+
+  it('refuses to overwrite a host configuration changed during the write', async () => {
+    const { home, bridge } = await fixture();
+    await mkdir(join(home, '.qoder'), { recursive: true });
+    const path = join(home, '.qoder', 'settings.json'); await writeFile(path, '{"theme":"before"}');
+    const service = new AgentConnectorServiceV1({ homeDirectory: home, bridgePath: bridge,
+      beforeCommit: async () => { await writeFile(path, '{"theme":"external change"}'); } });
+    await expect(service.connect('qoder')).rejects.toThrow('刚刚发生变化');
+    expect(await readFile(path, 'utf8')).toBe('{"theme":"external change"}');
+  });
   it('原子接入 Codex，保留其他配置并幂等更新旧的 AgenticGame 段', async () => {
     const { home, bridge, service } = await fixture();
     const directory = join(home, '.codex');

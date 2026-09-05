@@ -24,9 +24,13 @@ export function createDesktopPreloadApiV1(invoke: DesktopInvokeV1): DesktopApiV1
       exportDiagnostic: () => invoke('garage:export-diagnostic') as ReturnType<DesktopApiV1['garage']['exportDiagnostic']>,
     },
     practice: {
+      cancel: () => invoke('practice:cancel') as Promise<void>,
       run: (input) => invoke('practice:run', input) as ReturnType<DesktopApiV1['practice']['run']>,
     },
     replays: {
+      backup: (input) => invoke('replays:backup', input) as Promise<string>,
+      import: () => invoke('replays:import') as Promise<string>,
+      revealExport: () => invoke('replays:reveal-export') as Promise<void>,
       list: (filter) => invoke('replays:list', filter) as ReturnType<DesktopApiV1['replays']['list']>,
       open: (input) => invoke('replays:open', input) as ReturnType<DesktopApiV1['replays']['open']>,
       note: (input) => invoke('replays:note', input) as ReturnType<DesktopApiV1['replays']['note']>,
@@ -38,6 +42,7 @@ export function createDesktopPreloadApiV1(invoke: DesktopInvokeV1): DesktopApiV1
       exportDiagnostic: () => invoke('replays:export-diagnostic') as ReturnType<DesktopApiV1['replays']['exportDiagnostic']>,
     },
     agentCenter: {
+      progress: () => invoke('agent-center:progress') as Promise<import('./agent-center-service-v1.js').AgentCenterProgressV1 | undefined>,
       get: () => invoke('agent-center:get') as ReturnType<DesktopApiV1['agentCenter']['get']>,
       run: (input) => invoke('agent-center:run', input) as ReturnType<DesktopApiV1['agentCenter']['run']>,
       cancel: () => invoke('agent-center:cancel') as ReturnType<DesktopApiV1['agentCenter']['cancel']>,

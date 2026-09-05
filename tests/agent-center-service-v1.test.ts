@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -44,7 +44,7 @@ function candidateProvider(secret: string): AgentModelProviderV1 {
 }
 
 describe('AgentCenterServiceV1', () => {
-  it('lists only healthy player Builds and runs fixed 3/5/10 battle matrices without leaking technical payloads', async () => {
+  it('runs paired 6/12/24 battle evaluations and stores private reproducible evidence', async () => {
     const { builds, notes } = await fixture();
     const seenSeeds: number[] = [];
     const service = new AgentCenterServiceV1({
@@ -71,14 +71,23 @@ describe('AgentCenterServiceV1', () => {
     expect(snapshot.builds).toEqual([expect.objectContaining({ revision: 1, label: '中线突击', vehicleName: '中型坦克' })]);
     expect(snapshot.providerPresets.map((item) => item.id)).toEqual(['openai', 'deepseek', 'anthropic', 'custom']);
 
-    for (const [depth, expected] of [['quick', 3], ['standard', 5], ['deep', 10]] as const) {
+    for (const [depth, expected] of [['quick', 6], ['standard', 12], ['deep', 24]] as const) {
       seenSeeds.length = 0;
       const result = await service.run({
         revision: 1, provider: { kind: 'openai-compatible', baseUrl: 'https://provider.example/v1', model: 'model-x', apiKey: 'sk-private' },
         goal: '更积极抢点，但不要侧面对敌', depth,
       });
       expect(seenSeeds).toHaveLength(expected);
-      expect(new Set(seenSeeds).size).toBe(expected);
+      expect(new Set(seenSeeds).size).toBe(expected / 2);
+      expect(result.evaluationMode).toBe('capture');
+      const evidence = JSON.parse(await readFile(join(builds.root, '..', 'evaluations', result.evidenceFileName!), 'utf8'));
+      expect(evidence.rows).toHaveLength(expected);
+      expect(new Set(evidence.rows.map((row: {candidateSeat:number}) => row.candidateSeat))).toEqual(new Set([0, 1]));
+      expect(evidence.rows.every((row: {modeId:string}) => row.modeId === 'capture')).toBe(true);
+      expect(evidence.opponents).toHaveLength(3);
+      expect(evidence.maps).toHaveLength(2);
+      expect(evidence.candidate.botArtifact.source).toBe(candidateSource);
+      expect(JSON.stringify(evidence)).not.toMatch(/sk-private|provider\.example/);
       expect(result).toMatchObject({ status: 'completed', candidateId: 'candidate-session-1', evaluation: { battles: expected } });
       const projection = JSON.stringify(result);
       expect(projection).not.toMatch(/sk-private|provider\.example|module\.exports|candidateSource|seed|transcript|toolCall|codeHash/i);
@@ -152,8 +161,8 @@ describe('AgentCenterServiceV1', () => {
       depth: 'quick',
     });
     expect(result.status).toBe('completed');
-    expect(result.evaluation.battles).toBe(3);
-    expect(result.evaluation.wins + result.evaluation.draws + result.evaluation.losses).toBe(3);
+    expect(result.evaluation.battles).toBe(6);
+    expect(result.evaluation.wins + result.evaluation.draws + result.evaluation.losses).toBe(6);
     expect(result.evaluation.runtimeErrors).toBe(0);
   }, 30_000);
 });

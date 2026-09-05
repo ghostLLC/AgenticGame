@@ -1,5 +1,6 @@
 import type { ContentSnapshotV2, MapSnapshotV2 } from '../core/v2/content.js';
 import type { MatchConfigV2, MatchTeamConfigV2 } from '../core/v2/match-config.js';
+import { CURRENT_GAMEPLAY_RULESET_V2 } from '../core/v2/gameplay-content.js';
 import { assertSavedBuildV2, type SavedBuildV2 } from '../config/saved-build-v2.js';
 import {
   runMatchV2,
@@ -18,6 +19,9 @@ export interface PracticeMatchInputV2 {
   tickBudgetMs?: number;
   maxViolations?: number;
   collectLogs?: boolean;
+  signal?: AbortSignal;
+  onProgress?: (tick: number, maxTicks: number) => void;
+  candidateSeat?: 0 | 1;
 }
 
 export interface PracticeParticipantV2 {
@@ -42,7 +46,7 @@ export async function runPracticeMatchV2(input: PracticeMatchInputV2): Promise<P
   const matchConfig: MatchConfigV2 = {
     schemaVersion: 2,
     matchId: `practice-${current.fingerprint.slice(0, 12)}-${opponent.fingerprint.slice(0, 12)}`,
-    ruleset: { id: 'gameplay-v2', version: '2.0.0' },
+    ruleset: { ...CURRENT_GAMEPLAY_RULESET_V2 },
     modeId,
     mapId: input.mapSnapshot.id,
     seed: input.seed >>> 0,
@@ -52,14 +56,19 @@ export async function runPracticeMatchV2(input: PracticeMatchInputV2): Promise<P
       teamFromBuild('historical', opponent),
     ],
   };
+  if (input.candidateSeat === 1) matchConfig.teams.reverse();
+  const bots = [
+    { path: current.botArtifact.entryPoint, code: current.botArtifact.source },
+    { path: opponent.botArtifact.entryPoint, code: opponent.botArtifact.source },
+  ] as [{ path: string; code: string }, { path: string; code: string }];
+  if (input.candidateSeat === 1) bots.reverse();
   const result = await runMatchV2({
     matchConfig,
     contentSnapshot: input.contentSnapshot,
     mapSnapshot: input.mapSnapshot,
-    bots: [
-      { path: current.botArtifact.entryPoint, code: current.botArtifact.source },
-      { path: opponent.botArtifact.entryPoint, code: opponent.botArtifact.source },
-    ],
+    bots,
+    signal: input.signal,
+    onProgress: input.onProgress,
     ...(input.createdAt !== undefined ? { createdAt: input.createdAt } : {}),
     ...(input.tickBudgetMs !== undefined ? { tickBudgetMs: input.tickBudgetMs } : {}),
     ...(input.maxViolations !== undefined ? { maxViolations: input.maxViolations } : {}),
