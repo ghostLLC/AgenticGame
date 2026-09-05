@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import type { MapSnapshotV2 } from '../core/v2/content.js';
+import { writeAtomicJson } from '../storage/atomic-json.js';
+import { createEvaluationPlanV1, type EvaluationModeV1 } from './evaluation-plan-v1.js';
 import { createGameToolsV1 } from '../agent/game-tools-v1.js';
 import {
   runAgentHarnessV1,
@@ -9,7 +13,7 @@ import { createAnthropicProviderV1 } from '../agent/providers/anthropic-v1.js';
 import { createOpenAICompatibleProviderV1 } from '../agent/providers/openai-compatible-v1.js';
 import type { SavedBuildRepositoryV2 } from '../config/saved-build-repository-v2.js';
 import { createSavedBuildV2, type SavedBuildV2 } from '../config/saved-build-v2.js';
-import { GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../core/v2/gameplay-content.js';
+import { CURRENT_GAMEPLAY_RULESET_V2, GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../core/v2/gameplay-content.js';
 import { runPracticeMatchV2 } from '../practice/run-practice-match-v2.js';
 import type { BuildRevisionNoteRepositoryV1, GarageTacticIdV1 } from './build-revision-note-repository-v1.js';
 import { COMMANDER_BUILD_ID_V1 } from './garage-service-v1.js';
@@ -29,6 +33,7 @@ export interface AgentCenterRunInputV1 {
   provider: AgentCenterProviderInputV1;
   goal: string;
   depth: AgentCenterEvaluationDepthV1;
+  evaluationMode?: EvaluationModeV1;
 }
 
 export interface AgentCenterSaveInputV1 {
@@ -47,6 +52,7 @@ export interface AgentCenterEvaluationV1 {
   averageRemainingHp: number;
   violations: number;
   runtimeErrors: number;
+  averageRemainingHpPercent?: number;
 }
 
 export interface AgentCenterRunResultV1 {
@@ -55,6 +61,16 @@ export interface AgentCenterRunResultV1 {
   sourceRevision: number;
   evaluation: AgentCenterEvaluationV1;
   coachSummary: string;
+  evidenceFileName?: string;
+  evaluationMode?: EvaluationModeV1;
+}
+
+export interface AgentCenterProgressV1 {
+  jobId: string;
+  stage: 'generating' | 'evaluating' | 'complete' | 'cancelled' | 'error';
+  completed: number;
+  total: number;
+  startedAt: string;
 }
 
 export interface AgentCenterSnapshotV1 {
@@ -79,6 +95,9 @@ export interface AgentCenterMatrixInputV1 {
   opponent: SavedBuildV2;
   seed: number;
   signal: AbortSignal;
+  candidateSeat?: 0 | 1;
+  modeId?: 'duel' | 'capture';
+  mapSnapshot?: MapSnapshotV2;
 }
 
 export interface AgentCenterMatrixResultV1 {
@@ -102,13 +121,9 @@ interface CandidateSessionV1 {
   sourceBuild: SavedBuildV2;
   tacticId: GarageTacticIdV1;
   saved: boolean;
+  headRevision: number;
 }
 
-const SEEDS: Record<AgentCenterEvaluationDepthV1, readonly number[]> = {
-  quick: [11, 29, 47],
-  standard: [11, 29, 47, 71, 97],
-  deep: [11, 29, 47, 71, 97, 131, 173, 211, 257, 307],
-};
 
 export class AgentCenterServiceV1 {
   private readonly buildRepository: SavedBuildRepositoryV2;
@@ -120,6 +135,7 @@ export class AgentCenterServiceV1 {
   private readonly now: () => string;
   private readonly candidates = new Map<string, CandidateSessionV1>();
   private activeController?: AbortController;
+  private progress?: AgentCenterProgressV1;
 
   constructor(options: AgentCenterServiceOptionsV1) {
     this.buildRepository = options.buildRepository;
@@ -147,9 +163,9 @@ export class AgentCenterServiceV1 {
         { id: 'custom', name: '其他兼容厂商', kind: 'openai-compatible', baseUrl: '', modelHint: '填写模型名称' },
       ],
       evaluationDepths: [
-        { id: 'quick', name: '快速试跑', battles: 3 },
-        { id: 'standard', name: '标准评测', battles: 5 },
-        { id: 'deep', name: '深入评测', battles: 10 },
+        { id: 'quick', name: '快速试跑', battles: 6 },
+        { id: 'standard', name: '标准评测', battles: 12 },
+        { id: 'deep', name: '深入评测', battles: 24 },
       ],
     };
   }
@@ -157,16 +173,19 @@ export class AgentCenterServiceV1 {
   async run(rawInput: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1> {
     if (this.activeController) throw new Error('已有一位 AI 队友正在调整战术');
     const input = validateRunInput(rawInput);
-    const sourceBuild = await this.buildRepository.load(COMMANDER_BUILD_ID_V1, input.revision);
     const controller = new AbortController();
     this.activeController = controller;
+    const deadline = setTimeout(() => controller.abort(new Error('本次调整超过四分钟，已停止。')), 240_000);
+    this.progress = { jobId: randomUUID(), stage: 'generating', completed: 0, total: 0, startedAt: this.now() };
     try {
+      const sourceBuild = await this.buildRepository.load(COMMANDER_BUILD_ID_V1, input.revision);
+      const headRevision = (await this.buildRepository.load(COMMANDER_BUILD_ID_V1, 'latest')).revision;
       const provider = this.providerFactory(input.provider);
       let candidateSource: string | undefined;
       const tools = this.toolsFactory().map((tool) => tool.name === 'evaluate_bot' ? {
         ...tool,
         execute: async (toolInput: Record<string, unknown>) => {
-          const result = await tool.execute(toolInput);
+          const result = await tool.execute(toolInput, { signal: controller.signal });
           const source = toolInput.source;
           if (typeof source !== 'string' || source.length < 1 || source.length > 100_000) {
             throw new Error('候选战术内容无效');
@@ -188,35 +207,61 @@ export class AgentCenterServiceV1 {
       const measurements: AgentCenterMatrixResultV1[] = [];
       let runtimeErrors = 0;
       let cancelled = false;
-      for (const seed of SEEDS[input.depth]) {
+      const evaluationMode = input.evaluationMode ?? (/抢点|据点|占领|capture/i.test(input.goal) ? 'capture' : 'mixed');
+      const plan = createEvaluationPlanV1(input.depth, evaluationMode, sourceBuild, this.now());
+      this.progress = { ...this.progress!, stage: 'evaluating', total: plan.length };
+      const rows: Array<Record<string, unknown>> = [];
+      for (const trial of plan) {
         if (controller.signal.aborted) { cancelled = true; break; }
         try {
-          measurements.push(await this.matrixRunner({ candidate, opponent: sourceBuild, seed, signal: controller.signal }));
+          measurements.push(await this.matrixRunner({ candidate, ...trial, signal: controller.signal }));
         } catch (error) {
           if (controller.signal.aborted) { cancelled = true; break; }
           runtimeErrors += 1;
           measurements.push({ outcome: 'loss', hp: 0, violations: 1 });
         }
+        rows.push({ seed: trial.seed, candidateSeat: trial.candidateSeat, modeId: trial.modeId,
+          map: { id: trial.mapSnapshot.id, version: trial.mapSnapshot.version }, opponentFingerprint: trial.opponent.fingerprint,
+          result: measurements.at(-1) });
+        this.progress = { ...this.progress!, completed: measurements.length };
       }
       const candidateId = requireCandidateId(this.createCandidateId());
+      const evaluation = aggregate(measurements, runtimeErrors);
+      const maxHp = GAMEPLAY_CONTENT_V2.vehicles.find((vehicle) => vehicle.id === sourceBuild.loadout.vehicleId)!.maxHp;
+      evaluation.averageRemainingHpPercent = Math.round(evaluation.averageRemainingHp / maxHp * 100);
+      const evidenceFileName = `evaluation-${this.progress!.jobId}.json`;
+      await writeAtomicJson(resolve(this.buildRepository.root, '..', 'evaluations', evidenceFileName), {
+        version: 1, suite: 'holdout-v1', jobId: this.progress!.jobId, candidateId, createdAt: this.now(), ruleset: CURRENT_GAMEPLAY_RULESET_V2,
+        sourceFingerprint: sourceBuild.fingerprint, candidateFingerprint: candidate.fingerprint, evaluationMode,
+        sourceBuild, candidate, contentSnapshot: GAMEPLAY_CONTENT_V2,
+        opponents: [...new Map(plan.map((trial) => [trial.opponent.fingerprint, trial.opponent])).values()],
+        maps: [...new Map(plan.map((trial) => [trial.mapSnapshot.id, trial.mapSnapshot])).values()],
+        status: cancelled ? 'cancelled' : 'complete', plannedBattles: plan.length, evaluation, rows,
+      });
+      if (this.candidates.size >= 8) this.candidates.delete(this.candidates.keys().next().value!);
       this.candidates.set(candidateId, {
         source: candidateSource,
         sourceBuild,
         tacticId: await this.tacticFor(sourceBuild),
         saved: false,
+        headRevision,
       });
-      const evaluation = aggregate(measurements, runtimeErrors);
+      this.progress = { ...this.progress!, stage: cancelled ? 'cancelled' : 'complete' };
       return {
         status: cancelled ? 'cancelled' : 'completed',
         candidateId,
         sourceRevision: sourceBuild.revision,
         evaluation,
-        coachSummary: coachSummary(evaluation, cancelled),
+        evaluationMode,
+        evidenceFileName,
+        coachSummary: `${coachSummary(evaluation, cancelled)} 每组交换出生侧，对手包含原版本与两种官方战术；样本较少，结果只用于筛选候选。`,
       };
     } catch (error) {
+      this.progress = { ...this.progress!, stage: controller.signal.aborted ? 'cancelled' : 'error' };
       if (controller.signal.aborted) throw new Error('本次战术调整已取消');
       throw error;
     } finally {
+      clearTimeout(deadline);
       this.activeController = undefined;
     }
   }
@@ -226,6 +271,8 @@ export class AgentCenterServiceV1 {
     this.activeController.abort(new Error('player cancelled'));
     return true;
   }
+
+  getProgress(): AgentCenterProgressV1 | undefined { return this.progress ? structuredClone(this.progress) : undefined; }
 
   async saveCandidate(rawInput: AgentCenterSaveInputV1): Promise<{ revision: number; label: string }> {
     const input = validateSaveInput(rawInput);
@@ -243,16 +290,18 @@ export class AgentCenterServiceV1 {
         source: candidate.source,
       },
       loadout: structuredClone(candidate.sourceBuild.loadout),
-    }, this.now());
-    if (!saved.created) throw new Error('候选方案与当前版本相同，无需重复保存');
-    await this.noteRepository.save({
+    }, this.now(), {
+      expectedRevision: candidate.headRevision,
+      beforePublish: async (record) => { await this.noteRepository.save({
       version: 1,
       buildId: COMMANDER_BUILD_ID_V1,
-      revision: saved.record.revision,
+      revision: record.revision,
       tacticId: candidate.tacticId,
       note: input.note,
-      createdAt: saved.record.createdAt,
+      createdAt: record.createdAt,
+    }, { replace: true }); },
     });
+    if (!saved.created) throw new Error('候选方案与当前版本相同，无需重复保存');
     candidate.saved = true;
     this.candidates.delete(input.candidateId);
     return { revision: saved.record.revision, label: saved.record.label };
@@ -278,8 +327,10 @@ async function runMatrixBattle(input: AgentCenterMatrixInputV1): Promise<AgentCe
     current: input.candidate,
     opponent: input.opponent,
     contentSnapshot: GAMEPLAY_CONTENT_V2,
-    mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2,
-    modeId: 'duel',
+    mapSnapshot: input.mapSnapshot ?? GAMEPLAY_MAP_FRONTIER_V2,
+    modeId: input.modeId ?? 'duel',
+    candidateSeat: input.candidateSeat,
+    signal: input.signal,
     seed: input.seed,
     maxTicks: 240,
     tickBudgetMs: 100,
@@ -289,8 +340,8 @@ async function runMatrixBattle(input: AgentCenterMatrixInputV1): Promise<AgentCe
   const winners = output.summary.winningTeamIds;
   return {
     outcome: winners.includes('current') ? 'win' : winners.includes('historical') ? 'loss' : 'draw',
-    hp: output.summary.hp[0],
-    violations: output.summary.violations[0],
+    hp: output.summary.hp[input.candidateSeat ?? 0],
+    violations: output.summary.violations[input.candidateSeat ?? 0],
   };
 }
 
@@ -319,13 +370,15 @@ function systemPrompt(build: SavedBuildV2): string {
 function validateRunInput(input: AgentCenterRunInputV1): AgentCenterRunInputV1 {
   if (!input || typeof input !== 'object') throw new Error('AI 战术调整参数无效');
   if (!Number.isSafeInteger(input.revision) || input.revision < 1) throw new Error('请选择可用战术版本');
-  if (!SEEDS[input.depth]) throw new Error('请选择评测强度');
+  if (!['quick', 'standard', 'deep'].includes(input.depth)) throw new Error('请选择评测强度');
+  if (input.evaluationMode !== undefined && !['duel', 'capture', 'mixed'].includes(input.evaluationMode)) throw new Error('请选择评测模式');
   const goal = stringValue(input.goal, 1, 500, '请描述这次想改进什么');
   const provider = input.provider;
   if (!provider || (provider.kind !== 'openai-compatible' && provider.kind !== 'anthropic')) throw new Error('请选择 AI 厂商');
   return {
     revision: input.revision,
     depth: input.depth,
+    ...(input.evaluationMode ? { evaluationMode: input.evaluationMode } : {}),
     goal,
     provider: {
       kind: provider.kind,

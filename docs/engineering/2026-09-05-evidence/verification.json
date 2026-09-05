@@ -1,0 +1,65 @@
+{
+  "version": "0.1.1",
+  "date": "2026-09-05",
+  "baseline": "93c2002482c6c65ee0632193d9bc99fd64334f78",
+  "tests": {
+    "files": 66,
+    "passed": 306
+  },
+  "typecheck": "passed",
+  "productionAudit": {
+    "vulnerabilities": 0
+  },
+  "genericBuild": "passed",
+  "desktopBuild": "passed",
+  "agentBridgeBuild": "passed",
+  "artifactSmoke": [
+    {
+      "artifact": "directory EXE",
+      "packaged": true,
+      "trustedRendererBootstrap": true,
+      "tutorialFrames": 23
+    },
+    {
+      "artifact": "NSIS extracted EXE",
+      "packaged": true,
+      "trustedRendererBootstrap": true,
+      "tutorialFrames": 23
+    },
+    {
+      "artifact": "ZIP extracted EXE",
+      "packaged": true,
+      "trustedRendererBootstrap": true,
+      "tutorialFrames": 23
+    }
+  ],
+  "bridgeSmoke": {
+    "tools": 6,
+    "revisions": 2,
+    "practiceMatches": 1
+  },
+  "zipIntegrity": {
+    "files": 73,
+    "status": "passed"
+  },
+  "asarSha256": "ABC023366103061C31597A0EBC14A7EA1BD76D3C41A37D4A3324DF81B90BE995",
+  "bridgeSha256": "04544C710BA8186C7190BE599D6D0DCCC2C5475F5CA260F2514BB61DF87DA8E6",
+  "signature": "NotSigned",
+  "gui": {
+    "isolatedProfile": true,
+    "zoomNavigation": "seven entries visible; last entry opened",
+    "replayMoment": {
+      "tick": 18,
+      "hp": 80,
+      "maxHp": 110
+    }
+  },
+  "notVerified": [
+    "Clean Windows installation, upgrade, uninstall",
+    "Real two-device LAN/WAN and restart recovery",
+    "Actual host config and paid provider use",
+    "Novice study, full DPI matrix, audio listening and soak",
+    "Trusted CA signing"
+  ],
+  "ardot": "NO_ADAPTER; not written"
+}

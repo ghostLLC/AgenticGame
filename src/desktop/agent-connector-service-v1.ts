@@ -5,9 +5,10 @@ import { randomUUID } from 'node:crypto';
 import { applyEdits, modify, parse as parseJsonc, type ParseError } from 'jsonc-parser';
 import { parse as parseToml } from 'smol-toml';
 import { createAgentHostConfigV1 } from '../agent/host-config-v1.js';
+import { acquireWriteLease } from '../storage/write-lease.js';
 
 export type ExternalAgentHostV1 = 'codex' | 'workbuddy' | 'qoder';
-export type ExternalAgentConnectionStateV1 = 'not-found' | 'ready' | 'connected' | 'needs-attention';
+export type ExternalAgentConnectionStateV1 = 'not-found' | 'ready' | 'configured' | 'needs-attention';
 
 export interface ExternalAgentCardV1 {
   id: ExternalAgentHostV1;
@@ -34,6 +35,7 @@ export interface AgentConnectorServiceOptionsV1 {
   homeDirectory: string;
   bridgePath: string;
   environment?: Record<string, string | undefined>;
+  beforeCommit?: () => Promise<void>;
 }
 
 const HOST_META: Record<ExternalAgentHostV1, Pick<ExternalAgentCardV1, 'name' | 'summary'>> = {
@@ -46,6 +48,7 @@ export class AgentConnectorServiceV1 {
   private readonly home: string;
   private readonly bridge: string;
   private readonly environment: Record<string, string | undefined>;
+  private readonly beforeCommit?: () => Promise<void>;
 
   constructor(options: AgentConnectorServiceOptionsV1) {
     if (!isAbsolute(options.homeDirectory) || !isAbsolute(options.bridgePath)) {
@@ -54,6 +57,7 @@ export class AgentConnectorServiceV1 {
     this.home = resolve(options.homeDirectory);
     this.bridge = resolve(options.bridgePath);
     this.environment = options.environment ?? process.env;
+    this.beforeCommit = options.beforeCommit;
   }
 
   async inspect(): Promise<AgentConnectorSnapshotV1> {
@@ -69,7 +73,7 @@ export class AgentConnectorServiceV1 {
     return {
       bridgeReady,
       hosts,
-      privacy: '只会增加 AgenticGame 连接；不会读取账号、模型、对话或密钥，也不会改动其他连接。',
+      privacy: '仅在本机解析连接配置并修改 AgenticGame 条目；原配置会备份，不上传配置内容。显示已配置后，仍需在客户端确认工具可用。',
     };
   }
 
@@ -79,6 +83,8 @@ export class AgentConnectorServiceV1 {
     const config = await this.resolveConfig(host);
     if (!config.installed) throw new Error(`暂未发现 ${HOST_META[host].name}，安装后再来接入`);
 
+    const release = await acquireWriteLease(`${config.path}.agenticgame.lock`);
+    try {
     const current = await readOptional(config.path);
     let next: string;
     try {
@@ -86,18 +92,30 @@ export class AgentConnectorServiceV1 {
         ? mergeCodexConfig(current ?? '', this.bridge)
         : mergeJsonConfig(current ?? '{}\n', this.bridge);
     } catch {
-      throw new Error(`${HOST_META[host].name} 的连接配置需要先修复；游戏没有改动原配置`);
+      throw new Error(`${HOST_META[host].name} 的连接配置损坏或使用了暂不支持的写法；游戏没有改动原配置，请在客户端检查或手动添加连接`);
     }
 
-    const backupCreated = current === undefined ? false : await createBackupOnce(config.path);
-    await writeAtomic(config.path, next);
+    const changed = next !== current;
+    let backupCreated = false;
+    if (changed) {
+      if (current !== undefined) {
+        backupCreated = await createBackupOnce(config.path);
+        if (!backupCreated) {
+          await copyFile(config.path, `${config.path}.before-agenticgame-${randomUUID()}.bak`, constants.COPYFILE_EXCL);
+          backupCreated = true;
+        }
+      }
+      await writeAtomic(config.path, next, current, this.beforeCommit);
+    }
+    if (await inspectConfiguration(host, config.path, this.bridge) !== 'configured') throw new Error('连接配置写后校验失败，请在客户端检查。');
     return {
       host,
       configured: true,
       restartRequired: true,
       backupCreated,
-      message: `已接入 ${HOST_META[host].name}。请重启它，然后在新对话中邀请 AgenticGame 战术搭档。`,
+      message: `已配置 ${HOST_META[host].name}。请重启它，在新对话中确认 AgenticGame 工具出现并能读取战术版本。`,
     };
+    } finally { await release(); }
   }
 
   private async resolveConfig(host: ExternalAgentHostV1): Promise<{ path: string; installed: boolean }> {
@@ -129,19 +147,37 @@ export class AgentConnectorServiceV1 {
 }
 
 function mergeCodexConfig(current: string, bridge: string): string {
-  if (current.trim()) parseToml(current);
+  const original = current.trim() ? parseToml(current) : {};
   const lines = current.replace(/\r\n/g, '\n').split('\n');
   const kept: string[] = [];
   let skipping = false;
   for (const line of lines) {
-    const heading = /^\s*\[([^\]]+)]\s*(?:#.*)?$/.exec(line)?.[1]?.trim();
-    if (heading) skipping = /^mcp_servers\.(?:agentic_game|"agentic_game"|"agentic-game")(?:\.|$)/.test(heading);
+    const heading = /^\s*(\[.+\])\s*(?:#.*)?$/.exec(line)?.[1];
+    if (heading) {
+      try {
+        const section = parseToml(heading) as Record<string, unknown>;
+        skipping = isRecord(section.mcp_servers)
+          && Object.keys(section.mcp_servers).some((key) => key === 'agentic_game' || key === 'agentic-game');
+      } catch { /* a header-looking line inside a multiline string */ }
+    }
     if (!skipping) kept.push(line);
   }
   while (kept.length && kept.at(-1)?.trim() === '') kept.pop();
   const merged = `${kept.length ? `${kept.join('\n')}\n\n` : ''}${createAgentHostConfigV1('codex', bridge)}`;
-  parseToml(merged);
+  const parsed = parseToml(merged);
+  if (unownedConfig(original) !== unownedConfig(parsed)) throw new Error('unrelated TOML values changed');
   return merged;
+}
+
+function unownedConfig(value: unknown): string {
+  const cloned = structuredClone(value) as Record<string, unknown>;
+  if (isRecord(cloned.mcp_servers)) {
+    delete cloned.mcp_servers.agentic_game; delete cloned.mcp_servers['agentic-game'];
+    if (Object.keys(cloned.mcp_servers).length === 0) delete cloned.mcp_servers;
+  }
+  const sort = (item: unknown): unknown => Array.isArray(item) ? item.map(sort)
+    : isRecord(item) && !(item instanceof Date) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, sort(item[key])])) : item;
+  return JSON.stringify(sort(cloned));
 }
 
 function mergeJsonConfig(current: string, bridge: string): string {
@@ -161,21 +197,21 @@ function mergeJsonConfig(current: string, bridge: string): string {
 }
 
 async function inspectConfiguration(host: ExternalAgentHostV1, path: string, bridge: string): Promise<ExternalAgentConnectionStateV1> {
-  const current = await readOptional(path);
-  if (current === undefined) return 'ready';
   try {
+    const current = await readOptional(path);
+    if (current === undefined) return 'ready';
     if (host === 'codex') {
       const parsed = parseToml(current) as Record<string, unknown>;
       const servers = isRecord(parsed.mcp_servers) ? parsed.mcp_servers : undefined;
       const entry = servers && isRecord(servers.agentic_game) ? servers.agentic_game : undefined;
-      return matchesEntry(entry, bridge) ? 'connected' : 'ready';
+      return matchesEntry(entry, bridge) ? 'configured' : 'ready';
     }
     const errors: ParseError[] = [];
     const parsed = parseJsonc(current, errors, { allowTrailingComma: true, disallowComments: false });
     if (errors.length || !isRecord(parsed)) return 'needs-attention';
     const servers = isRecord(parsed.mcpServers) ? parsed.mcpServers : undefined;
     const entry = servers && isRecord(servers['agentic-game']) ? servers['agentic-game'] : undefined;
-    return matchesEntry(entry, bridge) ? 'connected' : 'ready';
+    return matchesEntry(entry, bridge) ? 'configured' : 'ready';
   } catch {
     return 'needs-attention';
   }
@@ -196,7 +232,7 @@ async function createBackupOnce(path: string): Promise<boolean> {
   }
 }
 
-async function writeAtomic(path: string, content: string): Promise<void> {
+async function writeAtomic(path: string, content: string, expected: string | undefined, beforeCommit?: () => Promise<void>): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
   try {
@@ -207,6 +243,8 @@ async function writeAtomic(path: string, content: string): Promise<void> {
     } finally {
       await handle.close();
     }
+    await beforeCommit?.();
+    if (await readOptional(path) !== expected) throw new Error('客户端配置刚刚发生变化，本次接入已停止，请重新检查后重试。');
     await rename(temporary, path);
   } catch (error) {
     await unlink(temporary).catch(() => undefined);
@@ -215,7 +253,10 @@ async function writeAtomic(path: string, content: string): Promise<void> {
 }
 
 async function readOptional(path: string): Promise<string | undefined> {
-  try { return await readFile(path, 'utf8'); }
+  try {
+    if ((await stat(path)).size > 2 * 1024 * 1024) throw new Error('连接配置过大，请在客户端检查。');
+    return await readFile(path, 'utf8');
+  }
   catch (error) { if (isNodeError(error, 'ENOENT')) return undefined; throw error; }
 }
 

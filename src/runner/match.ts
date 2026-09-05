@@ -220,7 +220,7 @@ export async function runMatch(cfg: MatchConfig): Promise<MatchOutput> {
       let crashed: [boolean, boolean] = [false, false];
       for (const idx of [0, 1] as const) {
         const r = runners[idx];
-        if (!r.isTerminated && t - r.aliveTick > CRASH_SILENCE_TICKS) {
+        if (r.isTerminated || t - r.aliveTick > CRASH_SILENCE_TICKS) {
           crashed[idx] = true;
         }
       }

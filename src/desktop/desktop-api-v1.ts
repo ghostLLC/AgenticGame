@@ -51,9 +51,13 @@ export interface DesktopApiV1 {
     exportDiagnostic(): Promise<GarageDiagnosticExportV1>;
   };
   practice: {
+    cancel?(): Promise<void>;
     run(input: PracticeRunInputV1): Promise<PracticeResultViewV1>;
   };
   replays: {
+    backup?(input: { replayId: string; source: ReplaySourceV1 }): Promise<string>;
+    import?(): Promise<string>;
+    revealExport?(): Promise<void>;
     list(filter: ReplayLibraryFilterV1): Promise<ReplayLibrarySnapshotV1>;
     open(input: { replayId: string; source: ReplaySourceV1 }): Promise<{ replayId: string; source: ReplaySourceV1; replay: FriendRoomReplayV1 }>;
     note(input: { replayId: string; source: ReplaySourceV1; note: string }): Promise<void>;
@@ -65,6 +69,7 @@ export interface DesktopApiV1 {
     exportDiagnostic(): Promise<string>;
   };
   agentCenter: {
+    progress?(): Promise<import('./agent-center-service-v1.js').AgentCenterProgressV1 | undefined>;
     get(): Promise<AgentCenterSnapshotV1>;
     run(input: AgentCenterRunInputV1): Promise<AgentCenterRunResultV1>;
     cancel(): Promise<boolean>;

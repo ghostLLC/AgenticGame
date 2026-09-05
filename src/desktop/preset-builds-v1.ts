@@ -1,4 +1,5 @@
 import { createSavedBuildV2, type SavedBuildV2 } from '../config/saved-build-v2.js';
+import { presetTacticSourceV2 } from './preset-tactics-v2.js';
 
 export type FriendRoomPresetIdV1 = 'scout' | 'medium' | 'heavy';
 
@@ -31,21 +32,16 @@ export function createPresetBuildV1(
     : preset.id === 'medium'
       ? { vehicleId: 'medium', weaponId: 'medium-cannon', equipmentIds: [] as string[] }
       : { vehicleId: 'heavy', weaponId: 'heavy-cannon', equipmentIds: [] as string[] };
-  const behavior = preset.id === 'heavy'
-    ? '{ throttle: 1, bodyTurn: 0, turretTurn: 0, fire: true }'
-    : preset.id === 'medium'
-      ? '{ throttle: 1, bodyTurn: 0, turretTurn: 1, fire: true }'
-      : '{ throttle: 1, bodyTurn: 1, turretTurn: 0, fire: true }';
   const owner = displayName?.trim();
   return createSavedBuildV2({
     buildId: `friend-${preset.id}`,
     label: owner ? `${owner} · ${preset.label}` : preset.label,
     bot: {
       artifactId: `friend-${preset.id}-bot`,
-      version: '1.0.0',
+      version: '1.1.0',
       language: 'javascript',
       entryPoint: `${preset.id}.js`,
-      source: `module.exports = () => ({ onTick() { return ${behavior}; } });`,
+      source: presetTacticSourceV2(preset.id),
     },
     loadout,
   }, { revision: 1, parentFingerprint: null, createdAt });

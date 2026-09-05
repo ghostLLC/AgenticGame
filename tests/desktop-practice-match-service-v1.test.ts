@@ -61,6 +61,17 @@ async function createTwoRevisions(setupResult: ReturnType<typeof setup>): Promis
 }
 
 describe('PracticeMatchServiceV1', () => {
+  it('cancels an active match without publishing a replay and permits the next run', async () => {
+    const context = setup();
+    await context.garage.getSnapshot(player());
+    const input = { currentRevision: 1, opponentRevision: 1, modeId: 'duel' as const, seed: 19 };
+    const running = context.service.run(input);
+    await expect(context.service.run(input)).rejects.toThrow('正在进行');
+    context.service.cancel();
+    await expect(running).rejects.toThrow('取消');
+    expect(await context.replayRepository.list()).toEqual([]);
+    expect((await context.service.run(input)).ticks).toBeGreaterThan(0);
+  });
   it('runs current versus old through the real worker and persists one verified replay', async () => {
     const context = setup();
     await createTwoRevisions(context);

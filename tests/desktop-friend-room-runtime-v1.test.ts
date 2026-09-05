@@ -6,8 +6,27 @@ import {
 } from '../src/desktop/friend-room-runtime-v1.js';
 import type { FriendRoomRecoveryCapsuleV1 } from '../src/desktop/friend-room-recovery-store-v1.js';
 import { createPresetBuildV1 } from '../src/desktop/preset-builds-v1.js';
+import { createSavedBuildV2 } from '../src/config/saved-build-v2.js';
 
 describe('桌面好友房间比赛运行时 v1', () => {
+  it('locks an exact saved custom source and rejects later mutation or tampering', () => {
+    const events: DesktopFriendRoomEventV1[] = [];
+    let capsule: FriendRoomRecoveryCapsuleV1 | null = null;
+    const runtime = new DesktopFriendRoomRuntimeV1({ sendPeer: () => undefined, onEvent: (event) => events.push(event),
+      onRecovery: async (value) => { capsule = value; } });
+    runtime.start({ role: 'host', sessionId: 'custom-revision', displayName: '自定义玩家' });
+    const source = 'module.exports=()=>({onTick(){return {throttle:0,bodyTurn:0,turretTurn:0,fire:false};}});';
+    const custom = createSavedBuildV2({ buildId: 'commander-main', label: '自定义守卫',
+      bot: { artifactId: 'custom-guard', version: '1.0.0', language: 'javascript', entryPoint: 'guard.js', source },
+      loadout: { vehicleId: 'medium', weaponId: 'medium-cannon', equipmentIds: [] } },
+      { revision: 1, parentFingerprint: null, createdAt: '2026-09-05T00:00:00.000Z' });
+    runtime.selectBuild(custom);
+    custom.botArtifact.source = 'module.exports=()=>({});';
+    custom.label = '外部变更';
+    expect(events.at(-1)?.snapshot?.participants[0]?.build?.label).toBe('自定义守卫');
+    expect(JSON.stringify(capsule)).toContain(source);
+    expect(() => runtime.selectBuild(custom)).toThrow();
+  });
   it('只向玩家暴露三套可选战术，不暴露代码或协议字段', () => {
     const presets = friendRoomPresetOptionsV1();
     expect(presets.map((item) => item.label)).toEqual(['游骑侦察队', '中线突击队', '钢铁堡垒队']);

@@ -1,6 +1,9 @@
 import { constants } from 'node:fs';
-import { access, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
+import { access, copyFile, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
+import { acquireWriteLease } from '../storage/write-lease.js';
+import { cleanAbandonedTemps } from '../storage/quarantine-journal.js';
 
 export interface ReplayMetadataV1 {
   version: 1;
@@ -41,8 +44,14 @@ export class ReplayMetadataRepositoryV1 {
   async save(input: ReplayMetadataV1): Promise<ReplayMetadataV1> {
     const metadata = assertReplayMetadataV1(input);
     await mkdir(this.root, { recursive: true });
+    const release = await acquireWriteLease(resolve(this.root, `.${metadata.replayId}.lock`));
+    try {
+    await cleanAbandonedTemps(this.root, new RegExp(`^\\.${metadata.replayId}\\.tmp-[a-zA-Z0-9-]+$`));
     temporarySequence += 1;
     const target = this.fileFor(metadata.replayId);
+    try { await this.load(metadata.replayId); } catch {
+      await copyFile(target, `${target}.corrupt-${randomUUID()}`, constants.COPYFILE_EXCL);
+    }
     const temporary = resolve(this.root, `.${metadata.replayId}.tmp-${process.pid}-${temporarySequence}`);
     const handle = await open(temporary, 'wx');
     try {
@@ -58,6 +67,7 @@ export class ReplayMetadataRepositoryV1 {
       throw error;
     }
     return structuredClone(metadata);
+    } finally { await release(); }
   }
 
   async load(replayId: string): Promise<ReplayMetadataV1 | undefined> {

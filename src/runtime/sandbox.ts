@@ -1,167 +1,126 @@
-// 坦克竞技场 —— 主线程侧的 bot runner
-//
-// 职责：管理 worker 生命周期、分发 tick 请求、执行时间预算、上报违规。
-//
-// 超时模型：
-//  - 每个 onTick 有预算（rules.tickBudgetMs）。超时 → 该 tick 判 idle + 违规计数。
-//  - 超时不终止 worker；迟到的响应按 tick 号丢弃（防止错位），但仍视为存活信号。
-//  - 若 worker 卡死（同步死循环），它不会再响应任何消息，由 match 层根据
-//    lastResponsiveTick 连续落后判定 crash 并 terminate、判负。
-
-import { Worker } from 'node:worker_threads';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+// Host supervisor. Untrusted code executes only in QuickJS/WASM in a child process.
+import { fork, spawn, type ChildProcess } from 'node:child_process';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { isPackaged, resolveAsset } from './paths.js';
 
-/**
- * 定位 worker 入口脚本。
- * dev：直接用 src/runtime/bot-worker.mjs；
- * pkg exe：worker 代码嵌在虚拟 FS 里，worker_threads 加载虚拟路径不可靠，
- *          启动时把内容释放到临时目录的真实文件（内容 hash 命名，同版本只释放一次）。
- */
 let workerPathCache: string | null = null;
 export function getWorkerPath(): string {
   if (workerPathCache) return workerPathCache;
-  const src = resolveAsset('worker');
-  if (!isPackaged()) {
-    workerPathCache = src;
-    return src;
-  }
-  const content = readFileSync(src, 'utf8');
-  const tag = createHash('sha256').update(content).digest('hex').slice(0, 12);
-  const tmp = join(tmpdir(), `arena-bot-worker-${tag}.cjs`);
-  if (!existsSync(tmp)) writeFileSync(tmp, content, 'utf8');
-  workerPathCache = tmp;
-  return tmp;
+  const source = resolveAsset('worker');
+  if (source.endsWith('.mjs')) return source;
+  // A private, unique directory avoids predictable shared-temp script substitution.
+  // Materialize ASAR/pkg resources before starting Electron in Node mode.
+  const directory = mkdtempSync(join(tmpdir(), 'agentic-bot-'));
+  const path = join(directory, 'worker.cjs');
+  writeFileSync(path, readFileSync(source), {flag:'wx',mode:0o600});
+  process.once('exit', () => { try { rmSync(directory, {recursive:true,force:true}); } catch { /* OS may still be releasing a child. */ } });
+  workerPathCache = path;
+  return path;
 }
 
 export type TickOutcome =
-  | { kind: 'ok'; action: unknown; logs: string[] }
-  | { kind: 'timeout' }
-  | { kind: 'error'; message: string; logs: string[] };
-
+  | {kind:'ok';action:unknown;logs:string[]}
+  | {kind:'timeout'}
+  | {kind:'error';message:string;logs:string[]};
 export interface BotRunnerOptions {
-  code: string;
-  botIndex: 0 | 1;
-  seed: number;
-  /** 传给 createTank 的可结构化克隆上下文；worker 会补入确定性 rng */
-  ctx: Record<string, unknown>;
-  workerUrl: URL;
+  code:string;
+  botIndex:0|1;
+  seed:number;
+  ctx:Record<string,unknown>;
+  workerUrl:URL;
 }
-
-interface PendingWait {
-  tick: number;
-  resolve: (o: TickOutcome) => void;
-  timer: NodeJS.Timeout;
-}
+type InitResult = {ok:true;name:string}|{ok:false;error:string};
+interface PendingWait {tick:number;resolve:(value:TickOutcome)=>void;timer:NodeJS.Timeout;}
 
 export class BotRunner {
-  readonly botIndex: 0 | 1;
-  private worker: Worker;
-  private pending: PendingWait | null = null;
+  readonly botIndex:0|1;
+  private child:ChildProcess;
+  private pending:PendingWait|null = null;
+  private initialization: {resolve:(value:InitResult)=>void;timer:NodeJS.Timeout}|null = null;
+  private initialized = false;
   private lastResponsiveTick = -1;
   private terminated = false;
-  /** 最近一次 tick 的 debug 日志（由 match 写入回放） */
-  lastLogs: string[] = [];
+  lastLogs:string[] = [];
 
-  private constructor(private opts: BotRunnerOptions) {
+  private constructor(private opts:BotRunnerOptions) {
+    if (typeof opts.code !== 'string' || Buffer.byteLength(opts.code)>256*1024) throw new Error('战术源码超过 256 KiB 限制');
+    const context = JSON.stringify(opts.ctx);
+    if (!context || Buffer.byteLength(context)>1024*1024) throw new Error('战术上下文过大');
     this.botIndex = opts.botIndex;
-    this.worker = new Worker(opts.workerUrl);
-    this.worker.on('message', (msg: { type: string; tick?: number; action?: unknown; logs?: string[]; message?: string; name?: string }) => {
-      if (msg.tick !== undefined) this.lastResponsiveTick = Math.max(this.lastResponsiveTick, msg.tick);
-      if (this.pending && msg.tick === this.pending.tick) {
-        clearTimeout(this.pending.timer);
-        const p = this.pending;
-        this.pending = null;
-        if (msg.type === 'action') {
-          this.lastLogs = msg.logs ?? [];
-          p.resolve({ kind: 'ok', action: msg.action, logs: this.lastLogs });
-        } else if (msg.type === 'error') {
-          this.lastLogs = msg.logs ?? [];
-          p.resolve({ kind: 'error', message: msg.message ?? 'unknown error', logs: this.lastLogs });
-        }
+    // Never inherit API keys, user profiles, Node options or arbitrary environment values.
+    const env:NodeJS.ProcessEnv = {};
+    for (const key of ['SystemRoot','SYSTEMROOT','WINDIR','TEMP','TMP']) if (process.env[key]) env[key] = process.env[key];
+    env.ELECTRON_RUN_AS_NODE = '1';
+    const options = {env,windowsHide:true,stdio:['ignore','ignore','ignore','ipc'] as ['ignore','ignore','ignore','ipc'],serialization:'json' as const};
+    this.child = isPackaged()
+      ? spawn(process.execPath, ['--agentic-bot-child'], options)
+      : fork(fileURLToPath(opts.workerUrl), [], {...options,execArgv:['--max-old-space-size=128','--stack-size=1024']});
+    this.child.on('message', (raw) => {
+      if (!raw || typeof raw !== 'object' || Buffer.byteLength(JSON.stringify(raw))>16*1024) {this.terminate();return;}
+      const msg = raw as {type?:string;tick?:number;action?:unknown;logs?:unknown;message?:string;name?:string;fatal?:boolean};
+      if (this.initialization && (msg.type==='ready'||msg.type==='loadError')) {
+        const initialization = this.initialization; this.initialization = null;
+        clearTimeout(initialization.timer);
+        this.initialized = msg.type==='ready';
+        initialization.resolve(this.initialized ? {ok:true,name:String(msg.name??`bot-${this.botIndex}`).slice(0,40)} : {ok:false,error:String(msg.message??'加载失败').slice(0,400)});
       }
-      // 迟到的响应：忽略内容，存活信号已在上面记录
-    });
-    this.worker.on('error', () => {
-      // worker 崩溃：唤醒等待者
-      if (this.pending) {
-        clearTimeout(this.pending.timer);
-        const p = this.pending;
-        this.pending = null;
-        p.resolve({ kind: 'error', message: 'worker 线程崩溃', logs: [] });
+      if (typeof msg.tick==='number') this.lastResponsiveTick = Math.max(this.lastResponsiveTick,msg.tick);
+      if (this.pending && msg.tick===this.pending.tick && (msg.type==='action'||msg.type==='error')) {
+        const pending = this.pending; this.pending = null; clearTimeout(pending.timer);
+        this.lastLogs = Array.isArray(msg.logs) ? msg.logs.slice(0,5).map(v=>String(v).slice(0,1024)) : [];
+        pending.resolve(msg.type==='action' ? {kind:'ok',action:msg.action,logs:this.lastLogs} : {kind:'error',message:String(msg.message??'执行失败').slice(0,400),logs:this.lastLogs});
+        if (msg.fatal === true) this.terminate();
       }
     });
+    this.child.on('error', () => this.terminate());
+    this.child.on('exit', () => this.terminate());
   }
-
-  static create(opts: BotRunnerOptions): BotRunner {
-    return new BotRunner(opts);
-  }
-
-  /**
-   * 初始化 bot（加载代码 + 调用 createTank）。
-   * 返回 bot 展示名；失败返回错误信息（此时调用方应 terminate 并判负）。
-   */
-  async init(timeoutMs = 5000): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => resolve({ ok: false, error: `bot 初始化超时（>${timeoutMs}ms），可能存在死循环` }), timeoutMs);
-      const onMsg = (msg: { type: string; name?: string; message?: string }) => {
-        if (msg.type === 'ready') {
-          clearTimeout(timer);
-          this.worker.off('message', onMsg);
-          resolve({ ok: true, name: msg.name ?? `bot-${this.botIndex}` });
-        } else if (msg.type === 'loadError') {
-          clearTimeout(timer);
-          this.worker.off('message', onMsg);
-          resolve({ ok: false, error: msg.message ?? '加载失败' });
-        }
-      };
-      this.worker.on('message', onMsg);
-      this.worker.postMessage({
-        type: 'init',
-        code: this.opts.code,
-        botIndex: this.opts.botIndex,
-        seed: this.opts.seed,
-        ctx: this.opts.ctx,
-      });
+  static create(opts:BotRunnerOptions):BotRunner {return new BotRunner(opts);}
+  init(timeoutMs=5000):Promise<InitResult> {
+    if (this.terminated || this.initialization || this.initialized) return Promise.resolve({ok:false,error:'Bot 进程状态不可用'});
+    return new Promise(resolve => {
+      const timer = setTimeout(()=>this.terminate(),timeoutMs);
+      this.initialization = {resolve,timer};
+      this.send({type:'init',code:this.opts.code,botIndex:this.botIndex,seed:this.opts.seed,ctx:this.opts.ctx});
     });
   }
-
-  /** 最新一次收到响应的 tick 号。match 层用它区分"慢"与"卡死"。 */
-  get aliveTick(): number {
-    return this.lastResponsiveTick;
-  }
-
-  get isTerminated(): boolean {
-    return this.terminated;
-  }
-
-  /**
-   * 发送一个 tick 请求并等待响应（带预算）。
-   * 超时返回 {kind:'timeout'}，动作由调用方记 idle + 违规。
-   */
-  tick(tickNo: number, view: unknown, budgetMs: number): Promise<TickOutcome> {
-    return new Promise((resolve) => {
+  get aliveTick():number {return this.lastResponsiveTick;}
+  get isTerminated():boolean {return this.terminated;}
+  tick(tickNo:number,view:unknown,budgetMs:number):Promise<TickOutcome> {
+    if (this.terminated || !this.initialized || this.pending) return Promise.resolve({kind:'error',message:'Bot 进程不可用',logs:[]});
+    const serialized = JSON.stringify(view);
+    if (!serialized || Buffer.byteLength(serialized)>1024*1024) return Promise.resolve({kind:'error',message:'战场视图过大',logs:[]});
+    return new Promise(resolve => {
       const timer = setTimeout(() => {
-        if (this.pending && this.pending.tick === tickNo) {
-          this.pending = null;
-          resolve({ kind: 'timeout' });
-        }
-      }, budgetMs);
-      this.pending = { tick: tickNo, resolve, timer };
-      this.worker.postMessage({ type: 'tick', tick: tickNo, view });
+        if (this.pending?.tick!==tickNo) return;
+        this.pending = null;
+        resolve({kind:'timeout'});
+        this.terminate();
+      },budgetMs);
+      this.pending = {tick:tickNo,resolve,timer};
+      this.send({type:'tick',tick:tickNo,view,budgetMs});
     });
   }
-
-  terminate(): void {
+  terminate():void {
     if (this.terminated) return;
     this.terminated = true;
+    if (this.initialization) {
+      clearTimeout(this.initialization.timer);
+      this.initialization.resolve({ok:false,error:'战术进程已结束或初始化超时'});
+      this.initialization = null;
+    }
     if (this.pending) {
       clearTimeout(this.pending.timer);
+      this.pending.resolve({kind:'error',message:'战术进程已结束',logs:[]});
       this.pending = null;
     }
-    void this.worker.terminate();
+    if (!this.child.killed) this.child.kill('SIGKILL');
+  }
+  private send(value:unknown):void {
+    if (!this.child.connected) {this.terminate();return;}
+    this.child.send(value as object, error=>{if(error)this.terminate();});
   }
 }

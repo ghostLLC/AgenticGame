@@ -14,6 +14,7 @@ import {
   type GarageTacticIdV1,
 } from './build-revision-note-repository-v1.js';
 import type { PlayerDoctrineV1, PlayerProfileV1 } from './player-profile-v1.js';
+import { presetTacticSourceV2 } from './preset-tactics-v2.js';
 
 export type { GarageTacticIdV1 } from './build-revision-note-repository-v1.js';
 
@@ -25,6 +26,8 @@ export interface GarageSaveInputV1 {
   weaponId: 'light-cannon' | 'medium-cannon' | 'heavy-cannon';
   tacticId: GarageTacticIdV1;
   note: string;
+  baseRevision?: number;
+  replaceTactic?: boolean;
 }
 
 export interface GarageBattleRecordV1 {
@@ -41,6 +44,8 @@ export interface GarageRevisionViewV1 {
   vehicleName: string;
   weaponName: string;
   tacticName: string;
+  tacticId?: GarageTacticIdV1;
+  sourceKind?: 'preset' | 'custom';
   note: string;
   changes: string[];
   record: GarageBattleRecordV1;
@@ -116,7 +121,7 @@ export class GarageServiceV1 {
   async getSnapshot(profile: PlayerProfileV1): Promise<GarageSnapshotV1> {
     await this.ensureInitialRevision(profile);
     const inspection = await this.buildRepository.inspect(COMMANDER_BUILD_ID_V1);
-    const notes = await this.safeNotes();
+    const notes = await this.safeNotes(inspection);
     const records = await this.battleRecords(inspection);
     const revisions = inspection.revisions.map((item, index) => this.toRevisionView(
       item,
@@ -140,6 +145,8 @@ export class GarageServiceV1 {
     };
   }
 
+  async initialize(profile: PlayerProfileV1): Promise<void> { await this.ensureInitialRevision(profile); }
+
   async saveRevision(profile: PlayerProfileV1, input: GarageSaveInputV1): Promise<GarageSnapshotV1> {
     await this.ensureInitialRevision(profile);
     const inspection = await this.buildRepository.inspect(COMMANDER_BUILD_ID_V1);
@@ -149,39 +156,36 @@ export class GarageServiceV1 {
     const latest = inspection.latestHealthy;
     if (!latest) throw new Error('当前没有可用战术版本。');
     const normalized = validateSaveInput(input);
-    const source = tacticSource(normalized.tacticId);
-    const unchanged = latest.label === normalized.label
-      && latest.botArtifact.source === source
-      && latest.loadout.vehicleId === normalized.vehicleId
-      && latest.loadout.weaponId === normalized.weaponId;
+    const source = normalized.replaceTactic === true ? tacticSource(normalized.tacticId) : latest.botArtifact.source;
     const draft: SavedBuildDraftV2 = {
       buildId: COMMANDER_BUILD_ID_V1,
       label: normalized.label,
       bot: {
-        artifactId: 'commander-main-bot',
-        version: unchanged ? latest.botArtifact.version : `1.0.${latest.revision}`,
+        artifactId: latest.botArtifact.artifactId,
+        version: source === latest.botArtifact.source ? latest.botArtifact.version : `1.0.${latest.revision}`,
         language: 'javascript',
-        entryPoint: 'commander-main.js',
+        entryPoint: latest.botArtifact.entryPoint,
         source,
       },
       loadout: {
         vehicleId: normalized.vehicleId,
         weaponId: normalized.weaponId,
-        equipmentIds: [],
+        equipmentIds: [...latest.loadout.equipmentIds],
       },
     };
     const createdAt = this.now();
-    const saved = await this.buildRepository.save(draft, createdAt);
-    if (saved.created) {
-      await this.noteRepository.save({
+    const previousNote = await this.noteRepository.load(COMMANDER_BUILD_ID_V1, latest.revision).catch(() => undefined);
+    await this.buildRepository.save(draft, createdAt, {
+      expectedRevision: normalized.baseRevision ?? latest.revision,
+      beforePublish: async (record) => { await this.noteRepository.save({
         version: 1,
         buildId: COMMANDER_BUILD_ID_V1,
-        revision: saved.record.revision,
-        tacticId: normalized.tacticId,
+        revision: record.revision,
+        tacticId: normalized.replaceTactic ? normalized.tacticId : previousNote?.tacticId ?? normalized.tacticId,
         note: normalized.note,
-        createdAt,
-      });
-    }
+        createdAt: record.createdAt,
+      }, { replace: true }); },
+    });
     return this.getSnapshot(profile);
   }
 
@@ -203,7 +207,6 @@ export class GarageServiceV1 {
       version: 1,
       createdAt,
       buildId: COMMANDER_BUILD_ID_V1,
-      playerId: profile.playerId,
       revisions: inspection.revisions.map((revision) => ({
         revision: revision.revision,
         state: revision.state,
@@ -219,25 +222,28 @@ export class GarageServiceV1 {
     if (inspection.revisions.length > 0) return;
     const doctrine = profile.doctrine;
     const input = doctrineInput(profile.displayName, doctrine);
-    const saved = await this.buildRepository.save(buildDraft(input, '1.0.0'), profile.createdAt);
-    if (saved.created) {
-      await this.noteRepository.save({
+    await this.buildRepository.save(buildDraft(input, '1.0.0'), profile.createdAt, {
+      expectedRevision: 0,
+      beforePublish: async (record) => { await this.noteRepository.save({
         version: 1,
         buildId: COMMANDER_BUILD_ID_V1,
-        revision: 1,
+        revision: record.revision,
         tacticId: doctrine,
         note: '首次作战配置',
         createdAt: profile.createdAt,
-      });
-    }
+      }, { replace: true }); },
+    }).catch(async (error) => {
+      // Another process may have initialized the same profile in the meantime.
+      if (!(await this.buildRepository.inspect(COMMANDER_BUILD_ID_V1)).latestHealthy) throw error;
+    });
   }
 
-  private async safeNotes(): Promise<Map<number, BuildRevisionNoteV1>> {
-    try {
-      return new Map((await this.noteRepository.list(COMMANDER_BUILD_ID_V1)).map((note) => [note.revision, note]));
-    } catch {
-      return new Map();
+  private async safeNotes(inspection: SavedBuildInspectionV2): Promise<Map<number, BuildRevisionNoteV1>> {
+    const notes = new Map<number, BuildRevisionNoteV1>();
+    for (const item of inspection.revisions) {
+      try { notes.set(item.revision, await this.noteRepository.load(COMMANDER_BUILD_ID_V1, item.revision)); } catch { /* isolate this annotation */ }
     }
+    return notes;
   }
 
   private async battleRecords(inspection: SavedBuildInspectionV2): Promise<Map<number, GarageBattleRecordV1>> {
@@ -245,29 +251,28 @@ export class GarageServiceV1 {
     const records = new Map(healthy.map((record) => [record.revision, emptyRecord()]));
     let entries;
     try {
-      entries = await this.replayRepository.list();
+      entries = (await this.replayRepository.inspect()).flatMap((entry) => entry.state === 'healthy' ? [entry.entry] : []);
     } catch {
       return records;
     }
+    const byIdentity = new Map<string, number[]>();
+    for (const build of healthy) {
+      const key = JSON.stringify([`${build.label} r${build.revision}`.slice(0, 80), build.botArtifact.codeHash, build.loadout.vehicleId, build.loadout.weaponId]);
+      byIdentity.set(key, [...(byIdentity.get(key) ?? []), build.revision]);
+    }
     for (const entry of entries) {
-      let bundle;
-      try {
-        bundle = await this.replayRepository.load(entry.bundleHash);
-      } catch {
-        continue;
-      }
-      const winners = new Set(bundle.result.winningTeamIds);
-      for (const build of healthy) {
-        const expectedName = `${build.label} r${build.revision}`.slice(0, 80);
-        const team = bundle.config.teams.find((candidate) => candidate.displayName === expectedName
-          && candidate.bot.codeHash === build.botArtifact.codeHash
-          && candidate.loadout.vehicleId === build.loadout.vehicleId
-          && candidate.loadout.weaponIds[0] === build.loadout.weaponId);
-        if (!team) continue;
-        const record = records.get(build.revision)!;
-        if (winners.size === 0) record.draws += 1;
-        else if (winners.has(team.teamId)) record.wins += 1;
-        else record.losses += 1;
+      const winners = new Set(entry.winningTeamIds);
+      const counted = new Set<number>();
+      for (const team of entry.teams) {
+        const key = JSON.stringify([team.displayName, team.codeHash, team.vehicleId, team.weaponId]);
+        for (const revision of byIdentity.get(key) ?? []) {
+          if (counted.has(revision)) continue;
+          counted.add(revision);
+          const record = records.get(revision)!;
+          if (winners.size === 0) record.draws += 1;
+          else if (winners.has(team.teamId)) record.wins += 1;
+          else record.losses += 1;
+        }
       }
     }
     return records;
@@ -305,7 +310,10 @@ export class GarageServiceV1 {
       createdAt: item.record.createdAt,
       vehicleName: vehicleName(item.record.loadout.vehicleId),
       weaponName: weaponName(item.record.loadout.weaponId),
-      tacticName: note ? TACTICS[note.tacticId].name : '战术说明不可用',
+      tacticName: Object.values(TACTICS).some((_, index) => tacticSource(Object.keys(TACTICS)[index] as GarageTacticIdV1) === item.record.botArtifact.source)
+        ? (note ? TACTICS[note.tacticId].name : '预设战术') : '自定义战术',
+      ...(note ? { tacticId: note.tacticId } : { issue: '此版本的说明缺失或损坏，战术仍可使用；保存说明即可修复。' }),
+      sourceKind: Object.keys(TACTICS).some((id) => tacticSource(id as GarageTacticIdV1) === item.record.botArtifact.source) ? 'preset' : 'custom',
       note: note?.note ?? '',
       changes: revisionChanges(item.record, note, previousRecord, previousNote),
       record: structuredClone(records.get(item.revision) ?? emptyRecord()),
@@ -351,16 +359,13 @@ function validateSaveInput(input: GarageSaveInputV1): GarageSaveInputV1 {
   if (!vehicle) throw new Error('请选择可用战车。');
   if (!vehicle.compatibleWeaponIds.includes(input.weaponId)) throw new Error('所选主炮与战车不兼容。');
   if (!(input.tacticId in TACTICS)) throw new Error('请选择可用战术。');
+  if (input.baseRevision !== undefined && (!Number.isSafeInteger(input.baseRevision) || input.baseRevision < 1)) throw new Error('编辑版本无效。');
+  if (input.replaceTactic !== undefined && typeof input.replaceTactic !== 'boolean') throw new Error('战术替换选项无效。');
   return { ...input, label, note };
 }
 
 function tacticSource(tacticId: GarageTacticIdV1): string {
-  const behavior = tacticId === 'heavy'
-    ? '{ throttle: 1, bodyTurn: 0, turretTurn: 0, fire: true }'
-    : tacticId === 'medium'
-      ? '{ throttle: 1, bodyTurn: 0, turretTurn: 1, fire: true }'
-      : '{ throttle: 1, bodyTurn: 1, turretTurn: 0, fire: true }';
-  return `module.exports = () => ({ onTick() { return ${behavior}; } });`;
+  return presetTacticSourceV2(tacticId);
 }
 
 function revisionChanges(
@@ -381,6 +386,7 @@ function revisionChanges(
   if (currentNote?.tacticId !== previousNote?.tacticId) {
     changes.push(`战术：${previousNote ? TACTICS[previousNote.tacticId].name : '未知'} → ${currentNote ? TACTICS[currentNote.tacticId].name : '未知'}`);
   }
+  if (current.botArtifact.codeHash !== previous.botArtifact.codeHash) changes.push('更新战术代码');
   return changes.length > 0 ? changes : ['配置内容未变化'];
 }
 
@@ -399,7 +405,7 @@ function vehicleViews(): GarageVehicleViewV1[] {
     role: vehicle.role,
     maxHp: vehicle.maxHp,
     armor: structuredClone(vehicle.armor),
-    topSpeed: vehicle.mobility.maxSpeedPermille,
+    topSpeed: vehicle.mobility.maxSpeedPermille / 1000,
     vision: vehicle.vision.rangeCells,
     compatibleWeaponIds: [...vehicle.compatibleWeaponIds],
   }));

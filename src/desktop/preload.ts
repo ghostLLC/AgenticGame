@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('agenticGameDesktop', {
     selectPreset(presetId: string): Promise<void> {
       return ipcRenderer.invoke('friend-room:select-preset', presetId);
     },
+    selectRevision(revision: number): Promise<void> {
+      return ipcRenderer.invoke('friend-room:select-revision', revision);
+    },
     setReady(ready: boolean): Promise<void> {
       return ipcRenderer.invoke('friend-room:set-ready', ready);
     },

@@ -6,7 +6,6 @@ let focusedPhase: OnboardingSnapshotV1['phase'] | undefined;
 
 export function renderOnboardingV1(snapshot: OnboardingSnapshotV1, visible: boolean): void {
   const overlay = element<HTMLElement>('onboarding-overlay');
-  document.querySelector<HTMLElement>('.game-shell')?.toggleAttribute('inert', visible);
   overlay.hidden = !visible;
   if (!visible) {
     focusedPhase = undefined;
@@ -23,7 +22,9 @@ export function renderOnboardingV1(snapshot: OnboardingSnapshotV1, visible: bool
   if (snapshot.phase !== 'complete' && focusedPhase !== snapshot.phase) {
     focusedPhase = snapshot.phase;
     queueMicrotask(() => {
-      element<HTMLElement>(`onboarding-${snapshot.phase}`).querySelector<HTMLElement>('input, button')?.focus();
+      const target = element<HTMLElement>(`onboarding-${snapshot.phase}`).querySelector<HTMLElement>(snapshot.phase === 'replay' ? 'h1, h2' : 'input, button');
+      if (target) { if (snapshot.phase === 'replay') target.tabIndex = -1; target.focus({ preventScroll: true }); }
+      overlay.querySelector<HTMLElement>('.onboarding-card')!.scrollTop = 0;
     });
   }
 }
@@ -64,6 +65,10 @@ function renderFinalFrame(replay: FriendRoomReplayV1): void {
     node.style.gridColumn = String(tank.x + 1);
     node.style.gridRow = String(tank.y + 1);
     node.title = `${tank.displayName} · ${tank.hp}/${tank.maxHp}`;
+    node.style.transform = `rotate(${tank.bodyDirection * 45}deg)`;
+    const turret = document.createElement('i');
+    turret.style.transform = `translateX(-50%) rotate(${(tank.turretDirection - tank.bodyDirection) * 45}deg)`;
+    node.append(turret);
     field.append(node);
   }
 }

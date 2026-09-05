@@ -85,7 +85,7 @@ export function createFriendRoomReplayV1(bundle: MatchBundleV2): FriendRoomRepla
         vehicleName: vehicle.displayName,
         x: integer(tank.x, 'tank x'),
         y: integer(tank.y, 'tank y'),
-        hp: integer(tank.hp, 'tank hp'),
+        hp: Math.max(0, integer(tank.hp, 'tank hp')),
         maxHp: vehicle.maxHp,
         bodyDirection: direction(tank.bodyDirection, 'tank bodyDirection'),
         turretDirection: direction(tank.turretDirection, 'tank turretDirection'),

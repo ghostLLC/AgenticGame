@@ -81,15 +81,15 @@ describe('GarageControllerV1', () => {
 });
 
 describe('PracticeLabControllerV1', () => {
-  it('requires two selectable revisions and transitions idle to running to complete', async () => {
+  it('requires a selectable revision and transitions idle to running to complete', async () => {
     let finish!: (value: Awaited<ReturnType<DesktopApiV1['practice']['run']>>) => void;
     const run = vi.fn(() => new Promise<Awaited<ReturnType<DesktopApiV1['practice']['run']>>>((resolve) => {
       finish = resolve;
     }));
     const controller = new PracticeLabControllerV1(api({}, run));
-    controller.setGarage(garage([1]));
+    controller.setGarage(garage([]));
     await expect(controller.run({ currentRevision: 1, opponentRevision: 1, modeId: 'duel' }))
-      .rejects.toThrow('至少需要两个可用版本');
+      .rejects.toThrow('需要一个可用版本');
     controller.setGarage(garage());
 
     const pending = controller.run({ currentRevision: 2, opponentRevision: 1, modeId: 'capture', seed: 4 });
@@ -107,6 +107,16 @@ describe('PracticeLabControllerV1', () => {
     });
     await pending;
     expect(controller.getSnapshot()).toMatchObject({ status: 'complete', result: { outcome: 'victory' } });
+  });
+
+  it('allows a first-version mirror practice', async () => {
+    const run = vi.fn(async () => ({ replayHash: 'a'.repeat(64), currentRevision: 1, opponentRevision: 1,
+      outcome: 'draw' as const, modeName: '歼灭决斗', ticks: 8, moments: [] }));
+    const controller = new PracticeLabControllerV1(api({}, run));
+    controller.setGarage(garage([1]));
+    await controller.run({ currentRevision: 1, opponentRevision: 1, modeId: 'duel' });
+    expect(run).toHaveBeenCalledOnce();
+    expect(controller.getSnapshot().status).toBe('complete');
   });
 
   it('keeps the completed result when a later run fails', async () => {

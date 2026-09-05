@@ -6,6 +6,7 @@ export interface DesktopAppShellSnapshotV1 {
   page: DesktopPageIdV1;
   profile?: PlayerProfileV1;
   error?: string;
+  recoveryNotice?: string;
 }
 
 export class DesktopAppShellControllerV1 {
@@ -26,6 +27,7 @@ export class DesktopAppShellControllerV1 {
           status: 'onboarding',
           page: 'command-center',
           ...(bootstrap.profile ? { profile: bootstrap.profile } : {}),
+          ...(bootstrap.recoveryNotice ? { recoveryNotice: bootstrap.recoveryNotice } : {}),
         };
         return;
       }
@@ -34,7 +36,7 @@ export class DesktopAppShellControllerV1 {
       const profile = page === requested
         ? bootstrap.profile
         : await this.api.navigation.remember('command-center');
-      this.snapshot = { status: 'ready', page, profile };
+      this.snapshot = { status: 'ready', page, profile, ...(bootstrap.recoveryNotice ? { recoveryNotice: bootstrap.recoveryNotice } : {}) };
     } catch (error) {
       this.snapshot = {
         status: 'error',

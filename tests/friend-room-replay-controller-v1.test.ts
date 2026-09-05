@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FriendRoomReplayV1 } from '../src/friend-room/replay-v1.js';
-import { FriendRoomReplayControllerV1 } from '../src/desktop/friend-room-replay-controller-v1.js';
+import { FriendRoomReplayControllerV1, replayMomentTickV1 } from '../src/desktop/friend-room-replay-controller-v1.js';
 
 const replay: FriendRoomReplayV1 = {
   version: 1,
@@ -30,6 +30,15 @@ const replay: FriendRoomReplayV1 = {
 };
 
 describe('好友赛回放控制器 v1', () => {
+  it('seeks a destruction to the checkpoint that shows its outcome, while preserving start and final frames', () => {
+    const moment = { tick: 1, kind: 'destruction' as const, title: '被摧毁', summary: '', teamIds: ['historical'] };
+    const controller = new FriendRoomReplayControllerV1();
+    controller.open(replay);
+    controller.seek(replay.frames.findIndex((frame) => frame.tick === replayMomentTickV1(replay, moment)));
+    expect(controller.getSnapshot().frame?.tanks[1]).toMatchObject({ hp: 0, alive: false });
+    expect(replayMomentTickV1(replay, replay.moments[0]!)).toBe(0);
+    expect(replayMomentTickV1(replay, replay.moments[1]!)).toBe(2);
+  });
   it('打开逐 tick 回放，支持拖动、播放到结尾自动停止和关闭', () => {
     const controller = new FriendRoomReplayControllerV1();
 

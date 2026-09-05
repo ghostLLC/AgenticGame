@@ -1,6 +1,8 @@
 import { constants } from 'node:fs';
 import { access, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { acquireWriteLease } from '../storage/write-lease.js';
+import { cleanAbandonedTemps, quarantineFiles, recoverQuarantine, recoverQuarantineIfPending } from '../storage/quarantine-journal.js';
 import {
   assertSavedBuildV2,
   createSavedBuildV2,
@@ -38,6 +40,11 @@ export interface SavedBuildSaveResultV2 {
   record: SavedBuildV2;
 }
 
+export interface SavedBuildSaveOptionsV2 {
+  expectedRevision?: number;
+  beforePublish?: (record: SavedBuildV2, created: boolean) => Promise<void>;
+}
+
 export class SavedBuildRepositoryV2 {
   readonly root: string;
   private readonly quarantineRoot?: string;
@@ -49,25 +56,28 @@ export class SavedBuildRepositoryV2 {
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
-  async save(draft: SavedBuildDraftV2, createdAt = new Date().toISOString()): Promise<SavedBuildSaveResultV2> {
+  async save(draft: SavedBuildDraftV2, createdAt = new Date().toISOString(), options: SavedBuildSaveOptionsV2 = {}): Promise<SavedBuildSaveResultV2> {
     validateBuildId(draft.buildId);
     const directory = this.directoryFor(draft.buildId);
     await mkdir(directory, { recursive: true });
     const lockPath = resolve(directory, '.save.lock');
-    const lock = await open(lockPath, 'wx').catch((error: unknown) => {
-      if (isCode(error, 'EEXIST')) throw new Error(`Saved Build is busy: ${draft.buildId}`);
-      throw error;
-    });
+    const release = await acquireWriteLease(lockPath, `Saved Build is busy: ${draft.buildId}`);
     let temporaryPath: string | null = null;
     try {
+      await recoverQuarantine(directory, this.quarantineParent(draft.buildId));
+      await cleanAbandonedTemps(directory, /^\.\d+\.json\.tmp-[a-zA-Z0-9-]+$/);
       const history = await this.list(draft.buildId);
       const latest = history.at(-1);
+      if (options.expectedRevision !== undefined && options.expectedRevision !== (latest?.revision ?? 0)) {
+        throw new Error('战术版本已在其他窗口或 AI 中更新。请刷新并核对改动后重新保存；当前草稿已保留。');
+      }
       const candidate = createSavedBuildV2(draft, {
         revision: (latest?.revision ?? 0) + 1,
         parentFingerprint: latest?.fingerprint ?? null,
         createdAt,
       });
       if (latest?.contentFingerprint === candidate.contentFingerprint) {
+        await options.beforePublish?.(latest, false);
         return { created: false, record: latest };
       }
 
@@ -82,14 +92,12 @@ export class SavedBuildRepositoryV2 {
       } finally {
         await temporary.close();
       }
+      await options.beforePublish?.(candidate, true);
       await rename(temporaryPath, targetPath);
       temporaryPath = null;
       return { created: true, record: candidate };
     } finally {
-      await lock.close();
-      await unlink(lockPath).catch((error: unknown) => {
-        if (!isCode(error, 'ENOENT')) throw error;
-      });
+      await release();
       if (temporaryPath) {
         await unlink(temporaryPath).catch((error: unknown) => {
           if (!isCode(error, 'ENOENT')) throw error;
@@ -101,6 +109,7 @@ export class SavedBuildRepositoryV2 {
   async list(buildId: string): Promise<SavedBuildV2[]> {
     validateBuildId(buildId);
     const directory = this.directoryFor(buildId);
+    await recoverQuarantineIfPending(directory, this.quarantineParent(buildId), '.save.lock');
     let entries: string[];
     try {
       entries = await readdir(directory);
@@ -156,6 +165,7 @@ export class SavedBuildRepositoryV2 {
 
   async inspect(buildId: string): Promise<SavedBuildInspectionV2> {
     validateBuildId(buildId);
+    await recoverQuarantineIfPending(this.directoryFor(buildId), this.quarantineParent(buildId), '.save.lock');
     const entries = await this.numericRevisionEntries(buildId);
     const revisions: SavedBuildRevisionInspectionV2[] = [];
     let latestHealthy: SavedBuildV2 | undefined;
@@ -205,12 +215,9 @@ export class SavedBuildRepositoryV2 {
     if (!this.quarantineRoot) throw new Error('Saved Build quarantine is not configured');
     const directory = this.directoryFor(buildId);
     const lockPath = resolve(directory, '.save.lock');
-    const lock = await open(lockPath, 'wx').catch((error: unknown) => {
-      if (isCode(error, 'EEXIST')) throw new Error(`Saved Build is busy: ${buildId}`);
-      throw error;
-    });
-    const moved: Array<{ revision: number; source: string; destination: string }> = [];
+    const release = await acquireWriteLease(lockPath, `Saved Build is busy: ${buildId}`);
     try {
+      await recoverQuarantine(directory, this.quarantineParent(buildId));
       const inspection = await this.inspect(buildId);
       const target = inspection.revisions.find((item) => item.revision === revision);
       if (!target || target.state !== 'corrupt') {
@@ -218,32 +225,15 @@ export class SavedBuildRepositoryV2 {
       }
       const entries = (await this.numericRevisionEntries(buildId)).filter((item) => item.revision >= revision);
       const quarantineId = this.now().replace(/[:.]/g, '-');
-      const parent = resolve(this.quarantineRoot, 'builds', buildId);
-      const destinationRoot = resolve(parent, quarantineId);
-      await mkdir(parent, { recursive: true });
-      await mkdir(destinationRoot);
-      try {
-        for (const item of entries) {
-          const source = resolve(directory, item.entry);
-          const destination = resolve(destinationRoot, item.entry);
-          await rename(source, destination);
-          moved.push({ revision: item.revision, source, destination });
-        }
-      } catch (error) {
-        for (const item of [...moved].reverse()) await rename(item.destination, item.source);
-        throw error;
-      }
+      await quarantineFiles(directory, this.quarantineParent(buildId)!, quarantineId, entries.map((item) => item.entry));
       return {
         buildId,
         fromRevision: revision,
-        movedRevisions: moved.map((item) => item.revision),
+        movedRevisions: entries.map((item) => item.revision),
         quarantineId,
       };
     } finally {
-      await lock.close();
-      await unlink(lockPath).catch((error: unknown) => {
-        if (!isCode(error, 'ENOENT')) throw error;
-      });
+      await release();
     }
   }
 
@@ -279,6 +269,10 @@ export class SavedBuildRepositoryV2 {
 
   private directoryFor(buildId: string): string {
     return resolve(this.root, buildId);
+  }
+
+  private quarantineParent(buildId: string): string | undefined {
+    return this.quarantineRoot ? resolve(this.quarantineRoot, 'builds', buildId) : undefined;
   }
 
   private fileFor(buildId: string, revision: number): string {

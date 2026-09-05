@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <section id="startup-recovery" class="onboarding-overlay" role="alertdialog" aria-modal="true" aria-label="启动恢复" hidden>
+    <div class="onboarding-card"><p class="eyebrow">启动恢复</p><h1>游戏数据暂时未能载入</h1><p id="startup-error-message"></p><p>已有战术与回放会保留。请关闭其他旧版窗口后重试。</p><button id="startup-retry" class="primary-button" type="button">重新载入</button></div>
+  </section>
+  <div id="profile-recovery-notice" class="recovery-notice" role="status" hidden></div>
   <main class="game-shell">
     <header class="topbar">
       <div class="brand"><span>AGENTICGAME</span><i></i><strong>坦克竞技场</strong></div>
@@ -28,7 +32,7 @@
         <button id="nav-settings">整备中心</button>
         <div class="sidebar-spacer"></div>
         <section class="sync-note">
-          <strong>战术自动同步</strong>
+          <strong>你的本地作战档案</strong>
           <p>无需账号即可邀请好友；同一网络下连接最稳定。</p>
         </section>
       </nav>
@@ -45,10 +49,13 @@
           </div>
           <div class="command-grid">
             <article class="command-card primary-command">
+              <div class="command-primary-copy">
               <p>今日行动</p>
-              <h2>快速练习</h2>
+              <h2>让战术，上场说话。</h2>
               <span>让当前战术与训练对手交锋，战斗结束后立即复盘。</span>
               <button id="command-quick-practice" class="primary-button" type="button">进入战术实验室</button>
+              </div>
+              <div class="command-machine"><figure id="command-tank" aria-label="当前战车"></figure><h3 id="command-build-title">正在读取当前战术</h3><p id="command-build-detail"></p><span id="command-build-stats"></span></div>
             </article>
             <article id="command-friend-card" class="command-card">
               <p>好友对战</p>
@@ -76,8 +83,7 @@
             </article>
           </div>
           <section class="recent-operation">
-            <div><p>最近活动</p><h2>完成教学后，从这里继续你的战术成长</h2></div>
-            <span>比赛、回放和好友房间会保存在本机。</span>
+            <div><p>最近一场战斗</p><h2 id="command-recent-title">正在读取战斗记录</h2><span id="command-recent-detail"></span></div>
           </section>
         </section>
 
@@ -112,6 +118,7 @@
                 <div><p>战车整备</p><h2>本次战术调整</h2></div>
                 <span>保存后生成新版本，旧版本保持不变</span>
               </div>
+              <figure id="garage-tank" class="garage-tank" aria-label="所选战车"></figure>
               <label for="garage-label">版本名称</label>
               <input id="garage-label" maxlength="80" placeholder="例如：侧翼突击">
               <div class="garage-choice-grid">
@@ -120,6 +127,13 @@
               </div>
               <label for="garage-tactic">作战风格</label>
               <select id="garage-tactic"></select>
+              <label class="checkbox-label"><input id="garage-replace-tactic" type="checkbox">用此预设替换现有战术代码</label>
+              <p class="muted-copy">默认保留当前战术，包括 AI 生成的代码。只有勾选替换，才应用上方预设。</p>
+              <div id="garage-draft-conflict" role="status" hidden>
+                <p id="garage-draft-conflict-copy"></p>
+                <button id="garage-draft-rebase" class="secondary-button" type="button">已核对，基于最新版保留草稿</button>
+                <button id="garage-draft-reset" class="secondary-button" type="button">放弃草稿，加载最新配置</button>
+              </div>
               <div id="garage-loadout-preview" class="loadout-preview" aria-live="polite"></div>
               <label for="garage-note">本次调整说明</label>
               <textarea id="garage-note" maxlength="240" placeholder="用一句话记下为什么这样调整"></textarea>
@@ -133,6 +147,7 @@
                 <span>战绩来自已完成的真实比赛</span>
               </div>
               <div id="garage-revision-list" class="revision-list"></div>
+              <button id="garage-history-more" class="secondary-button" type="button" hidden>加载更多版本</button>
             </section>
           </div>
         </section>
@@ -148,7 +163,7 @@
           </div>
 
           <section id="practice-empty" class="player-state-card" hidden>
-            <div><p>还不能开始训练</p><h2>先在车库中保存第二个版本</h2><span>两个可用版本准备好后，就能比较调整前后的表现。</span></div>
+            <div><p>还不能开始训练</p><h2>先在车库中准备一个可用版本</h2><span>一个版本即可镜像训练；保存更多版本后，可以比较调整前后的表现。</span></div>
             <button id="practice-open-garage" class="secondary-button compact-action" type="button">前往我的车库</button>
           </section>
 
@@ -165,7 +180,7 @@
               </div>
               <fieldset class="mode-picker">
                 <legend>比赛模式</legend>
-                <label><input type="radio" name="practice-mode" value="duel" checked><span><b>歼灭决斗</b><small>击毁对手或以耐久优势取胜</small></span></label>
+                <label><input type="radio" name="practice-mode" value="duel" checked><span><b>歼灭决斗</b><small>击毁对手获胜；时间耗尽则平局</small></span></label>
                 <label><input type="radio" name="practice-mode" value="capture"><span><b>据点争夺</b><small>争夺中央目标，也可以直接歼灭对手</small></span></label>
               </fieldset>
               <div class="practice-actions">
@@ -183,12 +198,14 @@
                 <div class="battle-loader"><span></span></div>
                 <p>战斗正在进行</p><h2>两套战术正在训练场交锋</h2>
                 <span>比赛完成后会自动保存，并提取最多三个关键时刻。</span>
+                <button id="practice-cancel" class="secondary-button compact-action" type="button">取消本次训练</button>
               </div>
               <div id="practice-success" class="practice-success" hidden>
                 <p id="practice-result-eyebrow">训练完成</p>
                 <h2 id="practice-result-title">比赛结束</h2>
                 <span id="practice-result-summary"></span>
                 <div id="practice-moments" class="practice-moments"></div>
+                <button id="practice-open-replay" class="primary-button compact-action" type="button">查看完整回放</button>
                 <button id="practice-run-again" class="secondary-button compact-action" type="button">再训练一次</button>
               </div>
               <p id="practice-error" class="inline-error" role="alert" hidden></p>
@@ -203,7 +220,7 @@
               <h1>从每场战斗里，找到下一次胜利</h1>
               <p class="subtitle">练习赛与好友对战统一收录。筛选、播放、保存复盘笔记，或保存回放文件。</p>
             </div>
-            <button id="replay-open-trash" class="secondary-button compact-action" type="button">回收站</button>
+            <div class="replay-file-actions"><button id="replay-import" class="secondary-button" type="button">导入回放</button><button id="replay-reveal-export" class="text-button" type="button">打开导出位置</button><button id="replay-open-trash" class="secondary-button compact-action" type="button">回收站</button></div>
           </div>
 
           <section id="replay-library-loading" class="player-state-card" aria-live="polite">
@@ -222,27 +239,32 @@
           <div id="replay-library-content" class="replay-library-layout" hidden>
             <section class="replay-library-main">
               <div class="replay-filter-bar" aria-label="回放筛选">
-                <label>来源<select id="replay-filter-source"><option value="">全部战斗</option><option value="practice">练习赛</option><option value="friend-public">好友对战</option></select></label>
+                <label>来源<select id="replay-filter-source"><option value="">全部战斗</option><option value="practice">练习赛</option><option value="friend-public">公开回放</option></select></label>
                 <label>模式<select id="replay-filter-mode"><option value="">全部模式</option><option value="duel">歼灭决斗</option><option value="capture">据点争夺</option></select></label>
                 <label>结果<select id="replay-filter-outcome"><option value="">全部结果</option><option value="victory">胜利</option><option value="defeat">失利</option><option value="draw">平局</option></select></label>
                 <label class="replay-search">搜索<input id="replay-filter-query" maxlength="80" placeholder="搜索队伍、模式或笔记"></label>
               </div>
               <div id="replay-library-cards" class="replay-card-grid" aria-live="polite"></div>
+              <nav class="replay-pagination" aria-label="回放分页">
+                <button id="replay-page-prev" class="secondary-button" type="button">上一页</button>
+                <span id="replay-page-status" role="status"></span>
+                <button id="replay-page-next" class="secondary-button" type="button">下一页</button>
+              </nav>
             </section>
 
             <aside class="replay-library-summary">
               <p>战报收藏</p><h2 id="replay-library-total">0 场战斗</h2>
               <div class="replay-count-list">
                 <span>练习赛<b id="replay-count-practice">0</b></span>
-                <span>好友对战<b id="replay-count-friend">0</b></span>
+                <span>公开回放<b id="replay-count-friend">0</b></span>
                 <span>需要整理<b id="replay-count-damaged">0</b></span>
               </div>
             </aside>
           </div>
 
-          <section id="replay-library-player" class="library-player" hidden>
+          <section id="replay-library-player" class="library-player" tabindex="-1" role="region" aria-label="回放播放器" hidden>
             <header class="replay-header">
-              <div><p class="eyebrow">AFTER ACTION <span>·</span> 完整战术回放</p><h2 id="replay-library-player-title">战术回放</h2><span>拖动时间轴，逐回合查看战场变化与关键时刻。</span></div>
+              <div><p class="eyebrow">AFTER ACTION <span>·</span> 完整战术回放</p><h2 id="replay-library-player-title">战术回放</h2><span>空格播放 / 暂停 · 左右键逐帧 · Esc 返回。选择战车查看详情。</span></div>
               <button id="replay-library-close-player" class="text-button" type="button">返回回放列表</button>
             </header>
             <div class="replay-layout">
@@ -255,8 +277,9 @@
                   <input id="replay-library-timeline" type="range" min="0" value="0" aria-label="回放时间轴">
                   <b id="replay-library-tick">第 0 回合</b>
                 </div>
+                <label class="replay-speed">播放速度<select id="replay-library-speed" aria-label="播放速度"><option value="0.5">0.5 倍</option><option value="1" selected>1 倍</option><option value="2">2 倍</option><option value="4">4 倍</option></select></label>
               </div>
-              <aside class="replay-sidebar"><section><p>双方状态</p><div id="replay-library-roster" class="replay-roster"></div></section><section><p>战场目标</p><strong id="replay-library-objective">歼灭对方战车</strong></section><section class="moment-section"><p>关键时刻</p><div id="replay-library-moments" class="replay-moments"></div></section></aside>
+              <aside class="replay-sidebar"><section><p>双方状态</p><div id="replay-library-roster" class="replay-roster"></div></section><section><p>所选战车</p><div id="replay-library-inspector" class="replay-inspector"></div></section><section><p>战场目标</p><strong id="replay-library-objective">歼灭对方战车</strong></section><section class="moment-section"><p>关键时刻 · 点击跳转</p><div id="replay-library-moments" class="replay-moments"></div></section></aside>
             </div>
           </section>
 
@@ -266,10 +289,10 @@
             <div class="trash-actions"><button id="replay-close-trash" class="secondary-button" type="button">返回回放列表</button><button id="replay-request-empty-trash" class="text-button danger-text" type="button">清空回收站</button></div>
           </section>
 
-          <section id="replay-delete-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="移到回收站" hidden>
+          <section id="replay-delete-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="移到回收站" data-cancel-button="replay-cancel-delete" hidden>
             <div><p>移到回收站</p><h2>稍后仍可恢复这场回放</h2><span>七天后会自动清理。</span><div class="sheet-actions"><button id="replay-cancel-delete" class="secondary-button" type="button">取消</button><button id="replay-confirm-delete" class="primary-button" type="button">移到回收站</button></div></div>
           </section>
-          <section id="replay-empty-trash-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="清空回收站" hidden>
+          <section id="replay-empty-trash-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="清空回收站" data-cancel-button="replay-cancel-empty-trash" hidden>
             <div><p>清空回收站</p><h2>这些回放将无法恢复</h2><span>只会清理本游戏回收站中的回放。</span><div class="sheet-actions"><button id="replay-cancel-empty-trash" class="secondary-button" type="button">保留回放</button><button id="replay-confirm-empty-trash" class="primary-button" type="button">确认清空</button></div></div>
           </section>
         </section>
@@ -342,11 +365,13 @@
               </details>
               <label for="agent-goal">作战目标</label>
               <textarea id="agent-goal" maxlength="500" placeholder="例如：更积极抢点，但不要把侧面暴露给对手"></textarea>
+              <label for="agent-evaluation-mode">在哪种比赛中验证</label>
+              <select id="agent-evaluation-mode"><option value="auto">按目标选择 · 抢点目标使用据点争夺</option><option value="mixed">综合 · 决斗与据点争夺</option><option value="duel">歼灭决斗</option><option value="capture">据点争夺</option></select>
               <fieldset class="agent-depth-picker">
                 <legend>训练强度</legend>
-                <label><input type="radio" name="agent-depth" value="quick" checked><span><b>快速试跑</b><small>3 场 · 先看方向</small></span></label>
-                <label><input type="radio" name="agent-depth" value="standard"><span><b>标准评测</b><small>5 场 · 更稳妥</small></span></label>
-                <label><input type="radio" name="agent-depth" value="deep"><span><b>深入评测</b><small>10 场 · 更全面</small></span></label>
+                <label><input type="radio" name="agent-depth" value="quick" checked><span><b>快速试跑</b><small>6 场 · 交换出生侧</small></span></label>
+                <label><input type="radio" name="agent-depth" value="standard"><span><b>标准评测</b><small>12 场 · 多种对手</small></span></label>
+                <label><input type="radio" name="agent-depth" value="deep"><span><b>深入评测</b><small>24 场 · 扩大样本</small></span></label>
               </fieldset>
               <button id="agent-run" class="primary-button" type="button">开始调整并评测</button>
             </form>
@@ -357,6 +382,7 @@
                 <span>它会阅读游戏规则、提出候选，并在真实训练场完成你选择的比赛数量。</span>
               </div>
               <div id="agent-running" class="agent-running" hidden>
+                <p id="agent-progress-copy" role="status"></p>
                 <div class="battle-loader"><span></span></div>
                 <p>AI 队友正在工作</p><h2>候选战术正在连续训练</h2>
                 <span>可以随时取消；已完成的比赛结果仍会保留。</span>
@@ -533,7 +559,7 @@
           <div id="friend-diagnostics-results" class="diagnostic-result-grid" aria-live="polite" hidden></div>
         </section>
 
-        <section id="leave-room-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="离开好友房间" hidden>
+        <section id="leave-room-sheet" class="confirmation-sheet" role="dialog" aria-modal="true" aria-label="离开好友房间" data-cancel-button="cancel-leave-room" hidden>
           <div><p>离开好友房间</p><h2>房主离开会结束这个房间</h2><span>已保存的战术与回放不会删除；意外断线仍可在 24 小时内重新会合。</span><div class="sheet-actions"><button id="cancel-leave-room" class="secondary-button" type="button">留在房间</button><button id="confirm-leave-room" class="primary-button" type="button">确认离开</button></div></div>
         </section>
 

@@ -13,6 +13,7 @@ describe('真实教学比赛 v1', () => {
       });
 
       expect(result.replay.frames.length).toBeGreaterThan(1);
+      expect(result.replay.moments.some((moment) => moment.kind === 'damage')).toBe(true);
       expect(result.replay.participants).toHaveLength(2);
       expect(result.replay.participants[0]?.displayName).toContain('乐淳');
       expect(result.winningTeamIds).toEqual(result.replay.result.winningTeamIds);

@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { createAgentHostConfigV1, type AgentHostV1 } from './host-config-v1.js';
 import { startAgenticGameMcpStdioV1 } from './mcp-stdio-v1.js';
+import { runPackagedBotChild } from '../runtime/packaged-child.js';
 
 const [command, ...args] = process.argv.slice(2);
 
-if (command === 'mcp') {
+if (runPackagedBotChild()) {
+  // The isolated Bot process owns its IPC loop.
+} else if (command === 'mcp') {
   startAgenticGameMcpStdioV1();
 } else if (command === 'config') {
   const candidate = args[0];

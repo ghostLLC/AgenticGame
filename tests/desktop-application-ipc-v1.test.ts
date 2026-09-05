@@ -72,16 +72,21 @@ describe('桌面应用 IPC v1', () => {
       'garage:quarantine',
       'garage:export-diagnostic',
       'practice:run',
+      'practice:cancel',
       'replays:list',
       'replays:open',
       'replays:note',
       'replays:export',
+      'replays:backup',
+      'replays:import',
+      'replays:reveal-export',
       'replays:move-to-trash',
       'replays:list-trash',
       'replays:restore',
       'replays:empty-trash',
       'replays:export-diagnostic',
       'agent-center:get',
+      'agent-center:progress',
       'agent-center:run',
       'agent-center:cancel',
       'agent-center:save',
@@ -132,6 +137,13 @@ describe('桌面应用 IPC v1', () => {
       currentRevision: 1, opponentRevision: 1, modeId: 'duel', seed: -1,
     })).rejects.toThrow('练习赛配置无效');
     await expect(handlers.get('app:bootstrap')?.({})).resolves.toEqual({ needsOnboarding: true });
+    await service.createProfile({ displayName: '测试玩家', doctrine: 'medium' });
+    await service.advanceTutorial('replay'); await service.advanceTutorial('complete');
+    const original = await service.getGarage();
+    await expect(handlers.get('garage:save')?.({}, {
+      label: original.revisions[0]!.label, vehicleId: 'medium', weaponId: 'medium-cannon', tacticId: 'medium',
+      note: '通过 IPC 保存说明', baseRevision: 1, replaceTactic: false,
+    })).resolves.toMatchObject({ currentRevision: 1, revisions: [{ note: '通过 IPC 保存说明' }] });
   });
 
   it('把页面操作映射到固定 IPC，而不暴露通用调用器', async () => {

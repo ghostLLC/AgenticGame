@@ -12,6 +12,10 @@ export function renderAgentCenterV1(snapshot: AgentCenterControllerSnapshotV1): 
   element<HTMLButtonElement>('agent-run').disabled = snapshot.status === 'running' || snapshot.status === 'cancelling' || snapshot.status === 'saving';
   element<HTMLButtonElement>('agent-cancel').disabled = snapshot.status === 'cancelling';
   element<HTMLButtonElement>('agent-save').disabled = snapshot.status === 'saving' || snapshot.status === 'saved';
+  const progress = snapshot.progress;
+  element('agent-progress-copy').textContent = snapshot.status === 'cancelling' ? '正在停止当前比赛并释放战术进程…'
+    : progress?.stage === 'evaluating' ? `已完成 ${progress.completed} / ${progress.total} 场 · 正在交换出生侧验证`
+      : '正在生成候选并试跑 · 最长四分钟，可随时取消';
 
   if (snapshot.center) {
     replaceOptions('agent-build', snapshot.center.builds.map((build) => ({
@@ -24,7 +28,7 @@ export function renderAgentCenterV1(snapshot: AgentCenterControllerSnapshotV1): 
     element('agent-result-title').textContent = snapshot.result.status === 'cancelled' ? '已保留完成的评测' : '候选战术已完成评测';
     element('agent-result-summary').textContent = snapshot.result.coachSummary;
     element('agent-result-wins').textContent = `${evaluation.wins} 胜 · ${evaluation.draws} 平 · ${evaluation.losses} 负`;
-    element('agent-result-hp').textContent = String(evaluation.averageRemainingHp);
+    element('agent-result-hp').textContent = evaluation.averageRemainingHpPercent === undefined ? String(evaluation.averageRemainingHp) : `${evaluation.averageRemainingHpPercent}%`;
     element('agent-result-violations').textContent = evaluation.violations === 0 && evaluation.runtimeErrors === 0
       ? '无异常'
       : `${evaluation.violations + evaluation.runtimeErrors} 次需关注`;

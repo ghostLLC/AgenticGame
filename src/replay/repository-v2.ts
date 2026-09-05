@@ -1,6 +1,9 @@
 import { constants } from 'node:fs';
-import { access, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
+import { access, mkdir, open, readFile, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { acquireWriteLease } from '../storage/write-lease.js';
+import { mapLimited } from '../storage/map-limited.js';
+import { cleanAbandonedTemps } from '../storage/quarantine-journal.js';
 import { verifyMatchBundleV2, type MatchBundleV2 } from './v2.js';
 
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -17,8 +20,10 @@ export interface ReplayIndexEntryV2 {
   createdAt: string;
   engineVersion: string;
   modeId: string;
+  modeName: string;
   mapId: string;
   teamNames: string[];
+  teams: Array<{ teamId: string; displayName: string; codeHash: string; vehicleId: string; weaponId: string }>;
   winningTeamIds: string[];
   reason: string;
   ticks: number;
@@ -30,6 +35,8 @@ export type ReplayInspectionV2 =
 
 export class ReplayRepositoryV2 {
   readonly root: string;
+  // Verified summaries only, never executable input. Opening a replay always calls load().
+  private readonly index = new Map<string, { identity: string; entry: ReplayIndexEntryV2 }>();
 
   constructor(root: string) {
     this.root = resolve(root);
@@ -41,12 +48,10 @@ export class ReplayRepositoryV2 {
     validateBundleHash(bundleHash);
     await mkdir(this.root, { recursive: true });
     const lockPath = resolve(this.root, '.save.lock');
-    const lock = await open(lockPath, 'wx').catch((error: unknown) => {
-      if (isCode(error, 'EEXIST')) throw new Error('Replay repository is busy');
-      throw error;
-    });
+    const release = await acquireWriteLease(lockPath, 'Replay repository is busy');
     let temporaryPath: string | null = null;
     try {
+      await cleanAbandonedTemps(this.root, /^\.[0-9a-f]{64}\.json\.tmp-[a-zA-Z0-9-]+$/);
       const targetPath = this.fileFor(bundleHash);
       if (await exists(targetPath)) {
         return { created: false, bundle: await this.load(bundleHash) };
@@ -65,10 +70,7 @@ export class ReplayRepositoryV2 {
       temporaryPath = null;
       return { created: true, bundle: candidate };
     } finally {
-      await lock.close();
-      await unlink(lockPath).catch((error: unknown) => {
-        if (!isCode(error, 'ENOENT')) throw error;
-      });
+      await release();
       if (temporaryPath) {
         await unlink(temporaryPath).catch((error: unknown) => {
           if (!isCode(error, 'ENOENT')) throw error;
@@ -115,9 +117,8 @@ export class ReplayRepositoryV2 {
       if (!SHA256.test(bundleHash)) throw new Error(`Unexpected Replay file: ${entry}`);
       return [bundleHash];
     });
-    const bundles = await Promise.all(hashes.map((bundleHash) => this.load(bundleHash)));
-    return bundles
-      .map(toIndexEntry)
+    const summaries = await mapLimited(hashes, 4, (bundleHash) => this.indexEntry(bundleHash));
+    return summaries
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.bundleHash.localeCompare(b.bundleHash));
   }
 
@@ -133,13 +134,16 @@ export class ReplayRepositoryV2 {
       const match = /^([0-9a-f]{64})\.json$/.exec(entry);
       return match ? [match[1]!] : [];
     });
-    const inspected = await Promise.all(hashes.map(async (bundleHash): Promise<ReplayInspectionV2> => {
+    const inspected = await mapLimited(hashes, 4, async (bundleHash): Promise<ReplayInspectionV2> => {
       try {
-        return { bundleHash, state: 'healthy', entry: toIndexEntry(await this.load(bundleHash)) };
+        return { bundleHash, state: 'healthy', entry: await this.indexEntry(bundleHash) };
       } catch {
+        this.index.delete(bundleHash);
         return { bundleHash, state: 'corrupt', message: '回放未通过完整性校验' };
       }
-    }));
+    });
+    const present = new Set(hashes);
+    for (const hash of this.index.keys()) if (!present.has(hash)) this.index.delete(hash);
     return inspected.sort((a, b) => {
       if (a.state !== b.state) return a.state === 'corrupt' ? -1 : 1;
       if (a.state === 'healthy' && b.state === 'healthy') {
@@ -157,6 +161,22 @@ export class ReplayRepositoryV2 {
   private fileFor(bundleHash: string): string {
     return resolve(this.root, `${bundleHash}.json`);
   }
+
+  private async indexEntry(bundleHash: string): Promise<ReplayIndexEntryV2> {
+    const source = await stat(this.fileFor(bundleHash));
+    const identity = `${source.size}:${source.mtimeMs}:${source.ctimeMs}:${source.ino}`;
+    const cached = this.index.get(bundleHash);
+    if (cached?.identity === identity) return structuredClone(cached.entry);
+    const entry = toIndexEntry(await this.load(bundleHash));
+    // If the file changed during validation, don't associate it with the earlier identity.
+    const after = await stat(this.fileFor(bundleHash));
+    if (`${after.size}:${after.mtimeMs}:${after.ctimeMs}:${after.ino}` === identity) {
+      this.index.delete(bundleHash);
+      this.index.set(bundleHash, { identity, entry });
+      if (this.index.size > 2000) this.index.delete(this.index.keys().next().value!);
+    }
+    return structuredClone(entry);
+  }
 }
 
 function toIndexEntry(bundle: MatchBundleV2): ReplayIndexEntryV2 {
@@ -166,8 +186,11 @@ function toIndexEntry(bundle: MatchBundleV2): ReplayIndexEntryV2 {
     createdAt: bundle.createdAt,
     engineVersion: bundle.engineVersion,
     modeId: bundle.config.modeId,
+    modeName: bundle.contentSnapshot.modes.find((mode) => mode.id === bundle.config.modeId)?.displayName ?? bundle.config.modeId,
     mapId: bundle.config.mapId,
     teamNames: bundle.config.teams.map((team) => team.displayName),
+    teams: bundle.config.teams.map((team) => ({ teamId: team.teamId, displayName: team.displayName,
+      codeHash: team.bot.codeHash, vehicleId: team.loadout.vehicleId, weaponId: team.loadout.weaponIds[0]! })),
     winningTeamIds: [...bundle.result.winningTeamIds],
     reason: bundle.result.reason,
     ticks: bundle.result.ticks,

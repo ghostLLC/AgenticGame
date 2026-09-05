@@ -1,13 +1,20 @@
 import type { DesktopAppShellSnapshotV1 } from './app-shell-controller-v1.js';
 
 export function renderAppShellV1(snapshot: DesktopAppShellSnapshotV1): void {
+  const startup = element('startup-recovery');
+  startup.hidden = snapshot.status !== 'error';
+  element('startup-error-message').textContent = snapshot.error ?? '请重新加载游戏数据。';
+  const notice = element('profile-recovery-notice');
+  notice.hidden = !snapshot.recoveryNotice;
+  notice.textContent = snapshot.recoveryNotice ?? '';
   const pages = ['command-center', 'garage', 'practice', 'friend-room', 'replays', 'agent-center', 'settings'] as const;
   for (const page of pages) {
     const active = snapshot.page === page;
     element<HTMLElement>(`page-${page}`).hidden = !active;
     const navigation = element<HTMLButtonElement>(`nav-${page}`);
     navigation.classList.toggle('active', active);
-    navigation.toggleAttribute('aria-current', active);
+    if (active) navigation.setAttribute('aria-current', 'page');
+    else navigation.removeAttribute('aria-current');
   }
   element<HTMLElement>('connection-pill').hidden = snapshot.page !== 'friend-room';
   const breadcrumbs = {

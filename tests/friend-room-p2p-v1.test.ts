@@ -118,7 +118,7 @@ describe('好友房间 P2P v1', () => {
     expect(host.getSnapshot()).toEqual(guest.getSnapshot());
     expect(host.getSnapshot()).toMatchObject({
       status: 'complete',
-      result: { reason: 'max-ticks', ticks: 4 },
+      result: { reason: 'time-limit-draw', ticks: 4 },
       replay: {
         map: { id: 'frontier-v2', width: 32, height: 24 },
         frames: expect.arrayContaining([expect.objectContaining({

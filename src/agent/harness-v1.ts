@@ -11,7 +11,7 @@ export interface AgentToolV1 {
     idempotentHint: boolean;
     openWorldHint: boolean;
   };
-  execute(input: AgentToolInputV1): Promise<AgentToolOutputV1>;
+  execute(input: AgentToolInputV1, context?: { signal?: AbortSignal }): Promise<AgentToolOutputV1>;
 }
 
 export interface AgentToolCallV1 {
@@ -108,12 +108,14 @@ export async function runAgentHarnessV1(input: RunAgentHarnessInputV1): Promise<
       throwIfAborted(input.signal);
       toolCalls += 1;
       try {
-        const result = await tool.execute(call.arguments);
+        const result = await tool.execute(call.arguments, { signal: input.signal });
+        throwIfAborted(input.signal);
         messages.push({
           role: 'tool', toolCallId: call.id, name: call.name,
           content: JSON.stringify(result),
         });
       } catch (error) {
+        throwIfAborted(input.signal);
         messages.push({
           role: 'tool', toolCallId: call.id, name: call.name,
           content: JSON.stringify({ error: 'tool_execution_failed', message: safeErrorMessage(error) }),

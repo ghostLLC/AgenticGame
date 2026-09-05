@@ -19,6 +19,7 @@ import { runMatch } from '../runner/match.js';
 import type { BotSpec, MatchSummary } from '../runner/match.js';
 import { resolveAsset } from '../runtime/paths.js';
 import { startUiServer } from '../server/ui.js';
+import { runPackagedBotChild } from '../runtime/packaged-child.js';
 
 function parseFlags(argv: string[]): { positionals: string[]; flags: Record<string, string | boolean> } {
   const flags: Record<string, string | boolean> = {};
@@ -357,7 +358,7 @@ Agent 参数: --model <id>  --base-url <URL>  --prompt <目标>  --turns <n>  --
   }
 }
 
-void main().catch((e) => {
+if (!runPackagedBotChild()) void main().catch((e) => {
   console.error(e);
   process.exit(1);
 });

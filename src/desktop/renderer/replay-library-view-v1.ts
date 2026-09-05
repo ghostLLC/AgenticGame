@@ -4,9 +4,13 @@ export function renderReplayLibraryV1(snapshot: ReplayLibraryControllerSnapshotV
   element('replay-library-loading').hidden = snapshot.status !== 'loading' && snapshot.status !== 'idle';
   element('replay-library-empty').hidden = snapshot.status === 'loading' || snapshot.cards.length > 0 || snapshot.counts.all > 0;
   element('replay-library-content').hidden = snapshot.status === 'loading' || snapshot.counts.all === 0;
-  element('replay-library-damaged').hidden = snapshot.counts.damaged === 0;
-  element('replay-damaged-copy').textContent = `${snapshot.counts.damaged} 场回放需要整理；健康回放不受影响。`;
+  element('replay-library-damaged').hidden = snapshot.counts.damaged === 0 && !snapshot.recoveryNotice;
+  element('replay-damaged-copy').textContent = [snapshot.counts.damaged ? `${snapshot.counts.damaged} 场回放需要整理；健康回放不受影响。` : '', snapshot.recoveryNotice].filter(Boolean).join(' ');
   element('replay-library-total').textContent = `${snapshot.counts.all} 场战斗`;
+  const offset = snapshot.filter.offset ?? 0;
+  element('replay-page-status').textContent = snapshot.cards.length ? `第 ${offset + 1}–${offset + snapshot.cards.length} 场，共 ${snapshot.totalFiltered ?? snapshot.cards.length} 场` : '没有符合条件的回放';
+  (element('replay-page-prev') as HTMLButtonElement).disabled = offset === 0 || snapshot.busy;
+  (element('replay-page-next') as HTMLButtonElement).disabled = !snapshot.hasMore || snapshot.busy;
   element('replay-count-practice').textContent = String(snapshot.counts.practice);
   element('replay-count-friend').textContent = String(snapshot.counts.friendPublic);
   element('replay-count-damaged').textContent = String(snapshot.counts.damaged);
@@ -19,7 +23,7 @@ export function renderReplayLibraryV1(snapshot: ReplayLibraryControllerSnapshotV
     article.dataset.source = card.source;
     const top = document.createElement('div');
     top.className = 'replay-card-top';
-    top.append(textNode('span', card.source === 'practice' ? '练习赛' : '好友对战'), textNode('time', formatDate(card.createdAt)));
+    top.append(textNode('span', card.source === 'practice' ? '练习赛' : '公开回放'), textNode('time', formatDate(card.createdAt)));
     const title = textNode('h3', card.integrity === 'damaged' ? '这场回放需要整理' : card.modeName);
     const participants = textNode('p', card.participantNames.join('  vs  '));
     const result = document.createElement('div');
@@ -33,9 +37,11 @@ export function renderReplayLibraryV1(snapshot: ReplayLibraryControllerSnapshotV
     note.setAttribute('aria-label', '复盘笔记');
     const actions = document.createElement('div');
     actions.className = 'replay-card-actions';
-    if (card.playable) actions.append(action('打开回放', 'open'), action('保存复盘笔记', 'note'), action('保存回放文件', 'export'));
+    if (card.playable) actions.append(action('打开回放', 'open'), action('保存复盘笔记', 'note'), action('分享公开回放', 'export'));
+    if (card.playable && card.source === 'practice') actions.append(action('完整备份（含代码）', 'backup'));
     actions.append(action('移到回收站', 'trash'));
     article.append(top, title, participants, result, note, actions);
+    if (card.noteIssue) article.append(textNode('p', card.noteIssue));
     return article;
   }));
   renderTrash(snapshot);
@@ -57,6 +63,7 @@ function renderTrash(snapshot: ReplayLibraryControllerSnapshotV1): void {
     copy.append(textNode('b', entry.source === 'practice' ? '练习赛回放' : '好友对战回放'), textNode('span', entry.note || `移入时间：${formatDate(entry.deletedAt)}`));
     const restore = action('恢复回放', 'restore');
     row.append(copy, restore);
+    if (entry.noteIssue) copy.append(textNode('span', entry.noteIssue));
     return row;
   }));
 }

@@ -1,6 +1,9 @@
 import { constants } from 'node:fs';
-import { access, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
+import { access, copyFile, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
+import { acquireWriteLease } from '../storage/write-lease.js';
+import { cleanAbandonedTemps, quarantineFiles, recoverQuarantine, recoverQuarantineIfPending } from '../storage/quarantine-journal.js';
 
 export type GarageTacticIdV1 = 'scout' | 'medium' | 'heavy';
 
@@ -68,19 +71,23 @@ export class BuildRevisionNoteRepositoryV1 {
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
-  async save(input: BuildRevisionNoteV1): Promise<BuildRevisionNoteV1> {
+  async save(input: BuildRevisionNoteV1, options: { replace?: boolean } = {}): Promise<BuildRevisionNoteV1> {
     const note = assertBuildRevisionNoteV1(input);
     const directory = this.directoryFor(note.buildId);
     await mkdir(directory, { recursive: true });
     const lockPath = resolve(directory, '.notes.lock');
-    const lock = await open(lockPath, 'wx').catch((error: unknown) => {
-      if (isCode(error, 'EEXIST')) throw new Error(`Build revision notes are busy: ${note.buildId}`);
-      throw error;
-    });
+    const release = await acquireWriteLease(lockPath, `Build revision notes are busy: ${note.buildId}`);
     let temporaryPath: string | undefined;
     try {
+      await recoverQuarantine(directory, this.quarantineParent(note.buildId));
+      await cleanAbandonedTemps(directory, /^\.\d+\.json\.tmp-[a-zA-Z0-9-]+$/);
       const targetPath = this.fileFor(note.buildId, note.revision);
-      if (await exists(targetPath)) throw new Error(`Build revision note already exists: ${note.buildId}@${note.revision}`);
+      if (await exists(targetPath)) {
+        if (!options.replace) throw new Error(`Build revision note already exists: ${note.buildId}@${note.revision}`);
+        try { await this.load(note.buildId, note.revision); } catch {
+          await copyFile(targetPath, `${targetPath}.corrupt-${randomUUID()}`, constants.COPYFILE_EXCL);
+        }
+      }
       temporarySequence += 1;
       temporaryPath = resolve(directory, `.${note.revision}.json.tmp-${process.pid}-${temporarySequence}`);
       const temporary = await open(temporaryPath, 'wx');
@@ -94,10 +101,7 @@ export class BuildRevisionNoteRepositoryV1 {
       temporaryPath = undefined;
       return structuredClone(note);
     } finally {
-      await lock.close();
-      await unlink(lockPath).catch((error: unknown) => {
-        if (!isCode(error, 'ENOENT')) throw error;
-      });
+      await release();
       if (temporaryPath) {
         await unlink(temporaryPath).catch((error: unknown) => {
           if (!isCode(error, 'ENOENT')) throw error;
@@ -108,6 +112,7 @@ export class BuildRevisionNoteRepositoryV1 {
 
   async load(buildId: string, revision: number): Promise<BuildRevisionNoteV1> {
     validateLocation(buildId, revision);
+    await recoverQuarantineIfPending(this.directoryFor(buildId), this.quarantineParent(buildId), '.notes.lock');
     let text: string;
     try {
       text = await readFile(this.fileFor(buildId, revision), 'utf8');
@@ -130,6 +135,7 @@ export class BuildRevisionNoteRepositoryV1 {
 
   async list(buildId: string): Promise<BuildRevisionNoteV1[]> {
     validateBuildId(buildId);
+    await recoverQuarantineIfPending(this.directoryFor(buildId), this.quarantineParent(buildId), '.notes.lock');
     let entries: string[];
     try {
       entries = await readdir(this.directoryFor(buildId));
@@ -157,44 +163,28 @@ export class BuildRevisionNoteRepositoryV1 {
     if (!QUARANTINE_ID.test(quarantineId)) throw new Error('Invalid quarantineId');
     const directory = this.directoryFor(buildId);
     const lockPath = resolve(directory, '.notes.lock');
-    const lock = await open(lockPath, 'wx').catch((error: unknown) => {
-      if (isCode(error, 'EEXIST')) throw new Error(`Build revision notes are busy: ${buildId}`);
-      throw error;
-    });
-    const moved: Array<{ revision: number; source: string; destination: string }> = [];
+    const release = await acquireWriteLease(lockPath, `Build revision notes are busy: ${buildId}`);
     try {
+      await recoverQuarantine(directory, this.quarantineParent(buildId));
       const entries = await readdir(directory);
       const revisions = entries.flatMap((entry) => {
         const match = /^(\d+)\.json$/.exec(entry);
         return match && Number(match[1]) >= revision ? [{ entry, revision: Number(match[1]) }] : [];
       }).sort((a, b) => a.revision - b.revision);
-      const parent = resolve(this.quarantineRoot, 'build-notes', buildId);
-      const destinationRoot = resolve(parent, quarantineId);
-      await mkdir(parent, { recursive: true });
-      await mkdir(destinationRoot);
-      try {
-        for (const item of revisions) {
-          const source = resolve(directory, item.entry);
-          const destination = resolve(destinationRoot, item.entry);
-          await rename(source, destination);
-          moved.push({ revision: item.revision, source, destination });
-        }
-      } catch (error) {
-        for (const item of [...moved].reverse()) await rename(item.destination, item.source);
-        throw error;
-      }
-      return { fromRevision: revision, movedRevisions: moved.map((item) => item.revision), quarantineId };
+      await quarantineFiles(directory, this.quarantineParent(buildId)!, quarantineId, revisions.map((item) => item.entry));
+      return { fromRevision: revision, movedRevisions: revisions.map((item) => item.revision), quarantineId };
     } finally {
-      await lock.close();
-      await unlink(lockPath).catch((error: unknown) => {
-        if (!isCode(error, 'ENOENT')) throw error;
-      });
+      await release();
     }
   }
 
   private directoryFor(buildId: string): string {
     validateBuildId(buildId);
     return resolve(this.root, buildId);
+  }
+
+  private quarantineParent(buildId: string): string | undefined {
+    return this.quarantineRoot ? resolve(this.quarantineRoot, 'build-notes', buildId) : undefined;
   }
 
   private fileFor(buildId: string, revision: number): string {

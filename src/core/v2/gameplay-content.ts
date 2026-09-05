@@ -9,6 +9,7 @@ import type {
 
 const WIDTH = 32;
 const HEIGHT = 24;
+export const CURRENT_GAMEPLAY_RULESET_V2 = { id: 'gameplay-v2', version: '2.1.0' } as const;
 
 const vehicles: VehicleDefinitionV2[] = [
   {
@@ -103,7 +104,7 @@ const modes: GameModeDefinitionV2[] = [{
   displayName: '歼灭决斗',
   minTeams: 2,
   maxTeams: 2,
-  victory: { kind: 'elimination-or-hp' },
+  victory: { kind: 'elimination-or-draw' },
 }, {
   id: 'capture',
   displayName: '据点争夺',

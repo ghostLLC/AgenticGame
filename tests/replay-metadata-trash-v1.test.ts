@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -41,6 +41,47 @@ describe('ReplayMetadataRepositoryV1', () => {
 });
 
 describe('ReplayTrashRepositoryV1', () => {
+  it.each([0, 1, 2])('resumes interrupted move and restore after %i file moves', async (completed) => {
+    const base = root();
+    const entryId = `practice-${replayId}`;
+    const entry = { version: 1, entryId, replayId, source: 'practice', deletedAt: '2026-09-01T00:00:00.000Z', hasMetadata: true };
+    const paths = [`replays/${replayId}.json`, `metadata/${replayId}.json`];
+    const directory = join(base, 'trash', 'entries', entryId);
+    const transaction = join(base, 'trash', 'transactions', `${entryId}.json`);
+    mkdirSync(directory, { recursive: true });
+    mkdirSync(join(base, 'trash', 'transactions'), { recursive: true });
+    paths.forEach((path, index) => {
+      mkdirSync(join(base, path, '..'), { recursive: true });
+      writeFileSync(join(base, path), `original bytes ${index}`);
+    });
+    writeFileSync(transaction, JSON.stringify({ version: 1, direction: 'move', entry, replayPath: paths[0], metadataPath: paths[1] }));
+    const names = ['replay.json', 'metadata.json'];
+    for (let index = 0; index < completed; index++) renameSync(join(base, paths[index]!), join(directory, names[index]!));
+    expect(await new ReplayTrashRepositoryV1(join(base, 'trash')).list()).toEqual([entry]);
+    writeFileSync(transaction, JSON.stringify({ version: 1, direction: 'restore', entry, replayPath: paths[0], metadataPath: paths[1] }));
+    for (let index = 0; index < completed; index++) renameSync(join(directory, names[index]!), join(base, paths[index]!));
+    expect(await new ReplayTrashRepositoryV1(join(base, 'trash')).list()).toEqual([]);
+    paths.forEach((path, index) => expect(readFileSync(join(base, path), 'utf8')).toBe(`original bytes ${index}`));
+    expect(existsSync(transaction)).toBe(false);
+  });
+
+  it('isolates unreadable entries and unsafe transactions without deleting their bytes', async () => {
+    const base = root();
+    const entryId = `practice-${replayId}`;
+    const directory = join(base, 'trash', 'entries', entryId);
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(join(directory, 'entry.json'), '{');
+    writeFileSync(join(directory, 'replay.json'), 'preserved');
+    const repository = new ReplayTrashRepositoryV1(join(base, 'trash'));
+    expect(await repository.inspect()).toEqual({ entries: [], damagedCount: 1 });
+    expect(await repository.empty(true)).toEqual([]);
+    expect(readFileSync(join(directory, 'replay.json'), 'utf8')).toBe('preserved');
+    const entry = { version: 1, entryId, replayId, source: 'practice', deletedAt: '2026-09-01T00:00:00.000Z', hasMetadata: false };
+    writeFileSync(join(base, 'trash', 'transactions', `${entryId}.json`), JSON.stringify({ version: 1, direction: 'restore', entry, replayPath: `../outside/${replayId}.json` }));
+    expect(await repository.inspect()).toEqual({ entries: [], damagedCount: 1 });
+    expect(readFileSync(join(directory, 'replay.json'), 'utf8')).toBe('preserved');
+  });
+
   it('moves exact replay and metadata bytes to trash and restores them without data loss', async () => {
     const base = root();
     const replayPath = join(base, 'replays', `${replayId}.json`);

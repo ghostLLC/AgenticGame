@@ -1,0 +1,46 @@
+name: Windows quality and candidate
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm audit --omit=dev
+      - run: npm run build
+      - run: npm run pack:desktop-folder
+      - run: node scripts/acceptance/desktop-smoke.mjs
+      - run: node scripts/acceptance/agent-bridge-smoke.mjs release/AgenticGame-win-x64/AgenticGame-Agent.exe
+      - run: node scripts/pack-desktop-installer.mjs
+      - name: Archive and hash candidate
+        shell: pwsh
+        run: |
+          $candidateVersion = (Get-Content -Raw package.json | ConvertFrom-Json).version
+          ./scripts/compress-portable-release.ps1 -SourceDirectory "$pwd/release/AgenticGame-win-x64" -ArchivePath "$pwd/release/AgenticGame-$candidateVersion-public-beta-b-win-x64.zip"
+          npm run release:integrity
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-windows-candidate
+          path: |
+            release/*.zip
+            release/*setup.exe
+            release/*manifest.json
+            release/*.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -5,7 +5,7 @@ const HOSTS: ExternalAgentHostV1[] = ['codex', 'workbuddy', 'qoder'];
 const STATE_COPY: Record<ExternalAgentConnectionStateV1, { status: string; action: string; disabled: boolean }> = {
   'not-found': { status: '暂未发现', action: '安装后再试', disabled: true },
   ready: { status: '可以接入', action: '一键接入', disabled: false },
-  connected: { status: '已经接入', action: '已完成', disabled: true },
+  configured: { status: '已配置 · 待客户端确认', action: '重新配置', disabled: false },
   'needs-attention': { status: '需要先整理', action: '先修复原配置', disabled: true },
 };
 

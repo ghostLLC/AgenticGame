@@ -56,7 +56,7 @@ been accepted.
 ## 6. Compatibility and UI boundary
 
 - No existing v1/v2 engine, runner, CLI, server, or viewer behavior changes.
-- Repository paths are caller supplied; a later application service will choose the player-data directory.
+- Repository paths are caller supplied; the desktop application now uses Electron userData and the standalone Bridge uses the same default player directory.
 - Player-facing UI implementation must follow the Ardot nodes listed above. The design is now
   present and layout-verified; product acceptance remains a separate checkpoint.
 
@@ -68,3 +68,7 @@ been accepted.
 - Listing and loading fail closed on a corrupt/tampered revision.
 - A revision-2-vs-revision-1 practice match embeds the exact two sources/loadouts, is deterministic under fixed inputs, and passes `verifyMatchBundleV2`.
 - Existing 69 tests plus new contract/repository/practice tests, typecheck, build, and `git diff --check` pass.
+
+## 8. 0.1.1 desktop update
+
+The garage and practice lab are implemented. Saving ordinary loadout/metadata changes preserves custom source; replacing it with a preset requires an explicit choice. A note-only edit persists without an artificial revision. Saves compare the expected head and retain a dirty draft on concurrent changes. A valid initial revision is created automatically, and one-revision mirror practice is supported. The original 69-test acceptance count above is historical; current evidence is in the 0.1.1 release record.

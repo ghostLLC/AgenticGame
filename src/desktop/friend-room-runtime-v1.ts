@@ -12,7 +12,7 @@ import {
   type FriendRoomPresetIdV1,
 } from './preset-builds-v1.js';
 import type { FriendRoomReplayV1 } from '../friend-room/replay-v1.js';
-import type { SavedBuildV2 } from '../config/saved-build-v2.js';
+import { assertSavedBuildV2, type SavedBuildV2 } from '../config/saved-build-v2.js';
 import type { FriendRoomRecoveryCapsuleV1 } from './friend-room-recovery-store-v1.js';
 
 export {
@@ -137,10 +137,15 @@ export class DesktopFriendRoomRuntimeV1 {
 
   selectPreset(presetId: FriendRoomPresetIdV1): void {
     const build = createPresetBuildV1(presetId, this.options.createdAt?.() ?? new Date().toISOString());
-    this.ownBuild = structuredClone(build);
+    this.selectBuild(build);
+  }
+
+  selectBuild(input: SavedBuildV2): void {
+    const build = structuredClone(assertSavedBuildV2(input));
     if (this.host) this.host.selectBuild(build);
     else if (this.guest) this.guest.selectBuild(build);
     else throw new Error('请先连接好友');
+    this.ownBuild = structuredClone(build);
     this.emitCurrentSnapshot();
   }
 

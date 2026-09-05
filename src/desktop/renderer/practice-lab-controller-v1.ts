@@ -38,7 +38,7 @@ export class PracticeLabControllerV1 {
 
   async run(input: PracticeRunInputV1): Promise<void> {
     if (this.snapshot.status === 'running') throw new Error('比赛正在进行中');
-    if (this.snapshot.availableRevisions.length < 2) throw new Error('至少需要两个可用版本才能开始版本对战');
+    if (this.snapshot.availableRevisions.length < 1) throw new Error('需要一个可用版本才能开始练习');
     if (!this.snapshot.availableRevisions.includes(input.currentRevision)
       || !this.snapshot.availableRevisions.includes(input.opponentRevision)) {
       throw new Error('请选择可用的战术版本');
