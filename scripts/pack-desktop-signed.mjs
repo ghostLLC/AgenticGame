@@ -44,7 +44,7 @@ if (missing.length > 0) {
     writeFileSync(configPath, `${JSON.stringify(signedConfig, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
     run(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build:desktop']);
     run(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build:agent-bridge']);
-    run(process.execPath, [builderCli, '--win', 'nsis', '--x64', '--config', configPath], {
+    run(process.execPath, [builderCli, '--win', 'nsis', '--x64', '--config', configPath, '--publish', 'never'], {
       ...process.env,
       CSC_IDENTITY_AUTO_DISCOVERY: 'true',
       ELECTRON_BUILDER_CACHE: builderCache,

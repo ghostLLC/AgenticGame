@@ -9,7 +9,7 @@ const builderCli = join(projectRoot, 'node_modules', 'electron-builder', 'out', 
 
 mkdirSync(builderCache, { recursive: true });
 
-const result = spawnSync(process.execPath, [builderCli, '--win', 'nsis', '--x64'], {
+const result = spawnSync(process.execPath, [builderCli, '--win', 'nsis', '--x64', '--publish', 'never'], {
   cwd: projectRoot,
   env: {
     ...process.env,
