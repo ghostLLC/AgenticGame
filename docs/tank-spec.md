@@ -157,7 +157,7 @@ npm run arena -- serve replays/<最新的文件>.json  # 网页观看回放（�
 - ✅ 可用：`Math`（除 random）、`JSON`、`console.log`（收集进回放，帮你调试）、
   `Number/String/Array/Object/Map/Set/RegExp/Error` 等纯计算全局
 - ⏱ **时间预算**：每次 `onTick` 超过 `tickBudgetMs`（30ms）计一次违规（该 tick 动作视为发呆）；
-  累计 30 次违规判负。普通策略逻辑远用不到 30ms；避免无界循环。
+  普通动作违规累计达到上限会判负；致命执行错误/期限终止会结束策略进程。预算包含解释器开销，应在完整地图验证。
 - 💥 死循环会卡死沙盒 → 直接判负。
 
 `console.log` 限额：每 tick 最多 5 行、每局最多 300 行，超出的丢弃。日志会写入回放，
@@ -302,5 +302,6 @@ Gameplay v2 可以把“Bot 源码＋车辆装配”保存为 `SavedBuildV2`。�
 历史 2.0.0 内容仍按旧移动与原始 HP 超时判定，原有版本/回放不会静默改写。
 
 所有策略现由独立进程中的 QuickJS/WASM 执行，通过 JSON 传值，不暴露宿主对象。`ctx.rng()` 保持确定性，
+桌面每回合默认 CPU 预算为 100ms，独立通信/调度余量为 500ms；不沿用 legacy v1 的 30ms 默认值。
 真实时间、文件/网络与 Math.random 不可用。源码、日志、堆栈、内存和运行时间有限额；详见
 [运行边界](engineering/runtime-security.md)。这不是 Windows 操作系统沙箱。

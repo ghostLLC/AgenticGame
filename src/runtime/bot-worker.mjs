@@ -11,7 +11,19 @@ if (typeof __AGENTIC_WASM_BASE64__ !== 'undefined') {
   const bytes = Uint8Array.from(Buffer.from(__AGENTIC_WASM_BASE64__, 'base64'));
   wasmOptions.wasmBinary = bytes.buffer;
 }
-let vm; let runtime; let api; let tickFunction; let deadline = 0;
+let vm; let runtime; let api; let tickFunction;
+let cpuStart; let cpuBudgetUs = 0; let deadline = 0;
+function startExecutionBudget(milliseconds) {
+  cpuStart = process.cpuUsage();
+  cpuBudgetUs = milliseconds * 1000;
+  deadline = performance.now() + milliseconds + 500;
+}
+function shouldInterrupt() {
+  const usage = process.cpuUsage(cpuStart);
+  // Charge the isolated process's CPU work, not time when Windows deschedules it.
+  // A monotonic wall-clock ceiling and the parent watchdog remain independent.
+  return usage.user + usage.system > cpuBudgetUs || performance.now() > deadline;
+}
 const quickJS = newQuickJSWASMModuleFromVariant(newVariant(variant, wasmOptions));
 
 function post(message) {
@@ -39,9 +51,9 @@ async function initialize(msg) {
   runtime = module.newRuntime();
   runtime.setMemoryLimit(32 * 1024 * 1024);
   runtime.setMaxStackSize(512 * 1024);
-  runtime.setInterruptHandler(() => Date.now() > deadline);
+  startExecutionBudget(1000);
+  runtime.setInterruptHandler(shouldInterrupt);
   vm = runtime.newContext({ intrinsics: { ...DefaultIntrinsics, Date: false, Promise: false } });
-  deadline = Date.now() + 1000;
   const result = vm.evalCode(`(function() {
     'use strict';
     const stringify = JSON.stringify.bind(JSON), parse = JSON.parse.bind(JSON);
@@ -114,7 +126,7 @@ process.on('message', async (msg) => {
       if (!vm || !api || !tickFunction) throw new Error('Bot 未初始化');
       const view = JSON.stringify(msg.view);
       if (!view || Buffer.byteLength(view) > MAX_INPUT_BYTES) throw new Error('战场视图过大');
-      deadline = Date.now() + Math.max(1, Math.min(Number(msg.budgetMs) || 30, 1000));
+      startExecutionBudget(Math.max(1, Math.min(Number(msg.budgetMs) || 30, 1000)));
       const argument = vm.newString(view);
       let response;
       try { response = readStringResult(vm.callFunction(tickFunction, api, argument)); } finally { argument.dispose(); }

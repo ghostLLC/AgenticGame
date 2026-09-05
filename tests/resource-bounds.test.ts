@@ -55,7 +55,7 @@ describe('bounded external input', () => {
     const current = createPresetBuildV1('medium', '2026-09-01T00:00:00.000Z');
     let ticks = 0;
     await expect(runPracticeMatchV2({ current, opponent: current, contentSnapshot: GAMEPLAY_CONTENT_V2, mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2,
-      seed: 4, maxTicks: 1000, signal: controller.signal, onProgress(tick) { ticks++; if (tick === 2) controller.abort(new Error('cancel regression')); }
+      seed: 4, maxTicks: 1000, tickBudgetMs: 200, signal: controller.signal, onProgress(tick) { ticks++; if (tick === 2) controller.abort(new Error('cancel regression')); }
     })).rejects.toThrow('cancel regression');
     expect(ticks).toBe(3);
   });

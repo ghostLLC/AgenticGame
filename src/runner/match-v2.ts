@@ -17,7 +17,9 @@ import { fullCodeHash } from './v2-adapter.js';
 import { validateAction } from '../core/engine.js';
 
 const ENGINE_VERSION = '0.2.1';
-const DEFAULT_TICK_BUDGET_MS = 30;
+// QuickJS/WASM needs a budget calibrated for the full-map presets, including
+// interpreter overhead. Keep a separate bounded IPC/wall watchdog in BotRunner.
+const DEFAULT_TICK_BUDGET_MS = 100;
 const DEFAULT_MAX_VIOLATIONS = 30;
 const CRASH_SILENCE_TICKS = 5;
 
