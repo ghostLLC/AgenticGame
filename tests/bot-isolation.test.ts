@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { pathToFileURL } from 'node:url';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { BotRunner, getWorkerPath } from '../src/runtime/sandbox.js';
 
 const runners: BotRunner[] = [];
@@ -11,6 +14,22 @@ function create(code: string, seed = 7) {
 }
 
 describe('untrusted Bot execution boundary', () => {
+  it('allows bounded IPC scheduling time in addition to the guest execution budget', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'agentic-ipc-delay-'));
+    const entry = join(root, 'delayed-worker.cjs');
+    // Trusted protocol fixture: model a scheduler/IPC delay, without running a guest.
+    writeFileSync(entry, "process.on('message', m => { if(m.type==='init') process.send({type:'ready',name:'delayed'}); else setTimeout(() => process.send({type:'action',tick:m.tick,action:{throttle:0},logs:[]}),100); });");
+    const runner = BotRunner.create({ code: '', seed: 1, botIndex: 0, ctx: {}, workerUrl: pathToFileURL(entry) });
+    runners.push(runner);
+    try {
+      expect((await runner.init()).ok).toBe(true);
+      expect((await runner.tick(0, {}, 30)).kind).toBe('ok');
+    } finally {
+      runner.terminate();
+      rmSync(root, {recursive:true,force:true,maxRetries:5,retryDelay:20});
+    }
+  });
+
   it('cannot reach host process through a constructor', async () => {
     const runner = create('module.exports = () => ({ name: Object.constructor("return process.version")(), onTick() { return {}; } });');
     expect((await runner.init()).ok).toBe(false);

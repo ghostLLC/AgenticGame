@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GAMEPLAY_CONTENT_V2, GAMEPLAY_MAP_FRONTIER_V2 } from '../src/core/v2/gameplay-content.js';
 import type { MatchConfigV2 } from '../src/core/v2/match-config.js';
-import { verifyMatchBundleV2 } from '../src/replay/v2.js';
+import { createMatchBundleV2, verifyMatchBundleV2 } from '../src/replay/v2.js';
+import { createFriendRoomReplayV1 } from '../src/friend-room/replay-v1.js';
 import { fullCodeHash } from '../src/runner/v2-adapter.js';
 import { runMatchV2 } from '../src/runner/match-v2.js';
 
@@ -63,6 +64,26 @@ function matchConfig(): MatchConfigV2 {
 }
 
 describe('runMatchV2', () => {
+  it.each([
+    ['crash', 'while(true) {}'],
+    ['violations', "throw new Error('invalid tactic');"],
+  ])('publishes a shareable final checkpoint when %s ends before the first engine step', async (reason, behavior) => {
+    const source = 'module.exports = () => ({ onTick() { ' + behavior + ' } });';
+    const config = matchConfig();
+    config.teams[0]!.bot.codeHash = fullCodeHash(source);
+    const output = await runMatchV2({
+      matchConfig: config, contentSnapshot: GAMEPLAY_CONTENT_V2, mapSnapshot: GAMEPLAY_MAP_FRONTIER_V2,
+      bots: [{code:source},{code:sentryBot}], tickBudgetMs:100, maxViolations:1,
+    });
+    expect(output.summary).toMatchObject({reason,ticks:0});
+    expect(output.bundle.checkpoints).toHaveLength(1);
+    expect(output.bundle.checkpoints[0]?.state.finished).toBe(true);
+    expect(createFriendRoomReplayV1(output.bundle).frames).toHaveLength(1);
+    // Older bundles can contain before/after checkpoints with the same tick.
+    const oldBundle = createMatchBundleV2({...output.bundle, checkpoints:[...output.bundle.checkpoints,...output.bundle.checkpoints]});
+    expect(createFriendRoomReplayV1(oldBundle).frames).toHaveLength(1);
+  });
+
   it('runs filtered sandbox views into a complete verified deterministic bundle', async () => {
     const input = {
       matchConfig: matchConfig(),

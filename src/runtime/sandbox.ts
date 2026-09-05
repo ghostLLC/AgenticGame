@@ -93,15 +93,19 @@ export class BotRunner {
     if (this.terminated || !this.initialized || this.pending) return Promise.resolve({kind:'error',message:'Bot 进程不可用',logs:[]});
     const serialized = JSON.stringify(view);
     if (!serialized || Buffer.byteLength(serialized)>1024*1024) return Promise.resolve({kind:'error',message:'战场视图过大',logs:[]});
+    const executionBudgetMs = Number.isFinite(budgetMs) ? Math.max(1,Math.min(budgetMs,1000)) : 30;
+    // Guest execution has its own interrupt deadline. IPC scheduling/serialization
+    // must not consume that budget; the supervisor still enforces a bounded wait.
+    const responseTimeoutMs = executionBudgetMs + 500;
     return new Promise(resolve => {
       const timer = setTimeout(() => {
         if (this.pending?.tick!==tickNo) return;
         this.pending = null;
         resolve({kind:'timeout'});
         this.terminate();
-      },budgetMs);
+      },responseTimeoutMs);
       this.pending = {tick:tickNo,resolve,timer};
-      this.send({type:'tick',tick:tickNo,view,budgetMs});
+      this.send({type:'tick',tick:tickNo,view,budgetMs:executionBudgetMs});
     });
   }
   terminate():void {

@@ -195,7 +195,11 @@ export async function runMatchV2(input: GameplayMatchConfigV2): Promise<Gameplay
           appendEngineEvents(events, engine.step(applied));
         }
       }
-      checkpoints.push({ tick: engine.state.tick, state: engine.snapshot() });
+      const checkpoint = { tick: engine.state.tick, state: engine.snapshot() };
+      // forceFinish does not advance the engine clock: retain its final state
+      // at the existing tick instead of producing a duplicate playback frame.
+      if (checkpoints.at(-1)?.tick === checkpoint.tick) checkpoints[checkpoints.length - 1] = checkpoint;
+      else checkpoints.push(checkpoint);
     }
     return await finalize();
   } finally {
