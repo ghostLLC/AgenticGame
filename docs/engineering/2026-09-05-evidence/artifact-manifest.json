@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "product": "AgenticGame",
+  "version": "0.1.1",
+  "channel": "public-beta-b",
+  "artifacts": [
+    {
+      "file": "AgenticGame-0.1.1-public-beta-b-win-x64.zip",
+      "purpose": "portable-windows-x64",
+      "bytes": 189068964,
+      "sha256": "62AA4FC7F7FDED528E5D2E9783D44694C189DD320A15631A215580A8492B4963"
+    },
+    {
+      "file": "AgenticGame-0.1.1-win-x64-setup.exe",
+      "purpose": "installer-windows-x64",
+      "bytes": 128898155,
+      "sha256": "19E765D01C01B7E1C980CB790C29A28CF79B6E6C33716A782A8DD31ADA0378C3"
+    }
+  ]
+}

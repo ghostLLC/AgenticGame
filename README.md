@@ -100,7 +100,7 @@ npm run pack:desktop-installer
 
 Windows CI 执行同一质量与候选链，生成未签名候选附件，不自动发布 Release。`desktop-smoke.mjs` 启动包内主进程、preload 和 renderer，验证可信 IPC 初始化，并由包内独立策略进程完成真实教学战斗。它不替代界面走查和安装流程。
 
-本轮自动验证：**66 个文件 / 306 项测试**、类型检查、编译和生产依赖审计通过。规模实验在 1,000 场回放上测得热列表约 50ms，500 个版本加 1,000 场回放的车库读取约 360ms；首次冷校验仍约 3.6s，环境和口径见 [性能记录](docs/engineering/2026-09-05-performance.md)。
+本轮自动验证：**66 个文件 / 312 项测试**、类型检查、编译和生产依赖审计通过。规模实验在 1,000 场回放上测得热列表约 50ms，500 个版本加 1,000 场回放的车库读取约 360ms；首次冷校验仍约 3.6s，环境和口径见 [性能记录](docs/engineering/2026-09-05-performance.md)。
 
 开发入口 `npm run arena -- demo` / `play` / `maps` / `mcp` 保留；legacy 打包输出到 `dist/legacy-cli/`，避免擦除桌面资源。候选隔离验收可用 `--agentic-data-dir=<绝对路径>`，避免改变实际玩家档案。
 
@@ -123,5 +123,6 @@ Windows CI 执行同一质量与候选链，生成未签名候选附件，不自
 - [Windows 可信签名流程](docs/releases/windows-signing.md)
 - [飞书知识库](https://ccnhvg4zam5u.feishu.cn/wiki/space/7677277411628567488)
 - Ardot 文件：`cocraft://localhost/file/718070578872647`
+- [Ardot 0.1.1 待同步清单（连接阻断）](docs/product/0.1.1-ardot-handoff.md)
 
 Public Beta B 的外部验收通过后再评估商业化 C 阶段。当前没有新增账号系统、云端排位或付费服务。

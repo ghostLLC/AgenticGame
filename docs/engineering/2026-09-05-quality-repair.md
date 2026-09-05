@@ -22,7 +22,7 @@
 | 检查 | 结果 |
 |---|---|
 | `npm run typecheck` | 通过 |
-| `npm test` | 66 个文件 / 306 项通过，21:46 CST 最终全量运行 |
+| `npm test` | 66 个文件 / 312 项通过，22:29 CST 最终全量运行 |
 | `npm run build`、桌面和 Bridge 构建 | 通过 |
 | `npm audit --omit=dev` | 0 漏洞 |
 | 目录版最终 EXE | 真实可信 IPC 初始化，包内教学生成 23 帧 |
@@ -34,7 +34,7 @@
 
 GUI 使用 `.tmp/quality-ui-data` 独立资料，未修改实际玩家档案或真实 Host 配置。已经真实操作教学、首版镜像赛、回放空格播放到结尾、逐帧与四档速度、模态正反向 Tab 和退出恢复。放大触发横排布局后，七个入口可见，并实际打开最后一个“整备中心”；未把这一次走查称为完整 Windows DPI 矩阵。
 
-证据图：[指挥中心](2026-09-05-evidence/command-center.png)、[模态键盘](2026-09-05-evidence/modal-keyboard.png)、[放大导航](2026-09-05-evidence/zoom-navigation.png)、[回放关键时刻](2026-09-05-evidence/replay-moment.png)。前两张来自本轮较早的修复构建，后两张来自最终 0.1.1 目录版。实际点击第 18 回合命中，画面位于第 18 回合，耐久为 80/110，正确显示 30 点伤害后的状态。不把截图当作安装向导证据。
+证据图：[指挥中心](2026-09-05-evidence/command-center.png)、[模态键盘](2026-09-05-evidence/modal-keyboard.png)、[放大导航](2026-09-05-evidence/zoom-navigation.png)、[回放关键时刻](2026-09-05-evidence/replay-moment.png)。前两张来自本轮较早的修复构建，后两张来自 27e2fd8 所含的 0.1.1 界面，随后修改了执行预算及打包守卫，界面代码未再变化。实际点击第 18 回合命中，画面位于第 18 回合，耐久为 80/110，正确显示 30 点伤害后的状态。不把截图当作安装向导证据。
 
 ## 产物与完整性
 
@@ -42,21 +42,29 @@ GUI 使用 `.tmp/quality-ui-data` 独立资料，未修改实际玩家档案或�
 
 | 文件 | 字节数 | SHA-256 |
 |---|---:|---|
-| `AgenticGame-0.1.1-public-beta-b-win-x64.zip` | 189068554 | `B8CF4A897DC9AB5CF9BE57B55DF30BD6332C5C1AD83A9F67A5AF710FD4AFDB82` |
-| `AgenticGame-0.1.1-win-x64-setup.exe` | 128897766 | `A79968A20DC68130CB16734D282D14816E0FFC7C4017708895B136C331B462B2` |
+| `AgenticGame-0.1.1-public-beta-b-win-x64.zip` | 189068964 | `62AA4FC7F7FDED528E5D2E9783D44694C189DD320A15631A215580A8492B4963` |
+| `AgenticGame-0.1.1-win-x64-setup.exe` | 128898155 | `19E765D01C01B7E1C980CB790C29A28CF79B6E6C33716A782A8DD31ADA0378C3` |
 
-- ASAR：`ABC023366103061C31597A0EBC14A7EA1BD76D3C41A37D4A3324DF81B90BE995`。
-- Bridge：`04544C710BA8186C7190BE599D6D0DCCC2C5475F5CA260F2514BB61DF87DA8E6`。
+- ASAR：`CE119A0CB3DC81EBBB8DEEA7E4D533739B156584D564251CEBF9909126C6ADB4`。
+- Bridge：`CA98BAD1D5251ACD3E83C3D766E76807617D40B69F766E2739A3D5A120D6907B`。
 - 同目录的 `AgenticGame-0.1.1-public-beta-b-manifest.json` 与 `.sha256` 由完整性脚本生成。哈希与受信任签名用途不同。
 
 ## 外部同步
 
-- 飞书空间：[项目知识库](https://ccnhvg4zam5u.feishu.cn/wiki/space/7677277411628567488)。已有产品、规则、UX、AI、架构、ADR、质量、风险八页增加唯一 `quality-repair-0.1.1` 修复节；旧架构、持久化密钥、六入口等过时表述已纠正。新增段落逐条回读，稳定标记各一份；时间线和发布页在提交确定后补齐。
-- Ardot：`cocraft://localhost/file/718070578872647`。初次确认有读写权限；随后编辑器连续三次返回 `NO_ADAPTER`。未进行画布写入，已请用户打开该项目并恢复 MCP 连接。不能把本地实现、截图或飞书写入算作 Ardot 同步完成。
-- GitHub：`https://github.com/ghostLLC/AgenticGame`，已核对远程与账号。源代码同步及草稿 PR 在本机验收收敛后执行，最终远程提交另行登记。
+- 飞书空间：[项目知识库](https://ccnhvg4zam5u.feishu.cn/wiki/space/7677277411628567488)。首页、时间线、产品、规则、UX、AI、架构、ADR、质量、发布和风险共十一页增加唯一 `quality-repair-0.1.1` 修复节；旧架构、持久化密钥、六入口等过时表述已纠正。新增段落逐条回读，修复标题各一份；时间线与发布页已补充 73f6245、PR、CI 与本机构建哈希。
+- Ardot：`cocraft://localhost/file/718070578872647`。初次确认有读写权限；随后编辑器连续三次返回 `NO_ADAPTER`。未进行画布写入，已请用户打开该项目并恢复 MCP 连接。不能把本地实现、截图或飞书写入算作 Ardot 同步完成。[待执行的逐画板清单](../product/0.1.1-ardot-handoff.md) 已备妥。
+- GitHub：[草稿 PR #1](https://github.com/ghostLLC/AgenticGame/pull/1)。核心代码与打包配置为 `73f624536e46b0b7e02a592fe0033959ff2b0f6e`，远程分支 SHA 已核对。后续仅归档文档与验收证据；尚未合并 main 或发布 Release。
 
 ## 仍需外部验收
 
 清洁 Windows 安装、覆盖升级、卸载和资料保留；两台真实设备的局域网/异地邀请与重启恢复；真实客户端配置接入和付费模型调用；新手体验、完整 DPI/音频和长时间运行研究；受信任 CA 签名。尚未授权/提供付费签名资源，没有部署 TURN、云端排位或进入商业化 C。
 
 [运行边界](runtime-security.md) 继续记录 QuickJS/进程级限制与 OS 沙箱缺口、好友房主可见策略源码、外部配置写入最后一步的非协作写入竞争等剩余限制。
+
+## 云端检查闭环
+
+首轮云端暴露了短 IPC 等待误判、异常结束重复帧及 PowerShell 签名检查冷启动预算。已先增加失败回归，再修复通信余量和检查点兼容；签名集成检查改为 15 秒上限。随后发现 electron-builder 的 CI 默认发布行为，因没有发布凭据而失败，已确认 Release 未写入；所有打包入口加上 `--publish never`。
+
+跨机器复验继续暴露 30ms 旧预算不适合 QuickJS 完整地图预设。桌面预算校准为 100ms CPU 用时，并保留独立墙钟/父进程期限；加入三类预设在完整地图默认预算下无违规的回归。取消测试使用独立的 200ms 预算以专门检验 AbortSignal，默认预算由新增预设测试检验。Vitest 限制本机 4、CI 2 个 worker，以约束真实策略子进程的总并发。
+
+`73f6245` 的 [分支运行](https://github.com/ghostLLC/AgenticGame/actions/runs/33972020657) 与 [PR 运行](https://github.com/ghostLLC/AgenticGame/actions/runs/33972022617) 均全链通过，包括 312 项测试、类型/构建/审计、最终 EXE/Bridge、NSIS/ZIP、哈希与候选上传。PR 候选附件 `unsigned-windows-candidate`，ID `9971241986`，检查时未过期；云端包与本机包分别使用各自清单核对哈希。

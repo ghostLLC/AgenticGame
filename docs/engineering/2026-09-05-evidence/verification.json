@@ -4,7 +4,7 @@
   "baseline": "93c2002482c6c65ee0632193d9bc99fd64334f78",
   "tests": {
     "files": 66,
-    "passed": 306
+    "passed": 312
   },
   "typecheck": "passed",
   "productionAudit": {
@@ -40,10 +40,11 @@
   },
   "zipIntegrity": {
     "files": 73,
-    "status": "passed"
+    "status": "passed",
+    "validation": "CRC-checked extraction and actual extracted EXE smoke"
   },
-  "asarSha256": "ABC023366103061C31597A0EBC14A7EA1BD76D3C41A37D4A3324DF81B90BE995",
-  "bridgeSha256": "04544C710BA8186C7190BE599D6D0DCCC2C5475F5CA260F2514BB61DF87DA8E6",
+  "asarSha256": "CE119A0CB3DC81EBBB8DEEA7E4D533739B156584D564251CEBF9909126C6ADB4",
+  "bridgeSha256": "CA98BAD1D5251ACD3E83C3D766E76807617D40B69F766E2739A3D5A120D6907B",
   "signature": "NotSigned",
   "gui": {
     "isolatedProfile": true,
@@ -52,7 +53,8 @@
       "tick": 18,
       "hp": 80,
       "maxHp": 110
-    }
+    },
+    "sourceNote": "Screenshots from the prior 0.1.1 UI; later runtime/build-only corrections did not change UI code"
   },
   "notVerified": [
     "Clean Windows installation, upgrade, uninstall",
@@ -61,5 +63,28 @@
     "Novice study, full DPI matrix, audio listening and soak",
     "Trusted CA signing"
   ],
-  "ardot": "NO_ADAPTER; not written"
+  "ardot": "NO_ADAPTER; not written",
+  "sourceCommit": "73f624536e46b0b7e02a592fe0033959ff2b0f6e",
+  "ci": {
+    "push": {
+      "runId": 33972020657,
+      "conclusion": "success"
+    },
+    "pullRequest": {
+      "runId": 33972022617,
+      "conclusion": "success",
+      "artifactId": 9971241986
+    }
+  },
+  "presets": {
+    "styles": [
+      "scout",
+      "medium",
+      "heavy"
+    ],
+    "map": "frontier-v2",
+    "maxTicks": 80,
+    "tickCpuBudgetMs": 100,
+    "violations": 0
+  }
 }
